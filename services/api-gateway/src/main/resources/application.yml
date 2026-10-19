@@ -4,3 +4,15 @@ server:
 spring:
   application:
     name: api-gateway
+
+gateway:
+  services:
+    auth: ${AUTH_SERVICE_URL:http://localhost:8081}
+    course: ${COURSE_SERVICE_URL:http://localhost:8082}
+    enrollment: ${ENROLLMENT_SERVICE_URL:http://localhost:8083}
+    ai: ${AI_SERVICE_URL:http://localhost:8084}
+
+logging:
+  level:
+    root: INFO
+    com.rikkei.eduportal: DEBUG

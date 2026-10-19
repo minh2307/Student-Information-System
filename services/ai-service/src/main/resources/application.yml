@@ -4,3 +4,12 @@ server:
 spring:
   application:
     name: ai-service
+
+ai:
+  api-key: ${AI_API_KEY:demo-key}
+  model: ${AI_MODEL:gpt-4o-mini}
+
+logging:
+  level:
+    root: INFO
+    com.rikkei.eduportal: DEBUG

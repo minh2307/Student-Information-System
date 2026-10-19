@@ -1,37 +1,62 @@
 import React from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useAuthStore } from './store/authStore'
+import { Login } from './pages/Login'
+import { MainLayout } from './components/MainLayout'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import { StudentDashboard } from './pages/StudentDashboard'
+import { CourseRegistration } from './pages/CourseRegistration'
+import { StudentGrades } from './pages/StudentGrades'
+import { LecturerClasses } from './pages/LecturerClasses'
+import { LecturerGrades } from './pages/LecturerGrades'
+import { AdminUsers } from './pages/AdminUsers'
+import { AdminCourses } from './pages/AdminCourses'
+import { AdminSections } from './pages/AdminSections'
+import { AiAdvisor } from './pages/AiAdvisor'
 
-function App() {
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
-      <div className="max-w-2xl w-full bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-        <h1 className="text-2xl font-bold text-slate-800 mb-2">
-          Rikkei EduPortal (MVP)
-        </h1>
-        <p className="text-slate-500 mb-6">
-          Hệ thống Quản lý Đào tạo và Đăng ký Học phần (Kiến trúc Microservices)
-        </p>
+// Component to redirect root to specific role dashboard
+const RootRedirect = () => {
+  const { isAuthenticated, user } = useAuthStore()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-          <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
-            <h2 className="font-semibold text-blue-700">Cổng Sinh viên</h2>
-            <p className="text-xs text-blue-600 mt-1">Dashboard, Đăng ký học phần, Bảng điểm</p>
-          </div>
-          <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200">
-            <h2 className="font-semibold text-emerald-700">Cổng Giảng viên</h2>
-            <p className="text-xs text-emerald-600 mt-1">Lớp dạy, Điểm danh, Nhập điểm</p>
-          </div>
-          <div className="p-4 rounded-lg bg-purple-50 border border-purple-200">
-            <h2 className="font-semibold text-purple-700">Trang Quản trị</h2>
-            <p className="text-xs text-purple-600 mt-1">Hồ sơ, Môn học, Mở lớp, AI Syllabus</p>
-          </div>
-        </div>
-
-        <div className="mt-8 text-xs text-slate-400">
-          Khung dự án sẵn sàng cho Sprint 7 ngày (Microservices + ReactJS)
-        </div>
-      </div>
-    </div>
-  )
+  if (user?.role === 'ADMIN') return <Navigate to="/admin/users" replace />
+  if (user?.role === 'LECTURER') return <Navigate to="/lecturer/classes" replace />
+  return <Navigate to="/student/dashboard" replace />
 }
 
-export default App
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public Login */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Protected App Shell */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<RootRedirect />} />
+
+            {/* Student Portal */}
+            <Route path="/student/dashboard" element={<StudentDashboard />} />
+            <Route path="/student/registration" element={<CourseRegistration />} />
+            <Route path="/student/grades" element={<StudentGrades />} />
+
+            {/* Lecturer Portal */}
+            <Route path="/lecturer/classes" element={<LecturerClasses />} />
+            <Route path="/lecturer/grades" element={<LecturerGrades />} />
+
+            {/* Admin Portal */}
+            <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/courses" element={<AdminCourses />} />
+            <Route path="/admin/sections" element={<AdminSections />} />
+
+            {/* AI Advisor Chatbot */}
+            <Route path="/ai/advisor" element={<AiAdvisor />} />
+          </Route>
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}

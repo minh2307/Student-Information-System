@@ -10,6 +10,12 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d academic_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api-gateway:
     build:
@@ -18,6 +24,11 @@ services:
     container_name: eduportal-gateway
     ports:
       - "8080:8080"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8081
+      COURSE_SERVICE_URL: http://course-service:8082
+      ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
+      AI_SERVICE_URL: http://ai-service:8084
     depends_on:
       - auth-service
       - course-service
@@ -35,8 +46,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   course-service:
     build:
@@ -50,7 +63,8 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   enrollment-service:
     build:
@@ -64,7 +78,8 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   ai-service:
     build:

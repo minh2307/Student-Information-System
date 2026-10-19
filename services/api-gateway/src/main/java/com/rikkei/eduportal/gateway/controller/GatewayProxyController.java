@@ -1,0 +1,124 @@
+package com.rikkei.eduportal.gateway.controller;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestTemplate;
+
+import java.net.URI;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
+
+@RestController
+public class GatewayProxyController {
+
+    private static final Logger log = LoggerFactory.getLogger(GatewayProxyController.class);
+
+    @Value("${gateway.services.auth:http://localhost:8081}")
+    private String authServiceUrl;
+
+    @Value("${gateway.services.course:http://localhost:8082}")
+    private String courseServiceUrl;
+
+    @Value("${gateway.services.enrollment:http://localhost:8083}")
+    private String enrollmentServiceUrl;
+
+    @Value("${gateway.services.ai:http://localhost:8084}")
+    private String aiServiceUrl;
+
+    private final RestTemplate restTemplate;
+
+    public GatewayProxyController() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(10000);
+        this.restTemplate = new RestTemplate(factory);
+    }
+
+    @RequestMapping("/api/v1/**")
+    public ResponseEntity<?> proxyRequest(HttpServletRequest request, HttpEntity<byte[]> requestEntity) {
+        String path = request.getRequestURI();
+        String queryString = request.getQueryString();
+        String targetBaseUrl = determineTargetService(path);
+
+        if (targetBaseUrl == null) {
+            log.warn("No target service found for path: {}", path);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("{\"status\": 404, \"message\": \"Service route not found for path: " + path + "\"}");
+        }
+
+        String targetUrl = targetBaseUrl + path + (queryString != null ? "?" + queryString : "");
+        log.info("Proxying {} {} -> {}", request.getMethod(), path, targetUrl);
+
+        HttpHeaders headers = new HttpHeaders();
+        Enumeration<String> headerNames = request.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            if ("host".equalsIgnoreCase(headerName) || "content-length".equalsIgnoreCase(headerName)) {
+                continue;
+            }
+            List<String> values = Collections.list(request.getHeaders(headerName));
+            headers.put(headerName, values);
+        }
+
+        HttpEntity<byte[]> entity = new HttpEntity<>(requestEntity.getBody(), headers);
+
+        try {
+            HttpMethod method = HttpMethod.valueOf(request.getMethod());
+            return restTemplate.exchange(URI.create(targetUrl), method, entity, byte[].class);
+        } catch (HttpStatusCodeException ex) {
+            log.error("Downstream service error: {} on {}", ex.getStatusCode(), targetUrl);
+            return ResponseEntity.status(ex.getStatusCode())
+                    .headers(ex.getResponseHeaders())
+                    .body(ex.getResponseBodyAsByteArray());
+        } catch (ResourceAccessException ex) {
+            log.error("Downstream service unreachable: {} - {}", targetUrl, ex.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"status\": 503, \"message\": \"Downstream service is currently unavailable: " + targetBaseUrl + "\"}".getBytes());
+        } catch (Exception ex) {
+            log.error("Internal gateway error while calling: {}", targetUrl, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(("{\"status\": 500, \"message\": \"Gateway error: " + ex.getMessage() + "\"}").getBytes());
+        }
+    }
+
+    private String determineTargetService(String path) {
+        // Module Course & Section
+        if (path.startsWith("/api/v1/admin/courses") ||
+            path.startsWith("/api/v1/admin/class-sections") ||
+            path.startsWith("/api/v1/student/class-sections")) {
+            return courseServiceUrl;
+        }
+
+        // Module Auth & User Profiles
+        if (path.startsWith("/api/v1/auth") ||
+            path.startsWith("/api/v1/profile") ||
+            path.startsWith("/api/v1/admin/users")) {
+            return authServiceUrl;
+        }
+
+        // Module Enrollment & Grades & Lecturer Portal & Admin Approve Enrollment
+        if (path.startsWith("/api/v1/student") ||
+            path.startsWith("/api/v1/lecturer") ||
+            path.startsWith("/api/v1/admin/enrollments")) {
+            return enrollmentServiceUrl;
+        }
+
+        // Module AI Integration
+        if (path.startsWith("/api/v1/ai")) {
+            return aiServiceUrl;
+        }
+
+        return null;
+    }
+}
