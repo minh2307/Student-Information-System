@@ -1,0 +1,79 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: eduportal-postgres-dev
+    environment:
+      POSTGRES_DB: academic_db
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d academic_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  auth-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/auth-service:${IMAGE_TAG:-dev}
+    container_name: eduportal-auth-dev
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      SPRING_PROFILES_ACTIVE: dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  lecturer-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/lecturer-service:${IMAGE_TAG:-dev}
+    container_name: eduportal-lecturer-dev
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      SPRING_PROFILES_ACTIVE: dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  enrollment-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/enrollment-service:${IMAGE_TAG:-dev}
+    container_name: eduportal-enrollment-dev
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SPRING_PROFILES_ACTIVE: dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/frontend:${IMAGE_TAG:-dev}
+    container_name: eduportal-frontend-dev
+    ports:
+      - "3000:80"
+    depends_on:
+      - auth-service
+      - lecturer-service
+    restart: unless-stopped
+
+volumes:
+  postgres_data_dev:
