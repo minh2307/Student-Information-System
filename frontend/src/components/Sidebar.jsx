@@ -9,7 +9,8 @@ import {
   Users, 
   FolderKanban, 
   BotMessageSquare, 
-  Sparkles 
+  Sparkles,
+  UserCircle
 } from 'lucide-react'
 
 export const Sidebar = () => {
@@ -104,6 +105,14 @@ export const Sidebar = () => {
           <NavLink to="/ai/advisor" className={navItemClass}>
             <BotMessageSquare size={18} className="text-indigo-600" />
             <span className="font-semibold text-indigo-900">Cố vấn học tập AI</span>
+          </NavLink>
+        </div>
+
+        {/* Profile */}
+        <div className="pt-2">
+          <NavLink to="/profile" className={navItemClass}>
+            <UserCircle size={18} />
+            <span>Hồ sơ cá nhân</span>
           </NavLink>
         </div>
       </nav>

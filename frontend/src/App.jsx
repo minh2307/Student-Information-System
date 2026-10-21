@@ -4,6 +4,7 @@ import { useAuthStore } from './store/authStore'
 import { Login } from './pages/Login'
 import { MainLayout } from './components/MainLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { Profile } from './pages/Profile'
 import { StudentDashboard } from './pages/StudentDashboard'
 import { CourseRegistration } from './pages/CourseRegistration'
 import { StudentGrades } from './pages/StudentGrades'
@@ -35,6 +36,9 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/" element={<RootRedirect />} />
+
+            {/* Profile Route */}
+            <Route path="/profile" element={<Profile />} />
 
             {/* Student Portal */}
             <Route path="/student/dashboard" element={<StudentDashboard />} />
