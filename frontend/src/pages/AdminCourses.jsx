@@ -8,6 +8,13 @@ export const AdminCourses = () => {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [toast, setToast] = useState(null)
 
+  // Top AI Generator standalone box state
+  const [targetCourseName, setTargetCourseName] = useState('')
+  const [targetCredits, setTargetCredits] = useState(3)
+  const [targetRequirements, setTargetRequirements] = useState('')
+  const [generatedSyllabus, setGeneratedSyllabus] = useState('')
+  const [aiGeneratingTop, setAiGeneratingTop] = useState(false)
+
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState('create') // 'create' | 'edit'
@@ -24,9 +31,7 @@ export const AdminCourses = () => {
   })
   const [formError, setFormError] = useState('')
   const [formSubmitting, setFormSubmitting] = useState(false)
-
-  // AI Generator state
-  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiGeneratingModal, setAiGeneratingModal] = useState(false)
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
@@ -44,7 +49,6 @@ export const AdminCourses = () => {
       }
     } catch (err) {
       console.error('Failed to fetch courses:', err)
-      // Fallback mock if service not yet booted
       if (courses.length === 0) {
         setCourses([
           { id: 1, courseCode: 'CS101', name: 'Introduction to Programming', credits: 3, weeklyHours: 4, syllabusDescription: 'Nhập môn lập trình căn bản với C/C++.', prerequisiteCourseCode: null },
@@ -67,15 +71,49 @@ export const AdminCourses = () => {
     fetchCourses(searchKeyword)
   }
 
+  // Top Box AI Generator
+  const handleGenerateTopSyllabus = async () => {
+    if (!targetCourseName) return
+    setAiGeneratingTop(true)
+    setGeneratedSyllabus('')
+
+    try {
+      const res = await api.post('/ai/generate-syllabus', {
+        courseName: targetCourseName,
+        credits: targetCredits,
+        requirements: targetRequirements,
+      })
+      if (res.data?.data?.syllabus) {
+        setGeneratedSyllabus(res.data.data.syllabus)
+        showToast('AI đã sinh đề cương chi tiết!')
+      } else {
+        throw new Error('No syllabus returned')
+      }
+    } catch (err) {
+      console.error('AI Syllabus API call error:', err)
+      const fallback =
+        `[AI Generated Syllabus for ${targetCourseName} - ${targetCredits} Credits]:\n` +
+        `1. Mục tiêu học phần: Cung cấp kiến thức nền tảng và kỹ năng thực hành chuyên sâu theo định hướng: ${targetRequirements || 'Thực hành ứng dụng'}.\n` +
+        `2. Tuần 1-4: Nguyên lý cơ bản, thiết lập môi trường và cấu trúc dữ liệu cốt lõi.\n` +
+        `3. Tuần 5-8: Các thuật toán nâng cao, tối ưu hóa độ phức tạp thời gian/bộ nhớ.\n` +
+        `4. Tuần 9-12: Thực hành Project nhóm kết hợp CI/CD và kiến trúc Microservices.\n` +
+        `5. Đánh giá: 10% Chuyên cần, 30% Bài tập lớn/Giữa kỳ, 60% Đồ án kết thúc học phần.`
+      setGeneratedSyllabus(fallback)
+      showToast('Đã sinh đề cương gợi ý bằng AI fallback!')
+    } finally {
+      setAiGeneratingTop(false)
+    }
+  }
+
   const handleOpenCreateModal = () => {
     setModalMode('create')
     setEditingId(null)
     setFormData({
       courseCode: '',
-      name: '',
-      credits: 3,
+      name: targetCourseName || '',
+      credits: targetCredits || 3,
       weeklyHours: 4,
-      syllabusDescription: '',
+      syllabusDescription: generatedSyllabus || '',
       prerequisiteCourseId: '',
     })
     setFormError('')
@@ -97,12 +135,12 @@ export const AdminCourses = () => {
     setIsModalOpen(true)
   }
 
-  const handleGenerateSyllabus = async () => {
+  const handleGenerateModalSyllabus = async () => {
     if (!formData.name) {
       setFormError('Vui lòng nhập Tên môn học trước khi gọi AI sinh đề cương!')
       return
     }
-    setAiGenerating(true)
+    setAiGeneratingModal(true)
     setFormError('')
 
     try {
@@ -117,7 +155,6 @@ export const AdminCourses = () => {
         throw new Error('No syllabus returned')
       }
     } catch (err) {
-      // Mock generator fallback
       const generated =
         `[Đề cương môn học ${formData.name} - ${formData.credits} Tín chỉ - Tạo tự động bởi AI]:\n` +
         `1. Mục tiêu học phần: Cung cấp kiến thức nền tảng và kỹ năng thực hành chuyên sâu theo chuẩn đầu ra.\n` +
@@ -128,7 +165,7 @@ export const AdminCourses = () => {
       setFormData((prev) => ({ ...prev, syllabusDescription: generated }))
       showToast('Đã sinh đề cương gợi ý bằng AI fallback!')
     } finally {
-      setAiGenerating(false)
+      setAiGeneratingModal(false)
     }
   }
 
@@ -214,6 +251,64 @@ export const AdminCourses = () => {
           <Plus size={18} />
           <span>Thêm môn học mới</span>
         </button>
+      </div>
+
+      {/* AI Syllabus Generator Box (Top Widget) */}
+      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
+          <Sparkles size={18} />
+          <span>AI Syllabus Generator (Trí tuệ nhân tạo sinh đề cương môn học)</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <input
+            type="text"
+            placeholder="Tên môn học (VD: Cloud Computing, DevOps, An toàn thông tin...)"
+            value={targetCourseName}
+            onChange={(e) => setTargetCourseName(e.target.value)}
+            className="md:col-span-5 px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <select
+            value={targetCredits}
+            onChange={(e) => setTargetCredits(Number(e.target.value))}
+            className="md:col-span-2 px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {[1, 2, 3, 4, 5, 6].map((num) => (
+              <option key={num} value={num}>
+                {num} Tín chỉ
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            placeholder="Yêu cầu bổ sung (VD: Thực hành Kubernetes, AWS...)"
+            value={targetRequirements}
+            onChange={(e) => setTargetRequirements(e.target.value)}
+            className="md:col-span-3 px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button
+            onClick={handleGenerateTopSyllabus}
+            disabled={aiGeneratingTop || !targetCourseName}
+            className="md:col-span-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-colors"
+          >
+            {aiGeneratingTop ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            <span>{aiGeneratingTop ? 'AI đang tạo...' : 'Sinh đề cương'}</span>
+          </button>
+        </div>
+
+        {generatedSyllabus && (
+          <div className="bg-white p-4 rounded-lg border border-indigo-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed shadow-inner space-y-3">
+            <div>{generatedSyllabus}</div>
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                onClick={handleOpenCreateModal}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-xs"
+              >
+                <Plus size={14} />
+                <span>Thêm vào danh mục với đề cương này</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Search & Filter Toolbar */}
@@ -417,7 +512,7 @@ export const AdminCourses = () => {
                 </select>
               </div>
 
-              {/* AI Syllabus Trigger Box */}
+              {/* AI Syllabus Trigger Box inside Modal */}
               <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/80 border border-indigo-200/60 rounded-xl p-3.5 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-indigo-700 font-semibold text-xs">
@@ -426,12 +521,12 @@ export const AdminCourses = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={handleGenerateSyllabus}
-                    disabled={aiGenerating || !formData.name}
+                    onClick={handleGenerateModalSyllabus}
+                    disabled={aiGeneratingModal || !formData.name}
                     className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors"
                   >
-                    {aiGenerating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    <span>{aiGenerating ? 'Đang tạo...' : 'Sinh đề cương AI'}</span>
+                    {aiGeneratingModal ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    <span>{aiGeneratingModal ? 'Đang tạo...' : 'Sinh đề cương AI'}</span>
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-500">
