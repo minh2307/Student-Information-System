@@ -65,7 +65,7 @@ public class RoleAuthorizationInterceptor implements HandlerInterceptor {
             log.warn("Forbidden access attempt to {} by role {}. Required roles: {}",
                     request.getRequestURI(), userRole, Arrays.toString(annotation.value()));
             writeErrorResponse(response, HttpServletResponse.SC_FORBIDDEN,
-                    "Truy cập bị từ chối: Chức năng sinh đề cương môn học chỉ dành cho vai trò ADMIN hoặc LECTURER.");
+                    "Truy cập bị từ chối: Bạn không có quyền truy cập chức năng này.");
             return false;
         }
 
