@@ -67,10 +67,7 @@ export const Sidebar = () => {
               <Calendar size={18} />
               <span>Lớp học phần dạy</span>
             </NavLink>
-            <NavLink to="/lecturer/grades" className={navItemClass}>
-              <GraduationCap size={18} />
-              <span>Nhập & Khóa điểm</span>
-            </NavLink>
+            {/* Nhập điểm nằm trong trang chi tiết lớp — không có entry riêng */}
           </>
         )}
 

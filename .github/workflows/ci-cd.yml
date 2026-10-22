@@ -1,0 +1,465 @@
+name: CI/CD Pipeline — Rikkei EduPortal
+
+# ============================================================
+# Trigger: push & PR vào 3 nhánh chính
+# ============================================================
+on:
+  push:
+    branches: [main, staging, dev]
+  pull_request:
+    branches: [main, staging, dev]
+
+# Tránh pipeline đè nhau trên cùng nhánh/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ============================================================
+# Global env — ghi đè bằng Secrets ở repo Settings
+# ============================================================
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
+
+# ============================================================
+# JOB 1: Build & Unit-test Backend
+# ============================================================
+jobs:
+  build-backend:
+    name: 🔨 Backend Build & Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: academic_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d academic_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Init DB schema + seed
+        run: |
+          sudo apt-get install -y postgresql-client -q
+          PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db \
+            -f init-db/01-schema.sql
+          PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db \
+            -f init-db/02-seed-data.sql
+
+      - name: Compile (skip tests)
+        run: ./gradlew build -x test --no-daemon --parallel
+
+      - name: Run unit tests
+        run: >
+          ./gradlew test --no-daemon --parallel
+          -Pspring.datasource.url=jdbc:postgresql://localhost:5432/academic_db
+          -Pspring.datasource.username=postgres
+          -Pspring.datasource.password=postgres
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/academic_db
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: postgres
+          JWT_SECRET: ${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }}
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: '**/build/reports/tests/'
+          retention-days: 7
+
+  # ============================================================
+  # JOB 2: Build Frontend
+  # ============================================================
+  build-frontend:
+    name: 🎨 Frontend Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Vite build
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: /api/v1
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 7
+
+  # ============================================================
+  # JOB 3: API Tests (Postman/Newman)
+  # needs: cả 2 job build pass
+  # ============================================================
+  api-test:
+    name: 🧪 API Integration Tests (Newman)
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: academic_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d academic_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Init DB
+        run: |
+          sudo apt-get install -y postgresql-client -q
+          PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db \
+            -f init-db/01-schema.sql
+          PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db \
+            -f init-db/02-seed-data.sql
+
+      # Build fat jars trước
+      - name: Build jars
+        run: ./gradlew bootJar --no-daemon -x test --parallel
+
+      # Khởi động auth-service (JWT issuance)
+      - name: Start auth-service (port 8081)
+        run: |
+          nohup java -jar services/auth-service/build/libs/*.jar \
+            --server.port=8081 \
+            --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
+            --spring.datasource.username=postgres \
+            --spring.datasource.password=postgres \
+            --spring.jpa.hibernate.ddl-auto=validate \
+            --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
+            > /tmp/auth-service.log 2>&1 &
+          echo "AUTH_PID=$!" >> $GITHUB_ENV
+
+      # Khởi động lecturer-service (chủ thể test chính)
+      - name: Start lecturer-service (port 8085)
+        run: |
+          nohup java -jar services/lecturer-service/build/libs/*.jar \
+            --server.port=8085 \
+            --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
+            --spring.datasource.username=postgres \
+            --spring.datasource.password=postgres \
+            --spring.jpa.hibernate.ddl-auto=validate \
+            --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
+            > /tmp/lecturer-service.log 2>&1 &
+          echo "LECTURER_PID=$!" >> $GITHUB_ENV
+
+      # Khởi động enrollment-service (nếu jar tồn tại — merge với Quân)
+      - name: Start enrollment-service (port 8083) — optional
+        run: |
+          JAR=$(ls services/enrollment-service/build/libs/*.jar 2>/dev/null || true)
+          if [ -n "$JAR" ]; then
+            nohup java -jar "$JAR" \
+              --server.port=8083 \
+              --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
+              --spring.datasource.username=postgres \
+              --spring.datasource.password=postgres \
+              --spring.jpa.hibernate.ddl-auto=validate \
+              > /tmp/enrollment-service.log 2>&1 &
+            echo "ENROLLMENT_PID=$!" >> $GITHUB_ENV
+          else
+            echo "enrollment-service jar not found, skipping."
+          fi
+
+      # Chờ services sẵn sàng (polling /actuator/health)
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for auth-service:8081..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; then
+              echo "auth-service ready ✓"; break
+            fi
+            sleep 3
+          done
+
+          echo "Waiting for lecturer-service:8085..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8085/actuator/health > /dev/null 2>&1; then
+              echo "lecturer-service ready ✓"; break
+            fi
+            sleep 3
+          done
+
+      - name: Setup Node.js (Newman)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Newman + reporters
+        run: npm install -g newman newman-reporter-htmlextra
+
+      # Chạy test collection
+      - name: Run Postman/Newman API tests
+        run: |
+          newman run postman/eduportal.postman_collection.json \
+            -e postman/ci.postman_environment.json \
+            --reporters cli,junit,htmlextra \
+            --reporter-junit-export /tmp/newman-results/junit.xml \
+            --reporter-htmlextra-export /tmp/newman-results/report.html \
+            --bail \
+            --timeout-request 15000
+        env:
+          NEWMAN_BASE_AUTH_URL: http://localhost:8081
+          NEWMAN_BASE_LECTURER_URL: http://localhost:8085
+          NEWMAN_BASE_ENROLLMENT_URL: http://localhost:8083
+
+      # Upload kết quả dù pass hay fail
+      - name: Upload Newman reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-reports
+          path: /tmp/newman-results/
+          retention-days: 14
+
+      # Publish JUnit results vào GitHub UI
+      - name: Publish test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: /tmp/newman-results/junit.xml
+
+      # Debug log nếu fail
+      - name: Print service logs on failure
+        if: failure()
+        run: |
+          echo "=== auth-service.log ===" && tail -50 /tmp/auth-service.log || true
+          echo "=== lecturer-service.log ===" && tail -50 /tmp/lecturer-service.log || true
+
+  # ============================================================
+  # JOB 4: Docker Build & Push to GHCR
+  # Chỉ chạy khi push (không chạy cho PR)
+  # ============================================================
+  docker-publish:
+    name: 🐳 Docker Build & Push (GHCR)
+    runs-on: ubuntu-latest
+    needs: [api-test]
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build fat jars
+        run: ./gradlew bootJar --no-daemon -x test --parallel
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image tags
+        id: tags
+        run: |
+          BRANCH=$(echo "${GITHUB_REF_NAME}" | tr '/' '-')
+          SHA=${GITHUB_SHA::7}
+          echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "tag=${BRANCH}-${SHA}" >> $GITHUB_OUTPUT
+
+      # Build & push auth-service
+      - name: Build & push auth-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/auth-service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/auth-service:${{ steps.tags.outputs.tag }}
+            ${{ env.IMAGE_PREFIX }}/auth-service:${{ steps.tags.outputs.branch }}
+
+      # Build & push lecturer-service (Hoàng Văn Lương)
+      - name: Build & push lecturer-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/lecturer-service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/lecturer-service:${{ steps.tags.outputs.tag }}
+            ${{ env.IMAGE_PREFIX }}/lecturer-service:${{ steps.tags.outputs.branch }}
+
+      # Build & push enrollment-service
+      - name: Build & push enrollment-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/enrollment-service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/enrollment-service:${{ steps.tags.outputs.tag }}
+            ${{ env.IMAGE_PREFIX }}/enrollment-service:${{ steps.tags.outputs.branch }}
+
+      # Build & push frontend
+      - name: Setup Node for frontend build
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+        env:
+          VITE_API_BASE_URL: /api/v1
+
+      - name: Build & push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tags.outputs.tag }}
+            ${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tags.outputs.branch }}
+
+  # ============================================================
+  # JOB 5: Deploy — map nhánh → môi trường
+  # ============================================================
+  deploy:
+    name: 🚀 Deploy
+    runs-on: ubuntu-latest
+    needs: [docker-publish]
+    if: github.event_name == 'push'
+
+    # Resolve environment theo nhánh
+    environment:
+      name: >-
+        ${{
+          github.ref_name == 'main'    && 'production'  ||
+          github.ref_name == 'staging' && 'staging'     ||
+          'development'
+        }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve compose file & env
+        id: resolve
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            main)    ENV_NAME="prod"    ; COMPOSE_FILE="docker-compose.prod.yml"    ;;
+            staging) ENV_NAME="staging" ; COMPOSE_FILE="docker-compose.staging.yml" ;;
+            *)       ENV_NAME="dev"     ; COMPOSE_FILE="docker-compose.dev.yml"     ;;
+          esac
+          echo "env_name=${ENV_NAME}"       >> $GITHUB_OUTPUT
+          echo "compose_file=${COMPOSE_FILE}" >> $GITHUB_OUTPUT
+          echo "tag=$(echo ${GITHUB_REF_NAME} | tr '/' '-')-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+          "
+            set -e
+            cd /opt/eduportal
+
+            # Ghi biến môi trường runtime
+            cat > .env <<EOF
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          REGISTRY=${{ env.REGISTRY }}
+          IMAGE_TAG=${{ steps.resolve.outputs.tag }}
+          IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}
+          AI_API_KEY=${{ secrets.AI_API_KEY }}
+          EOF
+
+            # Pull images mới và restart
+            docker compose -f ${{ steps.resolve.outputs.compose_file }} pull
+            docker compose -f ${{ steps.resolve.outputs.compose_file }} up -d --remove-orphans
+
+            # Health check sau deploy
+            sleep 10
+            curl -sf http://localhost:8085/actuator/health || \
+              (echo 'lecturer-service health check FAILED' && exit 1)
+
+            echo 'Deploy ${{ steps.resolve.outputs.env_name }} succeeded ✓'
+          "
+
+      - name: Notify deploy result
+        if: always()
+        run: |
+          echo "Deploy to ${{ steps.resolve.outputs.env_name }} → ${{ job.status }}"
+          echo "Image tag: ${{ steps.resolve.outputs.tag }}"
+          echo "Compose file: ${{ steps.resolve.outputs.compose_file }}"

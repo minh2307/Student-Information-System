@@ -7,20 +7,21 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { StudentDashboard } from './pages/StudentDashboard'
 import { CourseRegistration } from './pages/CourseRegistration'
 import { StudentGrades } from './pages/StudentGrades'
-import { LecturerClasses } from './pages/LecturerClasses'
-import { LecturerGrades } from './pages/LecturerGrades'
 import { AdminUsers } from './pages/AdminUsers'
 import { AdminCourses } from './pages/AdminCourses'
 import { AdminSections } from './pages/AdminSections'
 import { AiAdvisor } from './pages/AiAdvisor'
+
+// ── Lecturer Portal (Hoàng Văn Lương) ─────────────────────────────────────
+import { LecturerClassesPage, ClassStudentsPage } from './features/lecturer'
 
 // Component to redirect root to specific role dashboard
 const RootRedirect = () => {
   const { isAuthenticated, user } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
 
-  if (user?.role === 'ADMIN') return <Navigate to="/admin/users" replace />
-  if (user?.role === 'LECTURER') return <Navigate to="/lecturer/classes" replace />
+  if (user?.role === 'ADMIN')    return <Navigate to="/admin/users"          replace />
+  if (user?.role === 'LECTURER') return <Navigate to="/lecturer/classes"     replace />
   return <Navigate to="/student/dashboard" replace />
 }
 
@@ -37,17 +38,17 @@ export default function App() {
             <Route path="/" element={<RootRedirect />} />
 
             {/* Student Portal */}
-            <Route path="/student/dashboard" element={<StudentDashboard />} />
+            <Route path="/student/dashboard"    element={<StudentDashboard />} />
             <Route path="/student/registration" element={<CourseRegistration />} />
-            <Route path="/student/grades" element={<StudentGrades />} />
+            <Route path="/student/grades"       element={<StudentGrades />} />
 
-            {/* Lecturer Portal */}
-            <Route path="/lecturer/classes" element={<LecturerClasses />} />
-            <Route path="/lecturer/grades" element={<LecturerGrades />} />
+            {/* ── Lecturer Portal ── */}
+            <Route path="/lecturer/classes"                  element={<LecturerClassesPage />} />
+            <Route path="/lecturer/classes/:sectionId"       element={<ClassStudentsPage />} />
 
             {/* Admin Portal */}
-            <Route path="/admin/users" element={<AdminUsers />} />
-            <Route path="/admin/courses" element={<AdminCourses />} />
+            <Route path="/admin/users"    element={<AdminUsers />} />
+            <Route path="/admin/courses"  element={<AdminCourses />} />
             <Route path="/admin/sections" element={<AdminSections />} />
 
             {/* AI Advisor Chatbot */}
