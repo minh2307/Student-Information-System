@@ -12,6 +12,7 @@ export const AdminCourses = () => {
   const [aiGenerating, setAiGenerating] = useState(false)
   const [targetCourseName, setTargetCourseName] = useState('')
   const [targetCredits, setTargetCredits] = useState(3)
+  const [targetRequirements, setTargetRequirements] = useState('')
   const [generatedSyllabus, setGeneratedSyllabus] = useState('')
 
   const handleGenerateSyllabus = async () => {
@@ -23,16 +24,18 @@ export const AdminCourses = () => {
       const res = await api.post('/ai/generate-syllabus', {
         courseName: targetCourseName,
         credits: targetCredits,
+        requirements: targetRequirements,
       })
       if (res.data?.data?.syllabus) {
         setGeneratedSyllabus(res.data.data.syllabus)
       }
     } catch (err) {
-      // Mock generation fallback
+      console.error('Lỗi khi gọi AI Syllabus API:', err)
+      // Mock generation fallback for offline preview
       setTimeout(() => {
         setGeneratedSyllabus(
           `[AI Generated Syllabus for ${targetCourseName} - ${targetCredits} Credits]:\n` +
-          `1. Mục tiêu học phần: Cung cấp kiến thức nền tảng và kỹ năng thực hành chuyên sâu.\n` +
+          `1. Mục tiêu học phần: Cung cấp kiến thức nền tảng và kỹ năng thực hành chuyên sâu theo định hướng: ${targetRequirements || 'Thực hành ứng dụng'}.\n` +
           `2. Tuần 1-4: Nguyên lý cơ bản, thiết lập môi trường và cấu trúc dữ liệu cốt lõi.\n` +
           `3. Tuần 5-8: Các thuật toán nâng cao, tối ưu hóa độ phức tạp thời gian/bộ nhớ.\n` +
           `4. Tuần 9-12: Thực hành Project nhóm kết hợp CI/CD và kiến trúc Microservices.\n` +
@@ -59,21 +62,39 @@ export const AdminCourses = () => {
           <Sparkles size={18} />
           <span>AI Syllabus Generator (Trí tuệ nhân tạo sinh đề cương môn học)</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           <input
             type="text"
-            placeholder="Tên môn học (VD: Cloud Computing, DevOps...)"
+            placeholder="Tên môn học (VD: Cloud Computing, DevOps, An toàn thông tin...)"
             value={targetCourseName}
             onChange={(e) => setTargetCourseName(e.target.value)}
-            className="md:col-span-2 px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="md:col-span-5 px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <select
+            value={targetCredits}
+            onChange={(e) => setTargetCredits(Number(e.target.value))}
+            className="md:col-span-2 px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {[1, 2, 3, 4, 5, 6].map((num) => (
+              <option key={num} value={num}>
+                {num} Tín chỉ
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            placeholder="Yêu cầu bổ sung (VD: Thực hành Kubernetes, AWS...)"
+            value={targetRequirements}
+            onChange={(e) => setTargetRequirements(e.target.value)}
+            className="md:col-span-3 px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
             onClick={handleGenerateSyllabus}
             disabled={aiGenerating || !targetCourseName}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-colors"
+            className="md:col-span-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-colors"
           >
             {aiGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            <span>{aiGenerating ? 'AI đang tạo đề cương...' : 'Sinh đề cương tự động'}</span>
+            <span>{aiGenerating ? 'AI đang tạo...' : 'Sinh đề cương'}</span>
           </button>
         </div>
 

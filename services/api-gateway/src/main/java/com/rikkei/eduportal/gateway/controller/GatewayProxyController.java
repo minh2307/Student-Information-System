@@ -36,12 +36,15 @@ public class GatewayProxyController {
 
     private final RestTemplate restTemplate;
 
-    public GatewayProxyController() {
+    public GatewayProxyController(
+            @Value("${gateway.timeout.connect:5000}") int connectTimeout,
+            @Value("${gateway.timeout.read:30000}") int readTimeout) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(5000);
-        factory.setReadTimeout(10000);
+        factory.setConnectTimeout(connectTimeout);
+        factory.setReadTimeout(readTimeout);
         this.restTemplate = new RestTemplate(factory);
     }
+
 
     @RequestMapping("/api/v1/**")
     public ResponseEntity<?> proxyRequest(HttpServletRequest request, HttpEntity<byte[]> requestEntity) {
