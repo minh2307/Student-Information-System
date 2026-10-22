@@ -2,16 +2,19 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: eduportal-postgres-prod
+    restart: always
     environment:
-      POSTGRES_DB: academic_db
+      POSTGRES_DB: ${DB_NAME:-academic_db}
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
     volumes:
-      - postgres_data_prod:/var/lib/postgresql/data
+      - postgres_prod_data:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d academic_db"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-academic_db}"]
+      interval: 10s
       timeout: 5s
       retries: 5
     deploy:
@@ -19,18 +22,50 @@ services:
         limits:
           cpus: '2.0'
           memory: 2048M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: eduportal-gateway-prod
     restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8081
+      COURSE_SERVICE_URL: http://course-service:8082
+      ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
+      LECTURER_SERVICE_URL: http://lecturer-service:8085
+      AI_SERVICE_URL: http://ai-service:8084
+    depends_on:
+      - auth-service
+      - course-service
+      - enrollment-service
+      - ai-service
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
 
   auth-service:
-    image: ${IMAGE_PREFIX}/auth-service:${IMAGE_TAG}
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
     container_name: eduportal-auth-prod
+    restart: always
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/academic_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       SPRING_PROFILES_ACTIVE: prod
     depends_on:
       postgres:
@@ -40,18 +75,19 @@ services:
         limits:
           cpus: '1.0'
           memory: 1024M
-    restart: always
 
-  lecturer-service:
-    image: ${IMAGE_PREFIX}/lecturer-service:${IMAGE_TAG}
-    container_name: eduportal-lecturer-prod
+  course-service:
+    build:
+      context: .
+      dockerfile: services/course-service/Dockerfile
+    container_name: eduportal-course-prod
+    restart: always
     ports:
-      - "8085:8085"
+      - "8082:8082"
     environment:
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/academic_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       SPRING_PROFILES_ACTIVE: prod
     depends_on:
       postgres:
@@ -59,19 +95,21 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 1536M
-    restart: always
+          cpus: '1.0'
+          memory: 1024M
 
   enrollment-service:
-    image: ${IMAGE_PREFIX}/enrollment-service:${IMAGE_TAG}
+    build:
+      context: .
+      dockerfile: services/enrollment-service/Dockerfile
     container_name: eduportal-enrollment-prod
+    restart: always
     ports:
       - "8083:8083"
     environment:
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/academic_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       SPRING_PROFILES_ACTIVE: prod
     depends_on:
       postgres:
@@ -81,22 +119,64 @@ services:
         limits:
           cpus: '1.5'
           memory: 1536M
+
+  lecturer-service:
+    build:
+      context: .
+      dockerfile: services/lecturer-service/Dockerfile
+    container_name: eduportal-lecturer-prod
     restart: always
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      SPRING_PROFILES_ACTIVE: prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1536M
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: services/ai-service/Dockerfile
+    container_name: eduportal-ai-prod
+    restart: always
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_AI_OPENAI_API_KEY: ${OPENAI_API_KEY:-demo-key}
+      SPRING_PROFILES_ACTIVE: prod
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
 
   frontend:
-    image: ${IMAGE_PREFIX}/frontend:${IMAGE_TAG}
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: eduportal-frontend-prod
+    restart: always
     ports:
       - "80:80"
+    environment:
+      VITE_API_BASE_URL: http://api-gateway:8080/api/v1
     depends_on:
-      - auth-service
-      - lecturer-service
+      - api-gateway
     deploy:
       resources:
         limits:
           cpus: '1.0'
           memory: 512M
-    restart: always
 
 volumes:
-  postgres_data_prod:
+  postgres_prod_data:

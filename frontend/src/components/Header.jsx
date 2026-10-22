@@ -1,4 +1,5 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { LogOut, User as UserIcon } from 'lucide-react'
 
@@ -17,7 +18,7 @@ export const Header = () => {
   }
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between">
+    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-20">
       <div className="flex items-center gap-3">
         <h2 className="text-lg font-semibold text-slate-800">
           Cổng Thông Tin Đào Tạo Rikkei EduPortal
@@ -25,9 +26,13 @@ export const Header = () => {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-3">
+        <Link
+          to="/profile"
+          className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-slate-50 transition-colors"
+          title="Xem hồ sơ cá nhân"
+        >
           {user?.avatarUrl ? (
-            <img src={user.avatarUrl} alt="Avatar" className="w-9 h-9 rounded-full border border-slate-200" />
+            <img src={user.avatarUrl} alt="Avatar" className="w-9 h-9 rounded-full border border-slate-200 object-cover" />
           ) : (
             <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
               <UserIcon size={18} />
@@ -39,10 +44,10 @@ export const Header = () => {
             </div>
             <div className="mt-1 flex items-center justify-end gap-1.5">
               {getRoleBadge(user?.role)}
-              <span className="text-xs text-slate-400">({user?.username || 'user'})</span>
+              <span className="text-xs text-slate-400 font-mono">({user?.username || 'user'})</span>
             </div>
           </div>
-        </div>
+        </Link>
 
         <button
           onClick={logout}

@@ -3,10 +3,8 @@ package com.rikkei.eduportal.auth.entity;
 import com.rikkei.eduportal.common.Role;
 import com.rikkei.eduportal.common.UserStatus;
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
-/**
- * Bản tối thiểu để phục vụ xác thực JWT - cần merge với bản của Vinh.
- */
 @Entity
 @Table(name = "users")
 public class User {
@@ -21,7 +19,7 @@ public class User {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
     @Column(name = "full_name", nullable = false, length = 100)
@@ -31,12 +29,27 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role;
 
-    @Column(name = "avatar_url")
+    @Column(name = "avatar_url", length = 255)
     private String avatarUrl;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    private UserStatus status;
+    @Column(nullable = false, length = 20)
+    private UserStatus status = UserStatus.ACTIVE;
+
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    public User() {}
+
+    public User(String username, String email, String passwordHash, String fullName, Role role) {
+        this.username = username;
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.fullName = fullName;
+        this.role = role;
+        this.status = UserStatus.ACTIVE;
+        this.createdAt = LocalDateTime.now();
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -61,4 +74,7 @@ public class User {
 
     public UserStatus getStatus() { return status; }
     public void setStatus(UserStatus status) { this.status = status; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
