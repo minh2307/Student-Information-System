@@ -32,3 +32,7 @@ Thumbs.db
 # Environment & Secrets
 .env
 *.local
+
+# Logs and runtime pids
+logs/
+.pids

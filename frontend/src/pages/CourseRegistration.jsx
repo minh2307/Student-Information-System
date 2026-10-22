@@ -24,6 +24,12 @@ export const CourseRegistration = () => {
   const [loading, setLoading] = useState(false)
   const [actionLoadingId, setActionLoadingId] = useState(null)
   const [message, setMessage] = useState({ type: '', text: '' })
+  const [cancelModal, setCancelModal] = useState({
+    open: false,
+    enrollmentId: null,
+    sectionCode: '',
+    courseName: '',
+  })
 
   const [availableSections, setAvailableSections] = useState([
     {
@@ -166,12 +172,12 @@ export const CourseRegistration = () => {
   }
 
   const handleCancelEnrollment = async (enrollmentId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy đăng ký lớp học phần này?')) return
     setActionLoadingId(enrollmentId)
     setMessage({ type: '', text: '' })
     try {
       await api.delete(`/student/enrollments/${enrollmentId}`)
       setMessage({ type: 'success', text: 'Đã hủy đăng ký học phần thành công!' })
+      setCancelModal({ open: false, enrollmentId: null, sectionCode: '', courseName: '' })
       fetchSections()
     } catch (err) {
       const errMsg = err.response?.data?.message || 'Lỗi khi hủy đăng ký'
@@ -391,7 +397,12 @@ export const CourseRegistration = () => {
                   <div className="shrink-0 flex items-center gap-3">
                     {sec.isEnrolled ? (
                       <button
-                        onClick={() => handleCancelEnrollment(sec.enrollmentId)}
+                        onClick={() => setCancelModal({
+                          open: true,
+                          enrollmentId: sec.enrollmentId,
+                          sectionCode: sec.sectionCode,
+                          courseName: sec.courseName,
+                        })}
                         disabled={isBusy}
                         className="px-4 py-2 rounded-lg text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center gap-1.5 transition-colors disabled:opacity-50"
                       >
@@ -415,6 +426,52 @@ export const CourseRegistration = () => {
           )}
         </div>
       </div>
+
+      {/* Custom Confirmation Modal Hủy học phần */}
+      {cancelModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-slate-800">
+                  Xác nhận hủy đăng ký học phần
+                </h3>
+                <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                  Bạn có chắc chắn muốn hủy đăng ký lớp học phần{' '}
+                  <strong className="text-slate-900">{cancelModal.courseName}</strong> ({cancelModal.sectionCode}) không? Thao tác này sẽ giải phóng chỗ trong lớp và cập nhật lại số tín chỉ của bạn.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCancelModal({ open: false, enrollmentId: null, sectionCode: '', courseName: '' })}
+                disabled={actionLoadingId === cancelModal.enrollmentId}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Không, giữ lại
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCancelEnrollment(cancelModal.enrollmentId)}
+                disabled={actionLoadingId === cancelModal.enrollmentId}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 transition-colors shadow-sm flex items-center gap-2"
+              >
+                {actionLoadingId === cancelModal.enrollmentId ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Trash2 size={14} />
+                )}
+                <span>Xác nhận hủy môn</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

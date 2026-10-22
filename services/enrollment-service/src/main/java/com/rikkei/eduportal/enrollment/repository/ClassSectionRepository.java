@@ -19,11 +19,26 @@ public interface ClassSectionRepository extends JpaRepository<ClassSection, Long
            "JOIN FETCH cs.lecturer lp " +
            "JOIN FETCH lp.user u " +
            "WHERE (:semester IS NULL OR cs.semesterName = :semester) " +
-           "AND (:keyword IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "ORDER BY c.courseCode ASC, cs.sectionCode ASC")
+    List<ClassSection> findBySemester(@Param("semester") String semester);
+
+    @Query("SELECT cs FROM ClassSection cs " +
+           "JOIN FETCH cs.course c " +
+           "JOIN FETCH cs.lecturer lp " +
+           "JOIN FETCH lp.user u " +
+           "WHERE (:semester IS NULL OR cs.semesterName = :semester) " +
+           "AND (LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "     OR LOWER(c.courseCode) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "     OR LOWER(cs.sectionCode) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "ORDER BY c.courseCode ASC, cs.sectionCode ASC")
-    List<ClassSection> searchSections(@Param("semester") String semester, @Param("keyword") String keyword);
+    List<ClassSection> searchSectionsWithKeyword(@Param("semester") String semester, @Param("keyword") String keyword);
+
+    default List<ClassSection> searchSections(String semester, String keyword) {
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            return searchSectionsWithKeyword(semester, keyword.trim());
+        }
+        return findBySemester(semester);
+    }
 
     /**
      * Pessimistic locking for registration concurrency (NFR-03: Race condition prevention).

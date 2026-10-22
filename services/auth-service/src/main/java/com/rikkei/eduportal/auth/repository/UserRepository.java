@@ -23,13 +23,25 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
-    List<User> findByRole(Role role);
+    List<User> findByRoleOrderByIdDesc(Role role);
+
+    List<User> findAllByOrderByIdDesc();
 
     @Query("SELECT u FROM User u WHERE " +
            "(:role IS NULL OR u.role = :role) AND " +
-           "(:keyword IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "(LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            " LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            " LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "ORDER BY u.id DESC")
-    List<User> searchUsers(@Param("role") Role role, @Param("keyword") String keyword);
+    List<User> searchUsersWithKeyword(@Param("role") Role role, @Param("keyword") String keyword);
+
+    default List<User> searchUsers(Role role, String keyword) {
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            return searchUsersWithKeyword(role, keyword.trim());
+        }
+        if (role != null) {
+            return findByRoleOrderByIdDesc(role);
+        }
+        return findAllByOrderByIdDesc();
+    }
 }
