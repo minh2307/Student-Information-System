@@ -31,6 +31,9 @@ public class GatewayProxyController {
     @Value("${gateway.services.enrollment:http://localhost:8083}")
     private String enrollmentServiceUrl;
 
+    @Value("${gateway.services.lecturer:http://localhost:8085}")
+    private String lecturerServiceUrl;
+
     @Value("${gateway.services.ai:http://localhost:8084}")
     private String aiServiceUrl;
 
@@ -96,7 +99,6 @@ public class GatewayProxyController {
         // Module Course & Section & Admin Enrollment Approval
         if (path.startsWith("/api/v1/admin/courses") ||
             path.startsWith("/api/v1/admin/class-sections") ||
-            path.startsWith("/api/v1/student/class-sections") ||
             path.startsWith("/api/v1/admin/enrollments") ||
             path.startsWith("/api/v1/admin/lecturers") ||
             path.startsWith("/api/v1/courses")) {
@@ -110,10 +112,14 @@ public class GatewayProxyController {
             return authServiceUrl;
         }
 
-        // Module Enrollment & Grades & Lecturer Portal
-        if (path.startsWith("/api/v1/student") ||
-            path.startsWith("/api/v1/lecturer")) {
+        // Module Student Enrollment & Portal
+        if (path.startsWith("/api/v1/student")) {
             return enrollmentServiceUrl;
+        }
+
+        // Module Lecturer Portal
+        if (path.startsWith("/api/v1/lecturer")) {
+            return lecturerServiceUrl;
         }
 
         // Module AI Integration
