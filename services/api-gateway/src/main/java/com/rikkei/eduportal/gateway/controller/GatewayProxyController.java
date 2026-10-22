@@ -93,10 +93,13 @@ public class GatewayProxyController {
     }
 
     private String determineTargetService(String path) {
-        // Module Course & Section
+        // Module Course & Section & Admin Enrollment Approval
         if (path.startsWith("/api/v1/admin/courses") ||
             path.startsWith("/api/v1/admin/class-sections") ||
-            path.startsWith("/api/v1/student/class-sections")) {
+            path.startsWith("/api/v1/student/class-sections") ||
+            path.startsWith("/api/v1/admin/enrollments") ||
+            path.startsWith("/api/v1/admin/lecturers") ||
+            path.startsWith("/api/v1/courses")) {
             return courseServiceUrl;
         }
 
@@ -107,10 +110,9 @@ public class GatewayProxyController {
             return authServiceUrl;
         }
 
-        // Module Enrollment & Grades & Lecturer Portal & Admin Approve Enrollment
+        // Module Enrollment & Grades & Lecturer Portal
         if (path.startsWith("/api/v1/student") ||
-            path.startsWith("/api/v1/lecturer") ||
-            path.startsWith("/api/v1/admin/enrollments")) {
+            path.startsWith("/api/v1/lecturer")) {
             return enrollmentServiceUrl;
         }
 
