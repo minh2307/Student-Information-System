@@ -121,6 +121,10 @@ public class LecturerService {
         enrollmentRepo.save(enrollment);
         Grade saved = gradeRepo.save(grade);
 
+        if (newTotal != null) {
+            recalculateCgpa(enrollment.getStudent());
+        }
+
         log.info("UPDATE_ATTENDANCE lecturerId={} enrollmentId={} oldRate={} newRate={}",
                 lecturer.getId(), enrollmentId, oldRate, request.attendanceRate());
 
@@ -236,7 +240,7 @@ public class LecturerService {
         log.info("LOCK_GRADES lecturerId={} sectionId={} lockedCount={}",
                 lecturer.getId(), sectionId, locked);
 
-        return new LockGradesResponse(sectionId, locked, "Chốt điểm thành công cho " + locked + " sinh viên.");
+        return new LockGradesResponse(sectionId, locked, true, "Chốt điểm thành công cho " + locked + " sinh viên.");
     }
 
     // =========================================================================
@@ -307,11 +311,19 @@ public class LecturerService {
     }
 
     private StudentGradeResponse toStudentGradeResponse(Enrollment e, Grade grade) {
+        BigDecimal attendanceScore = null;
+        if (grade != null && grade.getAttendanceScore() != null) {
+            attendanceScore = grade.getAttendanceScore();
+        } else if (e.getAttendanceRate() != null) {
+            attendanceScore = gradeCalculator.attendanceScoreFromRate(e.getAttendanceRate());
+        }
+
         return new StudentGradeResponse(
                 e.getId(),
                 e.getStudent().getStudentCode(),
                 e.getStudent().getUser().getFullName(),
                 e.getAttendanceRate(),
+                attendanceScore,
                 grade != null ? grade.getMidtermScore() : null,
                 grade != null ? grade.getFinalScore() : null,
                 grade != null ? grade.getTotalScore() : null,

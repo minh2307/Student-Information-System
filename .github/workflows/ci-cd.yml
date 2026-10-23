@@ -219,6 +219,7 @@ jobs:
               --spring.datasource.username=postgres \
               --spring.datasource.password=postgres \
               --spring.jpa.hibernate.ddl-auto=validate \
+              --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
               > /tmp/enrollment-service.log 2>&1 &
             echo "ENROLLMENT_PID=$!" >> $GITHUB_ENV
           else
@@ -457,14 +458,14 @@ jobs:
             cd /opt/eduportal
 
             # Ghi biến môi trường runtime
-            cat > .env <<EOF
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          REGISTRY=${{ env.REGISTRY }}
-          IMAGE_TAG=${{ steps.resolve.outputs.tag }}
-          IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}
-          AI_API_KEY=${{ secrets.AI_API_KEY }}
-          EOF
+            cat > .env << 'EOF'
+DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+JWT_SECRET=${{ secrets.JWT_SECRET }}
+REGISTRY=${{ env.REGISTRY }}
+IMAGE_TAG=${{ steps.resolve.outputs.tag }}
+IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}
+AI_API_KEY=${{ secrets.AI_API_KEY }}
+EOF
 
             # Pull images mới và restart
             docker compose -f ${{ steps.resolve.outputs.compose_file }} pull

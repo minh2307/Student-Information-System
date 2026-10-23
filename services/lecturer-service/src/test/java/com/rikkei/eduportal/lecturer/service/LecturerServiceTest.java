@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -131,6 +132,59 @@ class LecturerServiceTest {
         assertThatThrownBy(() ->
                 lecturerService.updateAttendance("gv001", 10L, req))
                 .isInstanceOf(GradeLockedConflictException.class);
+    }
+
+    @Test
+    @DisplayName("updateAttendance: cập nhật thành công và trả về attendanceScore = rate / 10")
+    void updateAttendance_success_returnsAttendanceScore() {
+        LecturerProfile lecturer = buildLecturerProfile(1L, "gv001");
+        when(lecturerProfileRepo.findByUsername("gv001")).thenReturn(Optional.of(lecturer));
+
+        Enrollment enrollment = buildEnrollment(10L, 1L);
+        when(enrollmentRepo.findById(10L)).thenReturn(Optional.of(enrollment));
+
+        when(classSectionRepo.findByIdAndLecturerId(1L, 1L))
+                .thenReturn(Optional.of(buildSection(1L, 1L)));
+
+        Grade grade = new Grade();
+        grade.setIsLocked(false);
+        when(gradeRepo.findByEnrollmentId(10L)).thenReturn(Optional.of(grade));
+        when(gradeRepo.save(any(Grade.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var req = new com.rikkei.eduportal.lecturer.dto.request.AttendanceUpdateRequest(
+                new BigDecimal("95.0"));
+
+        var response = lecturerService.updateAttendance("gv001", 10L, req);
+
+        assertThat(response).isNotNull();
+        assertThat(response.attendanceRate()).isEqualByComparingTo(new BigDecimal("95.0"));
+        assertThat(response.attendanceScore()).isEqualByComparingTo(new BigDecimal("9.50"));
+    }
+
+    @Test
+    @DisplayName("lockGrades: trả về locked = true")
+    void lockGrades_success_returnsLockedTrue() {
+        LecturerProfile lecturer = buildLecturerProfile(1L, "gv001");
+        when(lecturerProfileRepo.findByUsername("gv001")).thenReturn(Optional.of(lecturer));
+
+        when(classSectionRepo.findByIdAndLecturerId(1L, 1L))
+                .thenReturn(Optional.of(buildSection(1L, 1L)));
+
+        Enrollment e = buildEnrollment(10L, 1L);
+        when(enrollmentRepo.findRegisteredBySectionId(1L)).thenReturn(List.of(e));
+
+        Grade grade = new Grade();
+        grade.setEnrollment(e);
+        grade.setTotalScore(new BigDecimal("8.80"));
+        grade.setLetterGrade("A");
+        when(gradeRepo.findBySectionId(1L)).thenReturn(List.of(grade));
+        when(gradeRepo.lockAllBySectionId(1L)).thenReturn(1);
+
+        var response = lecturerService.lockGrades("gv001", 1L);
+
+        assertThat(response).isNotNull();
+        assertThat(response.lockedCount()).isEqualTo(1);
+        assertThat(response.locked()).isTrue();
     }
 
     // =========================================================================
