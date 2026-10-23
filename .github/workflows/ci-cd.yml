@@ -458,14 +458,12 @@ jobs:
             cd /opt/eduportal
 
             # Ghi biến môi trường runtime
-            cat > .env << 'EOF'
-DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-JWT_SECRET=${{ secrets.JWT_SECRET }}
-REGISTRY=${{ env.REGISTRY }}
-IMAGE_TAG=${{ steps.resolve.outputs.tag }}
-IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}
-AI_API_KEY=${{ secrets.AI_API_KEY }}
-EOF
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" > .env
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+            echo "REGISTRY=${{ env.REGISTRY }}" >> .env
+            echo "IMAGE_TAG=${{ steps.resolve.outputs.tag }}" >> .env
+            echo "IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}" >> .env
+            echo "AI_API_KEY=${{ secrets.AI_API_KEY }}" >> .env
 
             # Pull images mới và restart
             docker compose -f ${{ steps.resolve.outputs.compose_file }} pull
