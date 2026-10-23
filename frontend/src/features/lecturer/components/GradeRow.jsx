@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { Save, Loader2, CheckCircle2, Lock } from 'lucide-react'
+import { getRealAvatar } from '../../../utils/avatarUtils'
 
 /**
  * Tính toán total_score preview trên client (khớp công thức BE):
@@ -120,15 +121,14 @@ export function GradeRow({ student, isSaving, onSave, onToast }) {
       {/* Sinh viên */}
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-            style={{
-              background: `hsl(${(student.studentCode?.charCodeAt(2) ?? 0) * 37 % 360} 60% 92%)`,
-              color:      `hsl(${(student.studentCode?.charCodeAt(2) ?? 0) * 37 % 360} 50% 35%)`,
+          <img
+            src={getRealAvatar(student.studentCode || student.fullName)}
+            alt={student.fullName}
+            className="w-9 h-9 rounded-full object-cover border border-stone-200 shadow-2xs shrink-0"
+            onError={(e) => {
+              e.target.src = '/images/avatar-student.jpg'
             }}
-          >
-            {student.fullName?.charAt(0) ?? '?'}
-          </div>
+          />
           <div>
             <div className="text-sm font-semibold text-slate-800 leading-tight">
               {student.fullName}
@@ -258,15 +258,14 @@ export function GradeCard({ student, isSaving, onSave, onToast }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold shrink-0"
-            style={{
-              background: `hsl(${(student.studentCode?.charCodeAt(2) ?? 0) * 37 % 360} 60% 92%)`,
-              color:      `hsl(${(student.studentCode?.charCodeAt(2) ?? 0) * 37 % 360} 50% 35%)`,
+          <img
+            src={getRealAvatar(student.studentCode || student.fullName)}
+            alt={student.fullName}
+            className="w-9 h-9 rounded-full object-cover border border-stone-200 shadow-2xs shrink-0"
+            onError={(e) => {
+              e.target.src = '/images/avatar-student.jpg'
             }}
-          >
-            {student.fullName?.charAt(0)}
-          </div>
+          />
           <div>
             <p className="text-sm font-semibold text-slate-800">{student.fullName}</p>
             <p className="text-xs text-slate-400 font-mono">{student.studentCode}</p>

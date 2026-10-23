@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { getRealAvatar } from '../utils/avatarUtils'
 import api from '../services/api'
 import { 
   BookOpen, 
@@ -142,7 +143,14 @@ export const StudentDashboard = () => {
             {/* Top Bar inside Card: University Crest & RFID */}
             <div className="flex items-center justify-between pb-3 border-b border-stone-200/80">
               <div className="flex items-center gap-2.5">
-                <img src="/images/logo.svg" alt="Seal" className="h-7 w-auto" />
+                <img 
+                  src="/images/logo.png" 
+                  alt="Rikkei Logo" 
+                  className="h-7 w-auto object-contain"
+                  onError={(e) => {
+                    e.target.src = '/images/logo.svg'
+                  }}
+                />
                 <div>
                   <h3 className="font-serif font-bold text-stone-900 text-xs tracking-tight uppercase leading-none">
                     HỌC VIỆN CÔNG NGHỆ RIKKEI
@@ -171,11 +179,11 @@ export const StudentDashboard = () => {
               <div className="relative shrink-0">
                 <div className="w-24 h-32 rounded-lg border-2 border-stone-300 overflow-hidden shadow-2xs bg-stone-100 flex items-center justify-center">
                   <img
-                    src="/images/avatar-student.svg"
+                    src={getRealAvatar(user)}
                     alt={studentFullName}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.src = '/images/avatar-student.svg'
+                      e.target.src = '/images/avatar-student.jpg'
                     }}
                   />
                 </div>

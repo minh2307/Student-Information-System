@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
+import { getRealAvatar } from '../utils/avatarUtils'
 import api from '../services/api'
 import { 
   User, 
@@ -151,11 +152,11 @@ export const Profile = () => {
         <div className="relative shrink-0">
           <div className="w-24 h-28 rounded-xl border-2 border-stone-300 overflow-hidden bg-stone-100 shadow-2xs flex items-center justify-center">
             <img
-              src={avatarUrl || user?.avatarUrl || '/images/avatar-student.svg'}
+              src={avatarUrl || getRealAvatar(user)}
               alt="Avatar"
               className="w-full h-full object-cover"
               onError={(e) => {
-                e.target.src = '/images/avatar-student.svg'
+                e.target.src = '/images/avatar-student.jpg'
               }}
             />
           </div>

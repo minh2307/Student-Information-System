@@ -1,6 +1,7 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { getRealAvatar } from '../utils/avatarUtils'
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -34,19 +35,18 @@ export const Sidebar = () => {
       <div className="p-4 border-b border-stone-200/80 bg-white">
         <div className="flex items-center gap-3">
           <img 
-            src="/images/logo.svg" 
-            alt="Rikkei EduPortal Logo" 
-            className="h-10 w-auto object-contain"
+            src="/images/logo.png" 
+            alt="Rikkei Logo" 
+            className="h-9 w-auto object-contain max-w-[130px]"
             onError={(e) => {
-              // Fallback if svg missing
-              e.target.style.display = 'none'
+              e.target.src = '/images/logo.svg'
             }}
           />
-          <div className="flex flex-col">
-            <span className="font-serif font-bold text-stone-900 text-[15px] tracking-tight leading-snug">
-              RIKKEI <span className="text-red-700">EDUPORTAL</span>
+          <div className="flex flex-col border-l border-stone-200 pl-2.5">
+            <span className="font-serif font-bold text-stone-900 text-xs tracking-tight uppercase leading-snug">
+              EDUPORTAL
             </span>
-            <span className="text-[10px] text-stone-600 tracking-wider font-mono font-medium uppercase">
+            <span className="text-[9px] text-stone-500 tracking-wider font-mono uppercase">
               Học viện Đào tạo
             </span>
           </div>
@@ -211,9 +211,14 @@ export const Sidebar = () => {
       <div className="p-3 border-t border-stone-200/80 bg-stone-50/70">
         <div className="bg-white border border-stone-200/90 rounded-lg p-2.5 shadow-2xs">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-red-700 text-white flex items-center justify-center font-bold text-xs shrink-0 font-serif">
-              {user?.fullName?.charAt(0) || 'U'}
-            </div>
+            <img 
+              src={getRealAvatar(user)} 
+              alt={user?.fullName || 'Avatar'} 
+              className="w-8 h-8 rounded-full object-cover border border-stone-300 shadow-2xs shrink-0"
+              onError={(e) => {
+                e.target.src = '/images/avatar-student.jpg'
+              }}
+            />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-stone-900 truncate">
                 {user?.fullName || 'Tài khoản'}

@@ -115,10 +115,10 @@ export const Login = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img 
-              src="/images/logo.svg" 
-              alt="Logo" 
-              className="h-9 w-auto object-contain"
-              onError={(e) => { e.target.style.display = 'none'; }}
+              src="/images/logo.png" 
+              alt="Rikkei Logo" 
+              className="h-9 w-auto object-contain max-w-[130px]"
+              onError={(e) => { e.target.src = '/images/logo.svg'; }}
             />
             <div>
               <h1 className="font-serif font-bold text-sm sm:text-base text-stone-900 leading-tight uppercase tracking-tight">

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { getRealAvatar } from '../utils/avatarUtils'
 import api from '../services/api'
 import { 
   LogOut, 
@@ -259,17 +260,14 @@ export const Header = () => {
             className="flex items-center gap-2 p-1.5 pl-2 pr-2.5 rounded-lg border border-stone-200 hover:border-stone-300 hover:bg-stone-50/80 transition-all focus:outline-none"
             title="Tài khoản học vụ"
           >
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt="Avatar"
-                className="w-7 h-7 rounded object-cover border border-stone-200"
-              />
-            ) : (
-              <div className="w-7 h-7 rounded bg-red-700 text-white flex items-center justify-center font-bold text-xs font-serif">
-                {user?.fullName?.charAt(0) || 'U'}
-              </div>
-            )}
+            <img
+              src={getRealAvatar(user)}
+              alt="Avatar"
+              className="w-7 h-7 rounded-full object-cover border border-stone-300 shadow-2xs"
+              onError={(e) => {
+                e.target.src = '/images/avatar-student.jpg'
+              }}
+            />
             <div className="hidden sm:flex flex-col text-left">
               <span className="text-xs font-bold text-stone-800 leading-none">
                 {user?.fullName || user?.username || 'Người dùng'}
@@ -291,9 +289,14 @@ export const Header = () => {
             <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-stone-200/90 py-2.5 transition-all animate-in fade-in slide-in-from-top-2 duration-150 z-50">
               <div className="px-4 pb-3 border-b border-stone-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded bg-red-700 text-white flex items-center justify-center font-bold text-sm font-serif shrink-0">
-                    {user?.fullName?.charAt(0) || 'U'}
-                  </div>
+                  <img
+                    src={getRealAvatar(user)}
+                    alt="Avatar"
+                    className="w-10 h-10 rounded-full object-cover border border-stone-300 shadow-2xs shrink-0"
+                    onError={(e) => {
+                      e.target.src = '/images/avatar-student.jpg'
+                    }}
+                  />
                   <div className="overflow-hidden">
                     <h4 className="text-xs font-bold text-stone-900 truncate">
                       {user?.fullName || user?.username || 'Người dùng'}

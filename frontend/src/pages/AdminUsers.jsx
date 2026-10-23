@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import api from '../services/api'
+import { getRealAvatar } from '../utils/avatarUtils'
 import { Plus, Search, UserCheck, Shield, Trash2, Edit2, X, Check, Lock, Unlock, AlertCircle, CheckCircle } from 'lucide-react'
 
 export const AdminUsers = () => {
@@ -290,9 +291,12 @@ export const AdminUsers = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <img
-                          src={u.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`}
+                          src={getRealAvatar(u)}
                           alt="avatar"
-                          className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 object-cover"
+                          className="w-10 h-10 rounded-xl bg-stone-100 border border-stone-200 object-cover shadow-2xs"
+                          onError={(e) => {
+                            e.target.src = '/images/avatar-student.jpg'
+                          }}
                         />
                         <div>
                           <div className="font-bold text-slate-800">{u.fullName}</div>
