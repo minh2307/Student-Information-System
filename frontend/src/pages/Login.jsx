@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { confirmDialog } from '../store/confirmStore'
 import api from '../services/api'
 import { 
   Lock, 
@@ -287,7 +288,17 @@ export const Login = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                 <a
                   href="#guide-dang-ky"
-                  onClick={(e) => { e.preventDefault(); alert('Quy định Đăng ký tín chỉ: Mở cổng theo đợt. Tối đa 24 TC/kỳ. Sinh viên kiểm tra học phần tiên quyết trước khi đăng ký.'); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSelectedArticle({
+                      id: 'reg-dk',
+                      category: 'HỌC VỤ',
+                      title: 'Quy Chế Đăng Ký Học Phần & Tín Chỉ Đại Học',
+                      author: 'Phòng Đào tạo',
+                      createdAt: new Date().toISOString(),
+                      content: `1. THỜI GIAN ĐĂNG KÝ:\nCổng tín chỉ mở theo từng đợt công bố của kỳ học. Sinh viên hoàn thành đăng ký và kiểm tra trước khi kết thúc đợt.\n\n2. HẠN MỨC TÍN CHỈ:\nTối thiểu 12 tín chỉ, tối đa 24 tín chỉ cho mỗi học kỳ chính (trừ học kỳ hè hoặc đồ án tốt nghiệp).\n\n3. HỌC PHẦN TIÊN QUYẾT:\nSinh viên phải tích lũy đạt điểm điều kiện các môn tiên quyết trước khi đăng ký học phần tiếp theo.\n\n4. HỦY / ĐỔI LỚP:\nTrong thời gian điều chỉnh, sinh viên có thể hủy hoặc chuyển đổi lớp nếu còn chỉ tiêu.`
+                    });
+                  }}
                   className="bg-white p-3 rounded-xl border border-stone-200 hover:border-red-300 font-medium text-stone-800 hover:text-red-800 transition flex items-center justify-between shadow-2xs"
                 >
                   <span>1. Quy chế đăng ký học phần</span>
@@ -295,7 +306,17 @@ export const Login = () => {
                 </a>
                 <a
                   href="#guide-hoc-phi"
-                  onClick={(e) => { e.preventDefault(); alert('Quy định Học phí: Đơn giá 450.000 VNĐ/tín chỉ. Quyết toán trước hạn qua VietQR hoặc tài khoản ngân hàng nhà trường.'); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSelectedArticle({
+                      id: 'reg-hp',
+                      category: 'HỌC VỤ',
+                      title: 'Quy Định Định Mức & Quyết Toán Học Phí',
+                      author: 'Phòng Kế hoạch - Tài chính',
+                      createdAt: new Date().toISOString(),
+                      content: `1. ĐỊNH MỨC HỌC PHÍ:\nĐơn giá chuẩn 450.000 VNĐ / 1 tín chỉ quy đổi cho các học phần đại trà.\n\n2. PHƯƠNG THỨC THANH TOÁN:\nSinh viên thanh toán trực tuyến qua mã QR VietQR động tích hợp trên cổng hoặc chuyển khoản đúng cú pháp qua tài khoản ngân hàng nhà trường.\n\n3. THỜI HẠN QUYẾT TOÁN:\nHạn chót đóng học phí là 30 ngày kể từ ngày chốt thời hạn đăng ký học phần.\n\n4. XỬ LÝ QUÁ HẠN:\nSinh viên chưa hoàn thành học phí đúng hạn sẽ bị tạm khóa kết quả thi và quyền đăng ký môn kỳ kế tiếp.`
+                    });
+                  }}
                   className="bg-white p-3 rounded-xl border border-stone-200 hover:border-red-300 font-medium text-stone-800 hover:text-red-800 transition flex items-center justify-between shadow-2xs"
                 >
                   <span>2. Định mức thu học phí</span>
@@ -303,7 +324,17 @@ export const Login = () => {
                 </a>
                 <a
                   href="#guide-quy-che-thi"
-                  onClick={(e) => { e.preventDefault(); alert('Quy chế thi kết thúc môn: Xuất trình Thẻ sinh viên hoặc CCCD. Có mặt trước 15 phút. Không mang thiết bị thu phát sóng.'); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSelectedArticle({
+                      id: 'reg-thi',
+                      category: 'LỊCH THI',
+                      title: 'Nội Quy & Kỷ Luật Phòng Thi Học Kỳ',
+                      author: 'Hội đồng Khảo thí & ĐBCL',
+                      createdAt: new Date().toISOString(),
+                      content: `1. GIẤY TỜ BẮT BUỘC:\nXuất trình Thẻ sinh viên hoặc CCCD có gắn chip khi vào phòng thi.\n\n2. THỜI GIAN CÓ MẶT:\nCó mặt tại phòng thi trước giờ phát đề tối thiểu 15 phút. Sinh viên muộn quá 15 phút sau phát đề sẽ không được tham dự.\n\n3. THIẾT BỊ CẤM:\nNghiêm cấm mang điện thoại thông minh, đồng hồ thông minh, tài liệu vào phòng thi dưới mọi hình thức.\n\n4. KỶ LUẬT VI PHẠM:\nMọi hành vi gian lận sẽ bị lập biên bản, đình chỉ thi và nhận điểm F học phần.`
+                    });
+                  }}
                   className="bg-white p-3 rounded-xl border border-stone-200 hover:border-red-300 font-medium text-stone-800 hover:text-red-800 transition flex items-center justify-between shadow-2xs"
                 >
                   <span>3. Nội quy phòng thi học kỳ</span>
@@ -387,7 +418,15 @@ export const Login = () => {
                   </label>
                   <button
                     type="button"
-                    onClick={() => alert('Vui lòng liên hệ Phòng Đào tạo (daotao@rikkei.edu.vn) kèm mã sinh viên để được đặt lại mật khẩu.')}
+                    onClick={() => {
+                      confirmDialog({
+                        title: 'Khôi Phục Mật Khẩu Truy Cập',
+                        message: 'Vui lòng liên hệ trực tiếp Văn phòng Đào tạo (Email: daotao@rikkei.edu.vn | Hotline: 024-7300-8899) và cung cấp Thẻ sinh viên hoặc CCCD để được cấp lại mật khẩu xác thực.',
+                        confirmText: 'Đã hiểu',
+                        cancelText: 'Đóng',
+                        variant: 'info'
+                      });
+                    }}
                     className="text-[11px] text-red-700 hover:text-red-900 font-semibold"
                   >
                     Quên mật khẩu?

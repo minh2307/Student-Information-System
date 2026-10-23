@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
+import { confirmDialog } from '../store/confirmStore'
+import { toast } from '../store/toastStore'
 import {
   Bot,
   Sparkles,
@@ -245,17 +247,25 @@ export const StudentAdvisorWidget = () => {
     }
   }
 
-  const handleClearHistory = () => {
-    if (window.confirm('Bạn có muốn xóa toàn bộ lịch sử tư vấn trong phiên này?')) {
-      if (streamTimerRef.current) clearInterval(streamTimerRef.current)
-      setIsStreaming(false)
-      setStreamingText('')
-      setMessages([DEFAULT_GREETING])
-      setSuggestions(DEFAULT_SUGGESTIONS)
-      try {
-        sessionStorage.removeItem(SESSION_STORAGE_KEY)
-      } catch (e) {}
-    }
+  const handleClearHistory = async () => {
+    const confirmed = await confirmDialog({
+      title: 'Làm mới phiên hội thoại AI',
+      message: 'Bạn có chắc chắn muốn xóa toàn bộ lịch sử tư vấn trong phiên hiện tại không?\nHộp thoại sẽ được đặt lại về lời chào ban đầu.',
+      confirmText: 'Làm mới hội thoại',
+      cancelText: 'Hủy bỏ',
+      variant: 'warning',
+    })
+    if (!confirmed) return
+
+    if (streamTimerRef.current) clearInterval(streamTimerRef.current)
+    setIsStreaming(false)
+    setStreamingText('')
+    setMessages([DEFAULT_GREETING])
+    setSuggestions(DEFAULT_SUGGESTIONS)
+    try {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY)
+    } catch (e) {}
+    toast.info('Đã làm mới lịch sử tư vấn AI!')
   }
 
   // Format content with basic markdown (bold, lists, code)

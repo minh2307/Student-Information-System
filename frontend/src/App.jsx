@@ -17,6 +17,8 @@ import { AdminUsers } from './pages/AdminUsers'
 import { AdminCourses } from './pages/AdminCourses'
 import { AdminSections } from './pages/AdminSections'
 import { AiAdvisor } from './pages/AiAdvisor'
+import { ToastContainer } from './components/ui/ToastContainer'
+import { GlobalConfirmModal } from './components/ui/GlobalConfirmModal'
 
 // ── Lecturer Portal ─────────────────────────────────────
 import { LecturerClassesPage, ClassStudentsPage } from './features/lecturer'
@@ -34,6 +36,8 @@ const RootRedirect = () => {
 export default function App() {
   return (
     <BrowserRouter>
+      <ToastContainer />
+      <GlobalConfirmModal />
       <Routes>
         {/* Public Login */}
         <Route path="/login" element={<Login />} />

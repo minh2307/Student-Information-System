@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import api from '../services/api'
 import { getRealAvatar } from '../utils/avatarUtils'
+import { toast } from '../store/toastStore'
+import { confirmDialog } from '../store/confirmStore'
 import { Plus, Search, UserCheck, Shield, Trash2, Edit2, X, Check, Lock, Unlock, AlertCircle, CheckCircle, Key } from 'lucide-react'
 
 export const AdminUsers = () => {
@@ -158,16 +160,23 @@ export const AdminUsers = () => {
   }
 
   const handleDeleteUser = async (id, username) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa tài khoản "${username}"? Thao tác này không thể hoàn tác!`)) {
-      return
-    }
+    const confirmed = await confirmDialog({
+      title: 'Xác nhận xóa tài khoản',
+      message: `Bạn có chắc chắn muốn xóa tài khoản "${username}" không?\nTất cả hồ sơ học vụ, lớp học và thông tin liên quan sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác!`,
+      confirmText: 'Xác nhận xóa vĩnh viễn',
+      cancelText: 'Hủy bỏ',
+      variant: 'danger',
+    })
+    if (!confirmed) return
 
     try {
       await api.delete(`/admin/users/${id}`)
+      toast.success(`Đã xóa tài khoản "${username}" thành công!`)
       setMessage({ type: 'success', text: `Đã xóa tài khoản ${username}!` })
       fetchUsers()
     } catch (err) {
       const errMsg = err.response?.data?.message || 'Lỗi khi xóa tài khoản'
+      toast.error(errMsg)
       setMessage({ type: 'error', text: errMsg })
     }
   }
@@ -176,22 +185,33 @@ export const AdminUsers = () => {
     const nextStatus = item.user.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE'
     try {
       await api.put(`/admin/users/${item.user.id}`, { status: nextStatus })
-      setMessage({ type: 'success', text: `Đã ${nextStatus === 'ACTIVE' ? 'mở khóa' : 'khóa'} tài khoản ${item.user.username}!` })
+      const statusText = nextStatus === 'ACTIVE' ? 'mở khóa' : 'khóa'
+      toast.success(`Đã ${statusText} tài khoản ${item.user.username}!`)
+      setMessage({ type: 'success', text: `Đã ${statusText} tài khoản ${item.user.username}!` })
       fetchUsers()
     } catch (err) {
+      toast.error('Lỗi khi cập nhật trạng thái')
       setMessage({ type: 'error', text: 'Lỗi khi cập nhật trạng thái' })
     }
   }
 
   const handleResetPassword = async (item) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn đặt lại mật khẩu cho tài khoản "${item.user.username}" về mặc định "123456"?`)) {
-      return
-    }
+    const confirmed = await confirmDialog({
+      title: 'Đặt lại mật khẩu mặc định',
+      message: `Bạn có muốn đặt lại mật khẩu cho tài khoản "${item.user.username}" về mật khẩu mặc định "123456" không?`,
+      confirmText: 'Đặt lại về 123456',
+      cancelText: 'Hủy bỏ',
+      variant: 'warning',
+    })
+    if (!confirmed) return
+
     try {
       await api.put(`/admin/users/${item.user.id}`, { password: '123456' })
+      toast.success(`Mật khẩu của tài khoản "${item.user.username}" đã được đặt về "123456"!`)
       setMessage({ type: 'success', text: `Đã đặt lại mật khẩu của ${item.user.username} về "123456" thành công!` })
     } catch (err) {
       const errMsg = err.response?.data?.message || 'Lỗi khi đặt lại mật khẩu'
+      toast.error(errMsg)
       setMessage({ type: 'error', text: errMsg })
     }
   }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import api from '../services/api'
+import { confirmDialog } from '../store/confirmStore'
 import { Plus, BookOpen, Clock, Loader2, Search, Edit2, Trash2, X, AlertCircle, CheckCircle2 } from 'lucide-react'
 
 export const AdminCourses = () => {
@@ -135,9 +136,15 @@ export const AdminCourses = () => {
   }
 
   const handleDeleteCourse = async (course) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa môn học [${course.courseCode}] ${course.name}?`)) {
-      return
-    }
+    const confirmed = await confirmDialog({
+      title: 'Xác nhận xóa môn học',
+      message: `Bạn có chắc chắn muốn xóa môn học [${course.courseCode}] ${course.name} không?\nCác lớp học phần liên quan sẽ bị ảnh hưởng nếu môn này bị xóa.`,
+      confirmText: 'Xác nhận xóa',
+      cancelText: 'Hủy bỏ',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+
     try {
       await api.delete(`/admin/courses/${course.id}`)
       showToast(`Đã xóa môn học ${course.courseCode} thành công!`)

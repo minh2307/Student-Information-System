@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
+import { toast } from '../store/toastStore'
+import { confirmDialog } from '../store/confirmStore'
 import {
   Bell,
   Pin,
@@ -60,12 +62,13 @@ export const AnnouncementsPage = () => {
   const handleCreate = async (e) => {
     e.preventDefault()
     if (!formData.title || !formData.content) {
-      alert('Vui lòng nhập tiêu đề và nội dung thông báo!')
+      toast.warning('Vui lòng nhập đầy đủ tiêu đề và nội dung thông báo!')
       return
     }
     setSubmitting(true)
     try {
       await api.post('/announcements', formData)
+      toast.success('Đã đăng tải thông báo mới thành công!')
       setShowCreateModal(false)
       setFormData({
         title: '',
@@ -76,19 +79,28 @@ export const AnnouncementsPage = () => {
       })
       fetchAnnouncements()
     } catch (err) {
-      alert('Không thể tạo thông báo: ' + (err.response?.data?.message || err.message))
+      toast.error('Không thể tạo thông báo: ' + (err.response?.data?.message || err.message))
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleDelete = async (id, title) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa thông báo: "${title}"?`)) return
+    const confirmed = await confirmDialog({
+      title: 'Xác nhận xóa thông báo',
+      message: `Bạn có chắc chắn muốn xóa bản tin thông báo:\n"${title}"?\nThao tác này sẽ gỡ bài viết khỏi bảng tin của học viện.`,
+      confirmText: 'Xác nhận xóa',
+      cancelText: 'Hủy bỏ',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+
     try {
       await api.delete(`/announcements/${id}`)
       setAnnouncements(prev => prev.filter(a => a.id !== id))
+      toast.success(`Đã xóa thông báo "${title}" thành công!`)
     } catch (err) {
-      alert('Không thể xóa thông báo: ' + (err.response?.data?.message || err.message))
+      toast.error('Không thể xóa thông báo: ' + (err.response?.data?.message || err.message))
     }
   }
 

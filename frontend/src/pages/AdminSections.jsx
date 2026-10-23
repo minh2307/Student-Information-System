@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import api from '../services/api'
+import { confirmDialog } from '../store/confirmStore'
 import {
   Check,
   X,
@@ -409,9 +410,15 @@ export const AdminSections = () => {
 
   // Delete Section
   const handleDeleteSection = async (s) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa lớp học phần [${s.sectionCode}]?`)) {
-      return
-    }
+    const confirmed = await confirmDialog({
+      title: 'Xác nhận xóa lớp học phần',
+      message: `Bạn có chắc chắn muốn xóa lớp học phần [${s.sectionCode}] (${s.courseName || s.courseCode || ''}) không?\nCác lịch học và danh sách sinh viên đăng ký lớp này sẽ bị hủy bỏ.`,
+      confirmText: 'Xác nhận xóa',
+      cancelText: 'Hủy bỏ',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+
     try {
       await api.delete(`/admin/class-sections/${s.id}`)
       showToast(`Đã xóa lớp học phần ${s.sectionCode} thành công!`)
@@ -440,9 +447,15 @@ export const AdminSections = () => {
 
   // Reject Enrollment
   const handleReject = async (id) => {
-    if (!window.confirm('Bạn có chắc muốn từ chối yêu cầu đăng ký học phần này?')) {
-      return
-    }
+    const confirmed = await confirmDialog({
+      title: 'Từ chối đăng ký học phần',
+      message: 'Bạn có chắc chắn muốn từ chối yêu cầu đăng ký học phần này của sinh viên không?',
+      confirmText: 'Từ chối đăng ký',
+      cancelText: 'Hủy bỏ',
+      variant: 'warning',
+    })
+    if (!confirmed) return
+
     setActionProcessingId(id)
     try {
       await api.put(`/admin/enrollments/${id}/reject`)

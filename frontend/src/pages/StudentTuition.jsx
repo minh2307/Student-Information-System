@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import api from '../services/api'
+import { toast } from '../store/toastStore'
 import {
   CreditCard,
   CheckCircle2,
@@ -80,7 +81,7 @@ export const StudentTuition = () => {
         }, 1200)
       }
     } catch (err) {
-      alert('Không thể hoàn tất thanh toán: ' + (err.response?.data?.message || err.message))
+      toast.error('Không thể hoàn tất thanh toán: ' + (err.response?.data?.message || err.message))
     } finally {
       setPaying(false)
     }
