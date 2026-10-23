@@ -41,98 +41,7 @@ export const CourseRegistration = () => {
     courseName: '',
   })
 
-  const [availableSections, setAvailableSections] = useState([
-    {
-      id: 1,
-      sectionCode: 'CS201-2025-01',
-      courseCode: 'CS201',
-      courseName: 'Cấu Trúc Dữ Liệu và Giải Thuật',
-      credits: 3,
-      dayOfWeek: 'MON',
-      startTime: '09:00',
-      endTime: '10:30',
-      roomName: 'P.A-204',
-      maxCapacity: 40,
-      currentEnrolled: 2,
-      lecturerName: 'TS. Nguyễn Văn A',
-      status: 'OPEN',
-      isEnrolled: true,
-      enrollmentId: 1,
-      hasConflict: false,
-    },
-    {
-      id: 2,
-      sectionCode: 'CS301-2025-01',
-      courseCode: 'CS301',
-      courseName: 'Hệ Quản Trị Cơ Sở Dữ Liệu',
-      credits: 3,
-      dayOfWeek: 'TUE',
-      startTime: '07:30',
-      endTime: '09:00',
-      roomName: 'P.B-101',
-      maxCapacity: 40,
-      currentEnrolled: 1,
-      lecturerName: 'ThS. Trần Thị B',
-      status: 'OPEN',
-      isEnrolled: true,
-      enrollmentId: 2,
-      hasConflict: false,
-    },
-    {
-      id: 3,
-      sectionCode: 'CS401-2025-01',
-      courseCode: 'CS401',
-      courseName: 'Phát Triển Ứng Dụng Web Doanh Nghiệp',
-      credits: 3,
-      dayOfWeek: 'WED',
-      startTime: '13:30',
-      endTime: '15:00',
-      roomName: 'Lab 3-A1',
-      maxCapacity: 35,
-      currentEnrolled: 1,
-      lecturerName: 'TS. Nguyễn Văn A',
-      status: 'OPEN',
-      isEnrolled: true,
-      enrollmentId: 3,
-      hasConflict: false,
-    },
-    {
-      id: 4,
-      sectionCode: 'CS402-2025-01',
-      courseCode: 'CS402',
-      courseName: 'Kỹ Nghệ Phần Mềm & Phương Pháp Agile',
-      credits: 3,
-      dayOfWeek: 'THU',
-      startTime: '09:00',
-      endTime: '10:30',
-      roomName: 'P.A-301',
-      maxCapacity: 40,
-      currentEnrolled: 0,
-      lecturerName: 'ThS. Trần Thị B',
-      status: 'OPEN',
-      isEnrolled: false,
-      enrollmentId: null,
-      hasConflict: false,
-    },
-    {
-      id: 5,
-      sectionCode: 'CS403-2025-01',
-      courseCode: 'CS403',
-      courseName: 'Trí Tuệ Nhân Tạo & Học Máy Ứng Dụng',
-      credits: 4,
-      dayOfWeek: 'FRI',
-      startTime: '13:30',
-      endTime: '16:00',
-      roomName: 'Lab AI-1',
-      maxCapacity: 30,
-      currentEnrolled: 0,
-      lecturerName: 'PGS. TS. Lê Hoàng',
-      status: 'OPEN',
-      isEnrolled: false,
-      enrollmentId: null,
-      hasConflict: false,
-    },
-  ])
+  const [availableSections, setAvailableSections] = useState([])
 
   useEffect(() => {
     fetchSemesters()
@@ -170,7 +79,7 @@ export const CourseRegistration = () => {
   const fetchSections = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/student/registration/sections', {
+      const res = await api.get('/student/class-sections', {
         params: {
           semester,
           keyword: keyword.trim() || undefined,
@@ -180,7 +89,20 @@ export const CourseRegistration = () => {
         setAvailableSections(res.data.data)
       }
     } catch (err) {
-      console.warn('Lỗi kết nối API học phần, sử dụng bộ dữ liệu cục bộ:', err.message)
+      console.warn('Lỗi kết nối /student/class-sections, thử dự phòng /student/registration/sections:', err.message)
+      try {
+        const res2 = await api.get('/student/registration/sections', {
+          params: {
+            semester,
+            keyword: keyword.trim() || undefined,
+          },
+        })
+        if (res2.data?.data) {
+          setAvailableSections(res2.data.data)
+        }
+      } catch (err2) {
+        console.error('Không thể tải danh sách học phần:', err2.message)
+      }
     } finally {
       setLoading(false)
     }
@@ -259,13 +181,34 @@ export const CourseRegistration = () => {
     setActionLoadingId(sectionId)
     try {
       const res = await api.post('/student/enrollments', { classSectionId: sectionId })
-      const conflictMsg = res.data?.data?.hasConflict
+      const newEnrollment = res.data?.data
+      const conflictMsg = newEnrollment?.hasConflict
         ? ' (Lưu ý: Ca học của lớp này bị trùng với một học phần khác đã đăng ký!)'
         : ''
       setMessage({ type: 'success', text: 'Đăng ký học phần thành công!' + conflictMsg })
+
+      // Cập nhật ngay lập tức trên UI (Optimistic Reactive Update)
+      setAvailableSections((prev) =>
+        prev.map((sec) =>
+          sec.id === sectionId
+            ? {
+                ...sec,
+                isEnrolled: true,
+                enrollmentId: newEnrollment?.enrollmentId || newEnrollment?.id || sec.enrollmentId,
+                enrollmentStatus: 'REGISTERED',
+                currentEnrolled: (sec.currentEnrolled || 0) + 1,
+                hasConflict: Boolean(newEnrollment?.hasConflict),
+              }
+            : sec
+        )
+      )
+
+      // Đồng bộ ngầm với backend
       fetchSections()
     } catch (err) {
-      const errMsg = err.response?.data?.message || 'Không thể đăng ký học phần (Kiểm tra điều kiện tiên quyết, sĩ số hoặc giới hạn 24 tín chỉ)'
+      const errMsg =
+        err.response?.data?.message ||
+        'Không thể đăng ký học phần (Kiểm tra điều kiện tiên quyết, sĩ số hoặc giới hạn 24 tín chỉ)'
       setMessage({ type: 'error', text: errMsg })
     } finally {
       setActionLoadingId(null)
@@ -279,6 +222,24 @@ export const CourseRegistration = () => {
       await api.delete(`/student/enrollments/${enrollmentId}`)
       setMessage({ type: 'success', text: 'Đã hủy đăng ký học phần thành công.' })
       setCancelModal({ open: false, enrollmentId: null, sectionCode: '', courseName: '' })
+
+      // Cập nhật ngay lập tức trên UI (Optimistic Reactive Update)
+      setAvailableSections((prev) =>
+        prev.map((sec) =>
+          sec.enrollmentId === enrollmentId
+            ? {
+                ...sec,
+                isEnrolled: false,
+                enrollmentId: null,
+                enrollmentStatus: null,
+                currentEnrolled: Math.max(0, (sec.currentEnrolled || 1) - 1),
+                hasConflict: false,
+              }
+            : sec
+        )
+      )
+
+      // Đồng bộ ngầm với backend
       fetchSections()
     } catch (err) {
       const errMsg = err.response?.data?.message || 'Lỗi khi hủy đăng ký'
@@ -494,7 +455,12 @@ export const CourseRegistration = () => {
         </div>
 
         <div className="divide-y divide-stone-100">
-          {filteredSections.length === 0 ? (
+          {loading && availableSections.length === 0 ? (
+            <div className="p-12 text-center text-stone-500 text-xs flex flex-col items-center justify-center gap-2">
+              <Loader2 size={24} className="animate-spin text-red-700" />
+              <span>Đang tải danh sách học phần...</span>
+            </div>
+          ) : filteredSections.length === 0 ? (
             <div className="p-12 text-center text-stone-500 text-xs">
               Không tìm thấy lớp học phần nào phù hợp với bộ lọc tìm kiếm.
             </div>

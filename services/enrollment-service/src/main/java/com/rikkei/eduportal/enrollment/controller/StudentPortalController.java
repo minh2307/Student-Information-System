@@ -76,9 +76,10 @@ public class StudentPortalController {
 
     /**
      * GET /api/v1/student/class-sections?semester=...&keyword=...
+     * GET /api/v1/student/registration/sections?semester=...&keyword=...
      * Tra cứu danh sách các lớp học phần đang mở (FR-03)
      */
-    @GetMapping("/class-sections")
+    @GetMapping({"/class-sections", "/registration/sections"})
     public ResponseEntity<ApiResponse<List<ClassSectionDto>>> getAvailableSections(
             @RequestParam(required = false) String semester,
             @RequestParam(required = false) String keyword,
