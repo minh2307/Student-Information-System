@@ -53,10 +53,10 @@ public class CourseRegistrationService {
                 (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null
         );
 
-        List<Enrollment> studentEnrollments = enrollmentRepository.findActiveEnrollmentsByStudent(student.getId());
+        List<Enrollment> allStudentEnrollments = enrollmentRepository.findAllByStudentId(student.getId());
         Map<Long, Enrollment> enrolledSectionMap = new HashMap<>();
-        for (Enrollment e : studentEnrollments) {
-            if (e.getClassSection() != null) {
+        for (Enrollment e : allStudentEnrollments) {
+            if (e.getClassSection() != null && !"CANCELLED".equalsIgnoreCase(e.getStatus()) && !"REJECTED".equalsIgnoreCase(e.getStatus())) {
                 enrolledSectionMap.put(e.getClassSection().getId(), e);
             }
         }
@@ -88,11 +88,20 @@ public class CourseRegistrationService {
 
             Enrollment enrolled = enrolledSectionMap.get(sec.getId());
             if (enrolled != null) {
-                dto.setIsEnrolled(true);
                 dto.setEnrollmentId(enrolled.getId());
+                dto.setEnrollmentStatus(enrolled.getStatus());
+                if ("COMPLETED".equalsIgnoreCase(enrolled.getStatus())) {
+                    dto.setIsCompleted(true);
+                    dto.setIsEnrolled(false);
+                } else {
+                    dto.setIsCompleted(false);
+                    dto.setIsEnrolled(true);
+                }
                 dto.setHasConflict(Boolean.TRUE.equals(enrolled.getHasConflict()));
             } else {
                 dto.setIsEnrolled(false);
+                dto.setIsCompleted(false);
+                dto.setEnrollmentStatus(null);
             }
 
             result.add(dto);
@@ -134,6 +143,9 @@ public class CourseRegistrationService {
             Enrollment existing = existingEnrollmentOpt.get();
             if ("REGISTERED".equalsIgnoreCase(existing.getStatus()) || "PENDING".equalsIgnoreCase(existing.getStatus())) {
                 throw new BusinessException("Bạn đã đăng ký lớp học phần này rồi (Mã lớp: " + section.getSectionCode() + ")");
+            }
+            if ("COMPLETED".equalsIgnoreCase(existing.getStatus())) {
+                throw new BusinessException("Bạn đã hoàn thành môn học này rồi với kết quả đạt (Mã lớp: " + section.getSectionCode() + ")");
             }
             // Tái sử dụng bản ghi cũ nếu trước đó đã từng CANCELLED hoặc REJECTED
             enrollmentToSave = existing;

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 
 export const CourseRegistration = () => {
-  const [semester] = useState('2024-25_SEM2')
+  const [semester, setSemester] = useState('2024-25_SEM2')
   const [keyword, setKeyword] = useState('')
   const [activeTab, setActiveTab] = useState('ALL') // 'ALL', 'ENROLLED', 'AVAILABLE'
   const [loading, setLoading] = useState(false)
@@ -124,7 +124,7 @@ export const CourseRegistration = () => {
 
   useEffect(() => {
     fetchSections()
-  }, [keyword])
+  }, [keyword, semester])
 
   const fetchSections = async () => {
     try {
@@ -137,18 +137,18 @@ export const CourseRegistration = () => {
     }
   }
 
-  // Calculate enrolled credits
+  // Calculate enrolled credits (only active in-progress registrations, not completed courses)
   const enrolledSummary = useMemo(() => {
-    const enrolled = availableSections.filter(s => s.isEnrolled)
-    const credits = enrolled.reduce((sum, s) => sum + (s.credits || 0), 0)
-    const conflicts = enrolled.filter(s => s.hasConflict).length
-    return { count: enrolled.length, credits, conflicts }
+    const activeEnrolled = availableSections.filter(s => s.isEnrolled && !s.isCompleted)
+    const credits = activeEnrolled.reduce((sum, s) => sum + (s.credits || 0), 0)
+    const conflicts = activeEnrolled.filter(s => s.hasConflict).length
+    return { count: activeEnrolled.length, credits, conflicts }
   }, [availableSections])
 
   const filteredSections = useMemo(() => {
     return availableSections.filter(sec => {
-      if (activeTab === 'ENROLLED') return sec.isEnrolled
-      if (activeTab === 'AVAILABLE') return !sec.isEnrolled && sec.currentEnrolled < sec.maxCapacity
+      if (activeTab === 'ENROLLED') return sec.isEnrolled || sec.isCompleted
+      if (activeTab === 'AVAILABLE') return !sec.isEnrolled && !sec.isCompleted && sec.currentEnrolled < sec.maxCapacity
       return true
     })
   }, [availableSections, activeTab])
@@ -198,18 +198,32 @@ export const CourseRegistration = () => {
           </p>
         </div>
 
-        {/* Search */}
-        <div className="relative w-full md:w-80">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-            <Search size={16} />
-          </span>
-          <input
-            type="text"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="Tìm theo mã môn, tên môn, mã lớp..."
-            className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-          />
+        {/* Controls: Semester dropdown & Search */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-xs">
+            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">Học kỳ:</span>
+            <select
+              value={semester}
+              onChange={(e) => setSemester(e.target.value)}
+              className="text-xs font-bold text-blue-700 bg-transparent focus:outline-none cursor-pointer"
+            >
+              <option value="2024-25_SEM2">Học kỳ 2 (2024-25_SEM2)</option>
+              <option value="2025-26_SEM1">Học kỳ 1 (2025-26_SEM1 - Kỳ tới)</option>
+            </select>
+          </div>
+
+          <div className="relative w-full sm:w-72">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <Search size={16} />
+            </span>
+            <input
+              type="text"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="Tìm theo mã môn, tên môn, mã lớp..."
+              className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+            />
+          </div>
         </div>
       </div>
 
@@ -354,17 +368,21 @@ export const CourseRegistration = () => {
                       <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         {sec.credits} Tín chỉ
                       </span>
-                      {sec.isEnrolled && (
-                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-600 text-white flex items-center gap-1">
-                          <CheckCircle2 size={12} /> Đã đăng ký
+                      {sec.isCompleted ? (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-600 text-white flex items-center gap-1 shadow-2xs">
+                          <CheckCircle2 size={12} /> Đã hoàn thành (Chốt điểm)
                         </span>
-                      )}
+                      ) : sec.isEnrolled ? (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-600 text-white flex items-center gap-1">
+                          <CheckCircle2 size={12} /> Đang học (Đã đăng ký)
+                        </span>
+                      ) : null}
                       {sec.hasConflict && (
                         <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1">
                           <AlertTriangle size={12} /> Trùng lịch ca học
                         </span>
                       )}
-                      {isFull && !sec.isEnrolled && (
+                      {isFull && !sec.isEnrolled && !sec.isCompleted && (
                         <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-500">
                           Hết chỗ
                         </span>
@@ -395,7 +413,15 @@ export const CourseRegistration = () => {
                   </div>
 
                   <div className="shrink-0 flex items-center gap-3">
-                    {sec.isEnrolled ? (
+                    {sec.isCompleted ? (
+                      <button
+                        disabled
+                        className="px-4 py-2 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 cursor-default flex items-center gap-1.5"
+                      >
+                        <CheckCircle2 size={14} />
+                        <span>Đã hoàn thành</span>
+                      </button>
+                    ) : sec.isEnrolled ? (
                       <button
                         onClick={() => setCancelModal({
                           open: true,

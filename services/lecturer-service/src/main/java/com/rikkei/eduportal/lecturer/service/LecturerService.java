@@ -217,7 +217,7 @@ public class LecturerService {
         // Lock tất cả grade của lớp
         int locked = gradeRepo.lockAllBySectionId(sectionId);
 
-        // Cập nhật credits_earned cho SV đạt (letter != F)
+        // Cập nhật credits_earned cho SV đạt (letter != F) và chuyển status thành COMPLETED
         for (Enrollment e : registered) {
             Grade g = gradeMap.get(e.getId());
             if (g != null && !"F".equals(g.getLetterGrade())) {
@@ -226,6 +226,10 @@ public class LecturerService {
                 int courseCredits = e.getClassSection().getCourse().getCredits();
                 student.setCreditsEarned(currentCredits + courseCredits);
                 studentProfileRepo.save(student);
+
+                // Đánh dấu môn học đã hoàn thành
+                e.setStatus(EnrollmentStatus.COMPLETED);
+                enrollmentRepo.save(e);
             }
         }
 

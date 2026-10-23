@@ -16,6 +16,8 @@ public class ClassSectionDto {
     private String lecturerName;
     private String status;
     private Boolean isEnrolled = false;
+    private Boolean isCompleted = false;
+    private String enrollmentStatus;
     private Long enrollmentId;
     private Boolean hasConflict = false;
 
@@ -65,6 +67,12 @@ public class ClassSectionDto {
 
     public Boolean getIsEnrolled() { return isEnrolled; }
     public void setIsEnrolled(Boolean isEnrolled) { this.isEnrolled = isEnrolled; }
+
+    public Boolean getIsCompleted() { return isCompleted; }
+    public void setIsCompleted(Boolean isCompleted) { this.isCompleted = isCompleted; }
+
+    public String getEnrollmentStatus() { return enrollmentStatus; }
+    public void setEnrollmentStatus(String enrollmentStatus) { this.enrollmentStatus = enrollmentStatus; }
 
     public Long getEnrollmentId() { return enrollmentId; }
     public void setEnrollmentId(Long enrollmentId) { this.enrollmentId = enrollmentId; }
