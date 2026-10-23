@@ -258,7 +258,7 @@ public class LecturerService {
     private void checkOwnership(Long sectionId, Long lecturerId) {
         classSectionRepo.findByIdAndLecturerId(sectionId, lecturerId)
                 .orElseThrow(() -> new AccessDeniedException(
-                        "Giảng viên không có quyền thao tác trên lớp id: " + sectionId));
+                        "Giảng viên không được phân công giảng dạy (không có quyền thao tác) trên lớp id: " + sectionId));
     }
 
     /**

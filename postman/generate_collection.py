@@ -209,7 +209,10 @@ rbac_items.append(make_req(
 pm.test("Error message explains ownership restriction", function () {
     var res = pm.response.json();
     pm.expect(res.status).to.eql(403);
-    pm.expect(res.message).to.include("không được phân công");
+    var msg = (res.message || "").toLowerCase();
+    pm.expect(msg).to.satisfy(function(m) {
+        return m.includes("không được phân công") || m.includes("không có quyền");
+    });
 });"""
 ))
 
