@@ -79,11 +79,14 @@ public class GatewayProxyController {
 
         try {
             HttpMethod method = HttpMethod.valueOf(request.getMethod());
-            return restTemplate.exchange(URI.create(targetUrl), method, entity, byte[].class);
+            ResponseEntity<byte[]> response = restTemplate.exchange(URI.create(targetUrl), method, entity, byte[].class);
+            return ResponseEntity.status(response.getStatusCode())
+                    .headers(cleanResponseHeaders(response.getHeaders()))
+                    .body(response.getBody());
         } catch (HttpStatusCodeException ex) {
             log.error("Downstream service error: {} on {}", ex.getStatusCode(), targetUrl);
             return ResponseEntity.status(ex.getStatusCode())
-                    .headers(ex.getResponseHeaders())
+                    .headers(cleanResponseHeaders(ex.getResponseHeaders()))
                     .body(ex.getResponseBodyAsByteArray());
         } catch (ResourceAccessException ex) {
             log.error("Downstream service unreachable: {} - {}", targetUrl, ex.getMessage());
@@ -96,6 +99,24 @@ public class GatewayProxyController {
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(("{\"status\": 500, \"message\": \"Gateway error: " + ex.getMessage() + "\"}").getBytes());
         }
+    }
+
+    private HttpHeaders cleanResponseHeaders(HttpHeaders original) {
+        HttpHeaders cleaned = new HttpHeaders();
+        if (original == null) {
+            return cleaned;
+        }
+        original.forEach((key, values) -> {
+            String lower = key.toLowerCase();
+            if (!lower.equals("transfer-encoding") &&
+                !lower.equals("content-length") &&
+                !lower.equals("connection") &&
+                !lower.equals("keep-alive") &&
+                !lower.equals("upgrade")) {
+                cleaned.put(key, values);
+            }
+        });
+        return cleaned;
     }
 
     private String determineTargetService(String path) {

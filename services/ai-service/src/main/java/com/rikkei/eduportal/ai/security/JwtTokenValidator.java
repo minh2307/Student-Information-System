@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 @Component
@@ -19,11 +20,19 @@ public class JwtTokenValidator {
 
     private static final Logger log = LoggerFactory.getLogger(JwtTokenValidator.class);
 
-    private final SecretKey key;
+    private final SecretKey rawKey;
+    private final SecretKey base64Key;
 
     public JwtTokenValidator(@Value("${jwt.secret:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}") String secret) {
-        byte[] keyBytes = Decoders.BASE64.decode(secret);
-        this.key = Keys.hmacShaKeyFor(keyBytes);
+        this.rawKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        SecretKey b64 = null;
+        try {
+            byte[] keyBytes = Decoders.BASE64.decode(secret);
+            b64 = Keys.hmacShaKeyFor(keyBytes);
+        } catch (Exception ignored) {
+            b64 = this.rawKey;
+        }
+        this.base64Key = b64;
     }
 
     public Role extractRole(String token, String fallbackRoleHeader) {
@@ -40,13 +49,27 @@ public class JwtTokenValidator {
             return Role.ADMIN; // Default role for dev testing mock token
         }
 
+        Claims claims = null;
         try {
-            Claims claims = Jwts.parser()
-                    .verifyWith(key)
+            claims = Jwts.parser()
+                    .verifyWith(rawKey)
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
+        } catch (Exception e1) {
+            try {
+                claims = Jwts.parser()
+                        .verifyWith(base64Key)
+                        .build()
+                        .parseSignedClaims(token)
+                        .getPayload();
+            } catch (Exception e2) {
+                log.warn("JWT validation failed: {}. Checking fallback header.", e2.getMessage());
+                return parseFallbackRole(fallbackRoleHeader);
+            }
+        }
 
+        try {
             Object roleObj = claims.get("role");
             if (roleObj == null) {
                 roleObj = claims.get("roles");
@@ -58,8 +81,8 @@ public class JwtTokenValidator {
 
             return parseFallbackRole(fallbackRoleHeader);
 
-        } catch (JwtException | IllegalArgumentException e) {
-            log.warn("JWT validation failed: {}. Checking fallback header.", e.getMessage());
+        } catch (Exception e) {
+            log.warn("Role parsing failed: {}", e.getMessage());
             return parseFallbackRole(fallbackRoleHeader);
         }
     }
