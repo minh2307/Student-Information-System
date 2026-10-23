@@ -4,10 +4,25 @@ server:
 spring:
   application:
     name: ai-service
+  ai:
+    openai:
+      api-key: ${AI_API_KEY:demo-key}
+      base-url: ${AI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: ${AI_MODEL:gpt-4o-mini}
+          temperature: 0.7
 
 ai:
+  provider: ${AI_PROVIDER:openai}
   api-key: ${AI_API_KEY:demo-key}
+  base-url: ${AI_BASE_URL:https://api.openai.com}
   model: ${AI_MODEL:gpt-4o-mini}
+  timeout-seconds: ${AI_TIMEOUT_SECONDS:15}
+
+jwt:
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+
 
 logging:
   level:

@@ -4,29 +4,40 @@ import { useAuthStore } from './store/authStore'
 import { Login } from './pages/Login'
 import { MainLayout } from './components/MainLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { Profile } from './pages/Profile'
 import { StudentDashboard } from './pages/StudentDashboard'
+import { StudentTimetable } from './pages/StudentTimetable'
 import { CourseRegistration } from './pages/CourseRegistration'
 import { StudentGrades } from './pages/StudentGrades'
-import { LecturerClasses } from './pages/LecturerClasses'
-import { LecturerGrades } from './pages/LecturerGrades'
+import { StudentTuition } from './pages/StudentTuition'
+import { StudentExams } from './pages/StudentExams'
+import { LecturerTimetable } from './pages/LecturerTimetable'
+import { AnnouncementsPage } from './pages/AnnouncementsPage'
 import { AdminUsers } from './pages/AdminUsers'
 import { AdminCourses } from './pages/AdminCourses'
 import { AdminSections } from './pages/AdminSections'
 import { AiAdvisor } from './pages/AiAdvisor'
+import { ToastContainer } from './components/ui/ToastContainer'
+import { GlobalConfirmModal } from './components/ui/GlobalConfirmModal'
+
+// ── Lecturer Portal ─────────────────────────────────────
+import { LecturerClassesPage, ClassStudentsPage } from './features/lecturer'
 
 // Component to redirect root to specific role dashboard
 const RootRedirect = () => {
   const { isAuthenticated, user } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
 
-  if (user?.role === 'ADMIN') return <Navigate to="/admin/users" replace />
-  if (user?.role === 'LECTURER') return <Navigate to="/lecturer/classes" replace />
+  if (user?.role === 'ADMIN')    return <Navigate to="/admin/users"          replace />
+  if (user?.role === 'LECTURER') return <Navigate to="/lecturer/classes"     replace />
   return <Navigate to="/student/dashboard" replace />
 }
 
 export default function App() {
   return (
     <BrowserRouter>
+      <ToastContainer />
+      <GlobalConfirmModal />
       <Routes>
         {/* Public Login */}
         <Route path="/login" element={<Login />} />
@@ -36,22 +47,36 @@ export default function App() {
           <Route element={<MainLayout />}>
             <Route path="/" element={<RootRedirect />} />
 
-            {/* Student Portal */}
-            <Route path="/student/dashboard" element={<StudentDashboard />} />
-            <Route path="/student/registration" element={<CourseRegistration />} />
-            <Route path="/student/grades" element={<StudentGrades />} />
+            {/* Profile Route */}
+            <Route path="/profile" element={<Profile />} />
 
-            {/* Lecturer Portal */}
-            <Route path="/lecturer/classes" element={<LecturerClasses />} />
-            <Route path="/lecturer/grades" element={<LecturerGrades />} />
+            {/* Announcements (General for all logged in roles) */}
+            <Route path="/announcements" element={<AnnouncementsPage />} />
 
-            {/* Admin Portal */}
-            <Route path="/admin/users" element={<AdminUsers />} />
-            <Route path="/admin/courses" element={<AdminCourses />} />
-            <Route path="/admin/sections" element={<AdminSections />} />
+            {/* Student Portal (Role: STUDENT) */}
+            <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
+              <Route path="/student/dashboard"    element={<StudentDashboard />} />
+              <Route path="/student/timetable"    element={<StudentTimetable />} />
+              <Route path="/student/registration" element={<CourseRegistration />} />
+              <Route path="/student/grades"       element={<StudentGrades />} />
+              <Route path="/student/tuition"      element={<StudentTuition />} />
+              <Route path="/student/exams"        element={<StudentExams />} />
+              <Route path="/ai/advisor"           element={<AiAdvisor />} />
+            </Route>
 
-            {/* AI Advisor Chatbot */}
-            <Route path="/ai/advisor" element={<AiAdvisor />} />
+            {/* ── Lecturer Portal (Role: LECTURER, ADMIN) ── */}
+            <Route element={<ProtectedRoute allowedRoles={['LECTURER', 'ADMIN']} />}>
+              <Route path="/lecturer/classes"            element={<LecturerClassesPage />} />
+              <Route path="/lecturer/classes/:sectionId" element={<ClassStudentsPage />} />
+              <Route path="/lecturer/timetable"          element={<LecturerTimetable />} />
+            </Route>
+
+            {/* Admin Portal (Strictly Role: ADMIN) */}
+            <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+              <Route path="/admin/users"    element={<AdminUsers />} />
+              <Route path="/admin/courses"  element={<AdminCourses />} />
+              <Route path="/admin/sections" element={<AdminSections />} />
+            </Route>
           </Route>
         </Route>
 

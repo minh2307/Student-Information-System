@@ -28,11 +28,13 @@ services:
       AUTH_SERVICE_URL: http://auth-service:8081
       COURSE_SERVICE_URL: http://course-service:8082
       ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
+      LECTURER_SERVICE_URL: http://lecturer-service:8085
       AI_SERVICE_URL: http://ai-service:8084
     depends_on:
       - auth-service
       - course-service
       - enrollment-service
+      - lecturer-service
       - ai-service
 
   auth-service:
@@ -100,6 +102,22 @@ services:
       - "3000:80"
     depends_on:
       - api-gateway
+
+  lecturer-service:
+    build:
+      context: .
+      dockerfile: services/lecturer-service/Dockerfile
+    container_name: eduportal-lecturer
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:

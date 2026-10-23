@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 200" width="160" height="200">
+  <defs>
+    <linearGradient id="photoBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+  <!-- Official blue academic photo background (phông nền xanh thẻ SV) -->
+  <rect width="160" height="200" fill="url(#photoBg)" rx="4"/>
+  
+  <!-- Silhouette Student -->
+  <!-- Head & Hair -->
+  <circle cx="80" cy="72" r="34" fill="#F8FAFC"/>
+  <!-- Hair style -->
+  <path d="M48 64 C48 38 62 32 80 32 C98 32 112 38 112 64 C104 54 94 50 80 50 C66 50 56 54 48 64 Z" fill="#1E293B"/>
+  
+  <!-- Collar & Shirt -->
+  <path d="M40 160 C40 120 54 110 80 110 C106 110 120 120 120 160 L135 200 L25 200 Z" fill="#FFFFFF"/>
+  <!-- Dark Necktie -->
+  <path d="M76 118 L84 118 L86 165 L80 178 L74 165 Z" fill="#B91C1C"/>
+  <polygon points="76,118 84,118 87,125 80,128 73,125" fill="#991B1B"/>
+  
+  <!-- Subtle Photo Frame Border -->
+  <rect x="0.5" y="0.5" width="159" height="199" fill="none" stroke="#CBD5E1" stroke-width="1" rx="4"/>
+</svg>

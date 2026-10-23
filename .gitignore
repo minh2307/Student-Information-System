@@ -32,3 +32,15 @@ Thumbs.db
 # Environment & Secrets
 .env
 *.local
+
+# Logs and runtime pids
+logs/
+.pids
+
+# Project Proposals & Reports (Internal / Non-git)
+*Project_Proposal*
+*Bao_Cao_De_Cuong*
+*.docx
+BAO_CAO_DE_CUONG_DU_AN*
+
+

@@ -13,6 +13,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
@@ -31,17 +32,23 @@ public class GatewayProxyController {
     @Value("${gateway.services.enrollment:http://localhost:8083}")
     private String enrollmentServiceUrl;
 
+    @Value("${gateway.services.lecturer:http://localhost:8085}")
+    private String lecturerServiceUrl;
+
     @Value("${gateway.services.ai:http://localhost:8084}")
     private String aiServiceUrl;
 
     private final RestTemplate restTemplate;
 
-    public GatewayProxyController() {
+    public GatewayProxyController(
+            @Value("${gateway.timeout.connect:5000}") int connectTimeout,
+            @Value("${gateway.timeout.read:30000}") int readTimeout) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(5000);
-        factory.setReadTimeout(10000);
+        factory.setConnectTimeout(connectTimeout);
+        factory.setReadTimeout(readTimeout);
         this.restTemplate = new RestTemplate(factory);
     }
+
 
     @RequestMapping("/api/v1/**")
     public ResponseEntity<?> proxyRequest(HttpServletRequest request, HttpEntity<byte[]> requestEntity) {
@@ -73,12 +80,21 @@ public class GatewayProxyController {
 
         try {
             HttpMethod method = HttpMethod.valueOf(request.getMethod());
-            return restTemplate.exchange(URI.create(targetUrl), method, entity, byte[].class);
+            ResponseEntity<byte[]> response = restTemplate.exchange(URI.create(targetUrl), method, entity, byte[].class);
+            return ResponseEntity.status(response.getStatusCode())
+                    .headers(cleanResponseHeaders(response.getHeaders()))
+                    .body(response.getBody());
         } catch (HttpStatusCodeException ex) {
-            log.error("Downstream service error: {} on {}", ex.getStatusCode(), targetUrl);
+            log.error("Downstream service error: {} on {}, body: '{}'", ex.getStatusCode(), targetUrl, ex.getResponseBodyAsString());
+            byte[] body = ex.getResponseBodyAsByteArray();
+            if (body == null || body.length == 0) {
+                String fallbackJson = "{\"status\":" + ex.getStatusCode().value() + ",\"message\":\"" + 
+                    (ex.getStatusCode().value() == 401 ? "Tên đăng nhập hoặc mật khẩu không chính xác" : ex.getStatusText()) + "\"}";
+                body = fallbackJson.getBytes(StandardCharsets.UTF_8);
+            }
             return ResponseEntity.status(ex.getStatusCode())
-                    .headers(ex.getResponseHeaders())
-                    .body(ex.getResponseBodyAsByteArray());
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body);
         } catch (ResourceAccessException ex) {
             log.error("Downstream service unreachable: {} - {}", targetUrl, ex.getMessage());
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -92,11 +108,33 @@ public class GatewayProxyController {
         }
     }
 
+    private HttpHeaders cleanResponseHeaders(HttpHeaders original) {
+        HttpHeaders cleaned = new HttpHeaders();
+        if (original == null) {
+            return cleaned;
+        }
+        original.forEach((key, values) -> {
+            String lower = key.toLowerCase();
+            if (!lower.equals("transfer-encoding") &&
+                !lower.equals("content-length") &&
+                !lower.equals("connection") &&
+                !lower.equals("keep-alive") &&
+                !lower.equals("upgrade")) {
+                cleaned.put(key, values);
+            }
+        });
+        return cleaned;
+    }
+
     private String determineTargetService(String path) {
-        // Module Course & Section
+        // Module Course & Section & Admin Enrollment Approval & Semesters
         if (path.startsWith("/api/v1/admin/courses") ||
             path.startsWith("/api/v1/admin/class-sections") ||
-            path.startsWith("/api/v1/student/class-sections")) {
+            path.startsWith("/api/v1/admin/enrollments") ||
+            path.startsWith("/api/v1/admin/lecturers") ||
+            path.startsWith("/api/v1/admin/semesters") ||
+            path.startsWith("/api/v1/semesters") ||
+            path.startsWith("/api/v1/courses")) {
             return courseServiceUrl;
         }
 
@@ -107,11 +145,20 @@ public class GatewayProxyController {
             return authServiceUrl;
         }
 
-        // Module Enrollment & Grades & Lecturer Portal & Admin Approve Enrollment
-        if (path.startsWith("/api/v1/student") ||
-            path.startsWith("/api/v1/lecturer") ||
-            path.startsWith("/api/v1/admin/enrollments")) {
+        // Module Student Enrollment & Portal
+        if (path.startsWith("/api/v1/student")) {
             return enrollmentServiceUrl;
+        }
+
+        // Module Announcements & Notifications
+        if (path.startsWith("/api/v1/announcements") ||
+            path.startsWith("/api/v1/notifications")) {
+            return enrollmentServiceUrl;
+        }
+
+        // Module Lecturer Portal
+        if (path.startsWith("/api/v1/lecturer")) {
+            return lecturerServiceUrl;
         }
 
         // Module AI Integration

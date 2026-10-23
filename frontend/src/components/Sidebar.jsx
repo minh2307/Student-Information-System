@@ -1,15 +1,22 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { getRealAvatar } from '../utils/avatarUtils'
 import { 
   LayoutDashboard, 
   BookOpen, 
   GraduationCap, 
-  Calendar, 
-  Users, 
-  FolderKanban, 
-  BotMessageSquare, 
-  Sparkles 
+  CalendarDays,
+  CreditCard,
+  FileCheck2,
+  BotMessageSquare,
+  Users,
+  FolderKanban,
+  ShieldAlert,
+  UserCircle,
+  ExternalLink,
+  ChevronRight,
+  Bell
 } from 'lucide-react'
 
 export const Sidebar = () => {
@@ -17,101 +24,218 @@ export const Sidebar = () => {
   const role = user?.role || 'STUDENT'
 
   const navItemClass = ({ isActive }) =>
-    `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+    `group flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-medium transition-all ${
       isActive
-        ? 'bg-blue-600 text-white shadow-sm'
-        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        ? 'bg-red-50 text-red-800 font-semibold border-l-3 border-red-700 shadow-2xs'
+        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
     }`
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 min-h-screen">
-      <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-blue-500/20">
-          RE
-        </div>
-        <div>
-          <h1 className="font-bold text-slate-800 leading-tight">EduPortal</h1>
-          <p className="text-xs text-slate-400 font-medium">Student Info System</p>
+    <aside className="w-64 bg-white border-r border-stone-200/90 flex flex-col shrink-0 min-h-screen">
+      {/* 1. Official University Brand Header */}
+      <div className="p-4 border-b border-stone-200/80 bg-white">
+        <div className="flex items-center gap-3">
+          <img 
+            src="/images/logo.png" 
+            alt="Rikkei Logo" 
+            className="h-9 w-auto object-contain max-w-[130px]"
+            onError={(e) => {
+              e.target.src = '/images/logo.svg'
+            }}
+          />
+          <div className="flex flex-col border-l border-stone-200 pl-2.5">
+            <span className="font-serif font-bold text-stone-900 text-xs tracking-tight uppercase leading-snug">
+              EDUPORTAL
+            </span>
+            <span className="text-[9px] text-stone-500 tracking-wider font-mono uppercase">
+              Học viện Đào tạo
+            </span>
+          </div>
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-        {/* Student Links */}
+      {/* 2. Navigation List */}
+      <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
+        {/* Student Navigation */}
         {role === 'STUDENT' && (
           <>
-            <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Cổng Sinh viên
+            <div>
+              <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+                Quản lý Đào tạo
+              </div>
+              <div className="space-y-0.5">
+                <NavLink to="/student/dashboard" className={navItemClass}>
+                  <div className="flex items-center gap-2.5">
+                    <LayoutDashboard size={16} className="text-stone-500 group-hover:text-red-700" />
+                    <span>Dashboard học kỳ</span>
+                  </div>
+                </NavLink>
+
+                <NavLink to="/student/timetable" className={navItemClass}>
+                  <div className="flex items-center gap-2.5">
+                    <CalendarDays size={16} className="text-stone-500 group-hover:text-red-700" />
+                    <span>Thời khóa biểu tuần</span>
+                  </div>
+                </NavLink>
+
+                <NavLink to="/student/registration" className={navItemClass}>
+                  <div className="flex items-center gap-2.5">
+                    <BookOpen size={16} className="text-stone-500 group-hover:text-red-700" />
+                    <span>Đăng ký học phần</span>
+                  </div>
+                </NavLink>
+
+                <NavLink to="/student/grades" className={navItemClass}>
+                  <div className="flex items-center gap-2.5">
+                    <GraduationCap size={16} className="text-stone-500 group-hover:text-red-700" />
+                    <span>Tra cứu bảng điểm</span>
+                  </div>
+                </NavLink>
+              </div>
             </div>
-            <NavLink to="/student/dashboard" className={navItemClass}>
-              <LayoutDashboard size={18} />
-              <span>Dashboard học kỳ</span>
-            </NavLink>
-            <NavLink to="/student/registration" className={navItemClass}>
-              <BookOpen size={18} />
-              <span>Đăng ký học phần</span>
-            </NavLink>
-            <NavLink to="/student/grades" className={navItemClass}>
-              <GraduationCap size={18} />
-              <span>Tra cứu điểm thi</span>
-            </NavLink>
+
+            <div>
+              <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+                Tài chính & Khảo thí
+              </div>
+              <div className="space-y-0.5">
+                <NavLink to="/student/tuition" className={navItemClass}>
+                  <div className="flex items-center gap-2.5">
+                    <CreditCard size={16} className="text-stone-500 group-hover:text-red-700" />
+                    <span>Học phí & Thanh toán</span>
+                  </div>
+                </NavLink>
+
+                <NavLink to="/student/exams" className={navItemClass}>
+                  <div className="flex items-center gap-2.5">
+                    <FileCheck2 size={16} className="text-stone-500 group-hover:text-red-700" />
+                    <span>Lịch thi & SBD</span>
+                  </div>
+                </NavLink>
+              </div>
+            </div>
+
+            <div>
+              <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+                Trợ lý Thông minh
+              </div>
+              <div className="space-y-0.5">
+                <NavLink to="/ai/advisor" className={navItemClass}>
+                  <div className="flex items-center gap-2.5">
+                    <BotMessageSquare size={16} className="text-red-700" />
+                    <span className="font-semibold text-red-900">Cố vấn học tập AI</span>
+                  </div>
+                  <span className="text-[10px] font-mono bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">
+                    PRO
+                  </span>
+                </NavLink>
+              </div>
+            </div>
           </>
         )}
 
-        {/* Lecturer Links */}
+        {/* Lecturer Navigation */}
         {role === 'LECTURER' && (
-          <>
-            <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Cổng Giảng viên
+          <div>
+            <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+              Nghiệp vụ Giảng viên
             </div>
-            <NavLink to="/lecturer/classes" className={navItemClass}>
-              <Calendar size={18} />
-              <span>Lớp học phần dạy</span>
-            </NavLink>
-            <NavLink to="/lecturer/grades" className={navItemClass}>
-              <GraduationCap size={18} />
-              <span>Nhập & Khóa điểm</span>
-            </NavLink>
-          </>
+            <div className="space-y-0.5">
+              <NavLink to="/lecturer/classes" className={navItemClass}>
+                <div className="flex items-center gap-2.5">
+                  <BookOpen size={16} className="text-stone-500 group-hover:text-red-700" />
+                  <span>Lớp học phần & Điểm</span>
+                </div>
+              </NavLink>
+              <NavLink to="/lecturer/timetable" className={navItemClass}>
+                <div className="flex items-center gap-2.5">
+                  <CalendarDays size={16} className="text-stone-500 group-hover:text-red-700" />
+                  <span>Thời khóa biểu dạy</span>
+                </div>
+              </NavLink>
+            </div>
+          </div>
         )}
 
-        {/* Admin Links */}
+        {/* Admin Navigation */}
         {role === 'ADMIN' && (
-          <>
-            <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <div>
+            <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
               Quản trị Hệ thống
             </div>
-            <NavLink to="/admin/users" className={navItemClass}>
-              <Users size={18} />
-              <span>Quản lý Tài khoản</span>
-            </NavLink>
-            <NavLink to="/admin/courses" className={navItemClass}>
-              <BookOpen size={18} />
-              <span>Danh mục Môn học</span>
-            </NavLink>
-            <NavLink to="/admin/sections" className={navItemClass}>
-              <FolderKanban size={18} />
-              <span>Mở lớp & Duyệt tín</span>
-            </NavLink>
-          </>
+            <div className="space-y-0.5">
+              <NavLink to="/admin/users" className={navItemClass}>
+                <div className="flex items-center gap-2.5">
+                  <Users size={16} className="text-stone-500 group-hover:text-red-700" />
+                  <span>Hồ sơ Người dùng</span>
+                </div>
+              </NavLink>
+              <NavLink to="/admin/courses" className={navItemClass}>
+                <div className="flex items-center gap-2.5">
+                  <BookOpen size={16} className="text-stone-500 group-hover:text-red-700" />
+                  <span>Chương trình đào tạo</span>
+                </div>
+              </NavLink>
+              <NavLink to="/admin/sections" className={navItemClass}>
+                <div className="flex items-center gap-2.5">
+                  <FolderKanban size={16} className="text-stone-500 group-hover:text-red-700" />
+                  <span>Mở lớp học phần</span>
+                </div>
+              </NavLink>
+            </div>
+          </div>
         )}
 
-        {/* AI Assistant for all */}
-        <div className="pt-4 mt-4 border-t border-slate-100">
-          <div className="px-4 py-2 text-xs font-semibold text-indigo-500 uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles size={14} />
-            <span>AI Assistant</span>
+        {/* Common links */}
+        <div>
+          <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+            Kênh Học Viện
           </div>
-          <NavLink to="/ai/advisor" className={navItemClass}>
-            <BotMessageSquare size={18} className="text-indigo-600" />
-            <span className="font-semibold text-indigo-900">Cố vấn học tập AI</span>
-          </NavLink>
+          <div className="space-y-0.5">
+            <NavLink to="/announcements" className={navItemClass}>
+              <div className="flex items-center gap-2.5">
+                <FileCheck2 size={16} className="text-stone-500 group-hover:text-red-700" />
+                <span>Bảng tin thông báo</span>
+              </div>
+            </NavLink>
+            <NavLink to="/profile" className={navItemClass}>
+              <div className="flex items-center gap-2.5">
+                <UserCircle size={16} className="text-stone-500 group-hover:text-red-700" />
+                <span>Hồ sơ cá nhân</span>
+              </div>
+            </NavLink>
+          </div>
         </div>
       </nav>
 
-      <div className="p-4 border-t border-slate-100 bg-slate-50">
-        <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-500 flex items-center justify-between">
-          <span>Sprint 7 ngày (MVP)</span>
-          <span className="font-bold text-blue-600">v0.0.1</span>
+      {/* 3. Footer Compact Status Card */}
+      <div className="p-3 border-t border-stone-200/80 bg-stone-50/70">
+        <div className="bg-white border border-stone-200/90 rounded-lg p-2.5 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <img 
+              src={getRealAvatar(user)} 
+              alt={user?.fullName || 'Avatar'} 
+              className="w-8 h-8 rounded-full object-cover border border-stone-300 shadow-2xs shrink-0"
+              onError={(e) => {
+                e.target.src = '/images/avatar-student.jpg'
+              }}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-stone-900 truncate">
+                {user?.fullName || 'Tài khoản'}
+              </p>
+              <p className="text-[10px] font-mono text-stone-600 truncate">
+                {user?.username || 'SV2024001'}
+              </p>
+            </div>
+          </div>
+          <div className="mt-2 pt-2 border-t border-stone-100 flex items-center justify-between text-[10px] text-stone-600">
+            <span className="flex items-center gap-1 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+              Trực tuyến
+            </span>
+            <span className="font-mono text-stone-600 font-semibold">2024-SEM2</span>
+          </div>
         </div>
       </div>
     </aside>

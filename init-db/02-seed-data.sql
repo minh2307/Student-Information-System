@@ -30,6 +30,14 @@ ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('student_profiles_id_seq', (SELECT MAX(id) FROM student_profiles));
 
+-- 2b. Insert Semesters
+INSERT INTO semesters (semester_code, semester_name, academic_year, is_active, is_registration_open, start_date, end_date) VALUES
+('2024-25_SEM1', 'Học kỳ 1 (2024-2025)', '2024-2025', FALSE, FALSE, '2024-09-01', '2025-01-15'),
+('2024-25_SEM2', 'Học kỳ 2 (2024-2025)', '2024-2025', TRUE, TRUE, '2025-02-01', '2025-06-30'),
+('2025-26_SEM1', 'Học kỳ 1 (2025-2026 - Kỳ tới)', '2025-2026', FALSE, TRUE, '2025-09-01', '2026-01-15'),
+('2025-26_SEM2', 'Học kỳ 2 (2025-2026)', '2025-2026', FALSE, FALSE, '2026-02-01', '2026-06-30')
+ON CONFLICT (semester_code) DO NOTHING;
+
 -- 3. Insert Courses
 INSERT INTO courses (id, course_code, name, credits, weekly_hours, syllabus_description, prerequisite_course_id) VALUES
 (1, 'CS101', 'Introduction to Programming', 3, 4, 'Nhập môn lập trình căn bản với C/C++ và tư duy giải thuật cơ bản.', NULL),

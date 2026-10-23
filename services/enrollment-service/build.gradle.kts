@@ -10,4 +10,7 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
 
     implementation(project(":common-lib"))
+
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

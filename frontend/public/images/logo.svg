@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" width="240" height="60">
+  <defs>
+    <linearGradient id="crestRed" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#DC2626"/>
+      <stop offset="100%" stop-color="#991B1B"/>
+    </linearGradient>
+    <linearGradient id="goldAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Shield Crest Background -->
+  <path d="M12 8 C12 8 28 6 30 6 C32 6 48 8 48 8 C48 28 32 46 30 50 C28 46 12 28 12 8 Z" fill="url(#crestRed)" stroke="#B91C1C" stroke-width="1.5" filter="drop-shadow(0px 2px 4px rgba(220, 38, 38, 0.25))"/>
+  
+  <!-- Inner Shield Border -->
+  <path d="M15 11 C15 11 28 9.5 30 9.5 C32 9.5 45 11 45 11 C45 26 31.5 42 30 45 C28.5 42 15 26 15 11 Z" fill="none" stroke="url(#goldAccent)" stroke-width="1.2" opacity="0.8"/>
+  
+  <!-- Open Book Symbol -->
+  <path d="M22 28 C25 26 28 26.5 30 28 C32 26.5 35 26 38 28 L38 36 C35 34 32 34.5 30 36 C28 34.5 25 34 22 36 Z" fill="#FFFFFF" opacity="0.95"/>
+  <line x1="30" y1="28" x2="30" y2="36" stroke="#991B1B" stroke-width="1"/>
+  
+  <!-- Academic Torch / Star -->
+  <path d="M30 16 L31.5 19.5 L35 20 L32.5 22.5 L33 26 L30 24 L27 26 L27.5 22.5 L25 20 L28.5 19.5 Z" fill="url(#goldAccent)"/>
+  
+  <!-- Typography -->
+  <text x="60" y="27" font-family="system-ui, -apple-system, sans-serif" font-size="19" font-weight="800" fill="#1E293B" letter-spacing="-0.5">RIKKEI</text>
+  <text x="135" y="27" font-family="system-ui, -apple-system, sans-serif" font-size="19" font-weight="800" fill="#DC2626" letter-spacing="-0.5">PORTAL</text>
+  <text x="60" y="42" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="600" fill="#64748B" letter-spacing="0.8">CỔNG ĐÀO TẠO ĐẠI HỌC</text>
+</svg>

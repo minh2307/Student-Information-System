@@ -10,6 +10,7 @@ gateway:
     auth: ${AUTH_SERVICE_URL:http://localhost:8081}
     course: ${COURSE_SERVICE_URL:http://localhost:8082}
     enrollment: ${ENROLLMENT_SERVICE_URL:http://localhost:8083}
+    lecturer: ${LECTURER_SERVICE_URL:http://localhost:8085}
     ai: ${AI_SERVICE_URL:http://localhost:8084}
 
 logging:
