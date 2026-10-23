@@ -15,7 +15,8 @@ import {
   ShieldAlert,
   UserCircle,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Bell
 } from 'lucide-react'
 
 export const Sidebar = () => {
