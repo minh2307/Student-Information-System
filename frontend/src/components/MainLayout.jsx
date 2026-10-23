@@ -2,6 +2,7 @@ import React from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { StudentAdvisorWidget } from './StudentAdvisorWidget'
 
 export const MainLayout = () => {
   return (
@@ -13,6 +14,7 @@ export const MainLayout = () => {
           <Outlet />
         </main>
       </div>
+      <StudentAdvisorWidget />
     </div>
   )
 }
