@@ -18,6 +18,9 @@ import {
   Layers,
   UserCheck,
   BookOpen,
+  CalendarDays,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react'
 
 export const AdminSections = () => {
@@ -30,6 +33,22 @@ export const AdminSections = () => {
   const [filterSemester, setFilterSemester] = useState('2024-25_SEM2')
   const [filterStatus, setFilterStatus] = useState('')
   const [searchKeyword, setSearchKeyword] = useState('')
+
+  // Semesters management states
+  const [semestersList, setSemestersList] = useState([])
+  const [isSemesterModalOpen, setIsSemesterModalOpen] = useState(false)
+  const [semesterFormData, setSemesterFormData] = useState({
+    semesterCode: '',
+    semesterName: '',
+    academicYear: '2025-2026',
+    termNumber: 1,
+    startDate: '',
+    endDate: '',
+    registrationOpen: true,
+    isActive: false,
+  })
+  const [semesterSubmitting, setSemesterSubmitting] = useState(false)
+  const [semesterFormError, setSemesterFormError] = useState('')
 
   // Lookups for modal
   const [coursesList, setCoursesList] = useState([])
@@ -135,8 +154,32 @@ export const AdminSections = () => {
     }
   }
 
+  // Fetch Semesters
+  const fetchSemesters = async () => {
+    try {
+      const res = await api.get('/semesters')
+      if (res.data?.data && res.data.data.length > 0) {
+        setSemestersList(res.data.data)
+      } else {
+        setSemestersList([
+          { id: 1, semesterCode: '2024-25_SEM2', semesterName: 'Học kỳ 2 (2024-2025)', isActive: true, registrationOpen: true },
+          { id: 2, semesterCode: '2024-25_SEM1', semesterName: 'Học kỳ 1 (2024-2025)', isActive: false, registrationOpen: false },
+          { id: 3, semesterCode: '2025-26_SEM1', semesterName: 'Học kỳ 1 (2025-2026)', isActive: false, registrationOpen: true },
+        ])
+      }
+    } catch (e) {
+      console.warn('Semester lookup error:', e)
+      setSemestersList([
+        { id: 1, semesterCode: '2024-25_SEM2', semesterName: 'Học kỳ 2 (2024-2025)', isActive: true, registrationOpen: true },
+        { id: 2, semesterCode: '2024-25_SEM1', semesterName: 'Học kỳ 1 (2024-2025)', isActive: false, registrationOpen: false },
+        { id: 3, semesterCode: '2025-26_SEM1', semesterName: 'Học kỳ 1 (2025-2026)', isActive: false, registrationOpen: true },
+      ])
+    }
+  }
+
   // Fetch Lookups
   const fetchLookups = async () => {
+    fetchSemesters()
     try {
       const [coursesRes, lecturersRes] = await Promise.allSettled([
         api.get('/admin/courses'),
@@ -207,6 +250,63 @@ export const AdminSections = () => {
     fetchLookups()
     fetchPendingEnrollments()
   }, [])
+
+  // Semester management actions
+  const handleOpenSemesterModal = () => {
+    setSemesterFormData({
+      semesterCode: '',
+      semesterName: '',
+      academicYear: '2025-2026',
+      termNumber: 1,
+      startDate: '',
+      endDate: '',
+      registrationOpen: true,
+      isActive: false,
+    })
+    setSemesterFormError('')
+    setIsSemesterModalOpen(true)
+  }
+
+  const handleCreateSemester = async (e) => {
+    e.preventDefault()
+    setSemesterFormError('')
+    if (!semesterFormData.semesterCode.trim() || !semesterFormData.semesterName.trim()) {
+      setSemesterFormError('Vui lòng nhập đầy đủ mã và tên học kỳ!')
+      return
+    }
+    setSemesterSubmitting(true)
+    try {
+      await api.post('/admin/semesters', semesterFormData)
+      showToast('Thêm học kỳ mới thành công!')
+      fetchSemesters()
+      setFilterSemester(semesterFormData.semesterCode.trim())
+      setSemesterFormData({
+        semesterCode: '',
+        semesterName: '',
+        academicYear: '2025-2026',
+        termNumber: 1,
+        startDate: '',
+        endDate: '',
+        registrationOpen: true,
+        isActive: false,
+      })
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Không thể tạo học kỳ!'
+      setSemesterFormError(msg)
+    } finally {
+      setSemesterSubmitting(false)
+    }
+  }
+
+  const handleToggleRegistration = async (semesterId, currentStatus) => {
+    try {
+      await api.put(`/admin/semesters/${semesterId}/registration?open=${!currentStatus}`)
+      showToast(`Đã ${!currentStatus ? 'mở' : 'đóng'} cổng đăng ký của học kỳ!`)
+      fetchSemesters()
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái đăng ký', 'error')
+    }
+  }
 
   // Open Create Section Modal
   const handleOpenCreateSectionModal = () => {
@@ -370,13 +470,22 @@ export const AdminSections = () => {
           </p>
         </div>
         {activeTab === 'sections' && (
-          <button
-            onClick={handleOpenCreateSectionModal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
-          >
-            <Plus size={18} />
-            <span>Mở lớp học phần mới</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenSemesterModal}
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold border border-slate-200 transition-all"
+            >
+              <CalendarDays size={18} className="text-blue-600" />
+              <span>Quản lý Học kỳ ({semestersList.length})</span>
+            </button>
+            <button
+              onClick={handleOpenCreateSectionModal}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
+            >
+              <Plus size={18} />
+              <span>Mở lớp học phần mới</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -422,9 +531,14 @@ export const AdminSections = () => {
                   }}
                   className="px-3.5 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="2024-25_SEM2">Học kỳ 2 (2024-2025)</option>
-                  <option value="2024-25_SEM1">Học kỳ 1 (2024-2025)</option>
-                  <option value="2025-26_SEM1">Học kỳ 1 (2025-2026)</option>
+                  {semestersList.map((s) => (
+                    <option key={s.id || s.semesterCode} value={s.semesterCode}>
+                      {s.semesterName} ({s.semesterCode}){s.registrationOpen ? ' • Mở ĐK' : ' • Đóng ĐK'}
+                    </option>
+                  ))}
+                  {semestersList.length === 0 && (
+                    <option value="2024-25_SEM2">Học kỳ 2 (2024-2025)</option>
+                  )}
                 </select>
               </div>
 
@@ -699,14 +813,22 @@ export const AdminSections = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Học kỳ *</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Học kỳ áp dụng *</label>
+                  <select
                     required
                     value={sectionFormData.semesterName}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, semesterName: e.target.value })}
                     className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                  />
+                  >
+                    {semestersList.map((s) => (
+                      <option key={s.id || s.semesterCode} value={s.semesterCode}>
+                        {s.semesterName} ({s.semesterCode})
+                      </option>
+                    ))}
+                    {semestersList.length === 0 && (
+                      <option value="2024-25_SEM2">2024-25_SEM2</option>
+                    )}
+                  </select>
                 </div>
 
                 <div>
@@ -840,6 +962,187 @@ export const AdminSections = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Semester Management Modal */}
+      {isSemesterModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="text-blue-600" size={20} />
+                <h3 className="font-bold text-slate-800 text-base">Quản lý Học kỳ & Cổng Đăng ký</h3>
+              </div>
+              <button
+                onClick={() => setIsSemesterModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200/60"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+              {/* Existing Semesters Table */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                  Danh sách học kỳ hiện có ({semestersList.length})
+                </h4>
+                <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                      <tr>
+                        <th className="px-3 py-2 font-semibold">Mã HK</th>
+                        <th className="px-3 py-2 font-semibold">Tên hiển thị</th>
+                        <th className="px-3 py-2 font-semibold">Năm học</th>
+                        <th className="px-3 py-2 font-semibold text-center">Cổng ĐK</th>
+                        <th className="px-3 py-2 font-semibold text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {semestersList.map((s) => (
+                        <tr key={s.id || s.semesterCode} className="hover:bg-slate-50/50">
+                          <td className="px-3 py-2.5 font-mono font-bold text-blue-600">
+                            {s.semesterCode}
+                            {s.isActive && (
+                              <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 font-semibold">
+                                Hiện tại
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 font-medium text-slate-800">{s.semesterName}</td>
+                          <td className="px-3 py-2.5 text-slate-500">{s.academicYear} - K{s.termNumber}</td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                s.registrationOpen
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              {s.registrationOpen ? 'Đang mở' : 'Đã khóa'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-right">
+                            {s.id ? (
+                              <button
+                                onClick={() => handleToggleRegistration(s.id, s.registrationOpen)}
+                                className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
+                                  s.registrationOpen
+                                    ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                }`}
+                              >
+                                {s.registrationOpen ? 'Đóng cổng ĐK' : 'Mở cổng ĐK'}
+                              </button>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">Mặc định</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Form Add Semester */}
+              <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Plus size={16} className="text-blue-600" />
+                  <span>Thêm học kỳ mới vào hệ thống</span>
+                </h4>
+
+                {semesterFormError && (
+                  <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+                    {semesterFormError}
+                  </div>
+                )}
+
+                <form onSubmit={handleCreateSemester} className="space-y-3 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Mã học kỳ *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="VD: 2025-26_SEM1"
+                        value={semesterFormData.semesterCode}
+                        onChange={(e) => setSemesterFormData({ ...semesterFormData, semesterCode: e.target.value.toUpperCase() })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Tên hiển thị *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="VD: Học kỳ 1 (2025-2026)"
+                        value={semesterFormData.semesterName}
+                        onChange={(e) => setSemesterFormData({ ...semesterFormData, semesterName: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Năm học</label>
+                      <input
+                        type="text"
+                        placeholder="VD: 2025-2026"
+                        value={semesterFormData.academicYear}
+                        onChange={(e) => setSemesterFormData({ ...semesterFormData, academicYear: e.target.value })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Kỳ số (1, 2, 3)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="4"
+                        value={semesterFormData.termNumber}
+                        onChange={(e) => setSemesterFormData({ ...semesterFormData, termNumber: Number(e.target.value) })}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 pt-5">
+                      <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={semesterFormData.registrationOpen}
+                          onChange={(e) => setSemesterFormData({ ...semesterFormData, registrationOpen: e.target.checked })}
+                          className="rounded text-blue-600 focus:ring-blue-500"
+                        />
+                        <span>Mở cổng ĐK ngay</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      disabled={semesterSubmitting}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors disabled:opacity-50"
+                    >
+                      {semesterSubmitting && <Loader2 size={14} className="animate-spin" />}
+                      <span>Lưu học kỳ</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsSemesterModalOpen(false)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg text-xs transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}

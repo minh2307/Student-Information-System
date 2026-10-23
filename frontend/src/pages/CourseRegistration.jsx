@@ -19,6 +19,7 @@ import {
 
 export const CourseRegistration = () => {
   const [semester, setSemester] = useState('2024-25_SEM2')
+  const [semestersList, setSemestersList] = useState([])
   const [keyword, setKeyword] = useState('')
   const [activeTab, setActiveTab] = useState('ALL') // 'ALL', 'ENROLLED', 'AVAILABLE'
   const [loading, setLoading] = useState(false)
@@ -123,8 +124,32 @@ export const CourseRegistration = () => {
   ])
 
   useEffect(() => {
+    fetchSemesters()
+  }, [])
+
+  useEffect(() => {
     fetchSections()
   }, [keyword, semester])
+
+  const fetchSemesters = async () => {
+    try {
+      const res = await api.get('/semesters')
+      if (res.data?.data && res.data.data.length > 0) {
+        setSemestersList(res.data.data)
+        // Find default: first active or first registrationOpen or first in list
+        const activeOrOpen = res.data.data.find(s => s.registrationOpen) || res.data.data.find(s => s.isActive) || res.data.data[0]
+        if (activeOrOpen && !semester) {
+          setSemester(activeOrOpen.semesterCode)
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load semesters:', e)
+      setSemestersList([
+        { id: 1, semesterCode: '2024-25_SEM2', semesterName: 'Học kỳ 2 (2024-2025)', isActive: true, registrationOpen: true },
+        { id: 2, semesterCode: '2025-26_SEM1', semesterName: 'Học kỳ 1 (2025-2026)', isActive: false, registrationOpen: true },
+      ])
+    }
+  }
 
   const fetchSections = async () => {
     try {
@@ -137,12 +162,29 @@ export const CourseRegistration = () => {
     }
   }
 
-  // Calculate enrolled credits (only active in-progress registrations, not completed courses)
+  // Current selected semester object
+  const currentSemesterObj = useMemo(() => {
+    return semestersList.find(s => s.semesterCode === semester) || { registrationOpen: true }
+  }, [semestersList, semester])
+
+  // Calculate enrolled credits per selected semester (all registered courses in this semester)
   const enrolledSummary = useMemo(() => {
+    const allSemesterEnrolled = availableSections.filter(s => s.isEnrolled || s.isCompleted)
     const activeEnrolled = availableSections.filter(s => s.isEnrolled && !s.isCompleted)
-    const credits = activeEnrolled.reduce((sum, s) => sum + (s.credits || 0), 0)
+    const completedEnrolled = availableSections.filter(s => s.isCompleted)
+    const totalCredits = allSemesterEnrolled.reduce((sum, s) => sum + (s.credits || 0), 0)
+    const activeCredits = activeEnrolled.reduce((sum, s) => sum + (s.credits || 0), 0)
+    const completedCredits = completedEnrolled.reduce((sum, s) => sum + (s.credits || 0), 0)
     const conflicts = activeEnrolled.filter(s => s.hasConflict).length
-    return { count: activeEnrolled.length, credits, conflicts }
+    return {
+      count: allSemesterEnrolled.length,
+      activeCount: activeEnrolled.length,
+      completedCount: completedEnrolled.length,
+      credits: totalCredits,
+      activeCredits,
+      completedCredits,
+      conflicts,
+    }
   }, [availableSections])
 
   const filteredSections = useMemo(() => {
@@ -207,8 +249,17 @@ export const CourseRegistration = () => {
               onChange={(e) => setSemester(e.target.value)}
               className="text-xs font-bold text-blue-700 bg-transparent focus:outline-none cursor-pointer"
             >
-              <option value="2024-25_SEM2">Học kỳ 2 (2024-25_SEM2)</option>
-              <option value="2025-26_SEM1">Học kỳ 1 (2025-26_SEM1 - Kỳ tới)</option>
+              {semestersList.map((s) => (
+                <option key={s.id || s.semesterCode} value={s.semesterCode}>
+                  {s.semesterName} ({s.semesterCode}){s.registrationOpen ? '' : ' - [Đã đóng ĐK]'}
+                </option>
+              ))}
+              {semestersList.length === 0 && (
+                <>
+                  <option value="2024-25_SEM2">Học kỳ 2 (2024-25_SEM2)</option>
+                  <option value="2025-26_SEM1">Học kỳ 1 (2025-26_SEM1)</option>
+                </>
+              )}
             </select>
           </div>
 
@@ -226,6 +277,16 @@ export const CourseRegistration = () => {
           </div>
         </div>
       </div>
+
+      {/* Notice if semester registration is closed */}
+      {!currentSemesterObj.registrationOpen && (
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-center gap-2.5 font-medium">
+          <AlertCircle size={20} className="text-amber-600 shrink-0" />
+          <span>
+            Cổng đăng ký tín chỉ cho <strong>{currentSemesterObj.semesterName || semester}</strong> hiện đang tạm đóng. Bạn có thể xem danh sách lớp học và các môn đã đăng ký/hoàn thành nhưng không thể thêm/hủy môn mới.
+          </span>
+        </div>
+      )}
 
       {/* Credit limit & stats progress banner */}
       <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-5 shadow-sm border border-slate-700">
@@ -438,11 +499,18 @@ export const CourseRegistration = () => {
                     ) : (
                       <button
                         onClick={() => handleEnroll(sec.id)}
-                        disabled={isBusy || isFull}
+                        disabled={isBusy || isFull || !currentSemesterObj.registrationOpen}
                         className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors shadow-sm"
+                        title={!currentSemesterObj.registrationOpen ? 'Cổng đăng ký học kỳ này đang đóng' : ''}
                       >
                         {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                        <span>{isFull ? 'Hết chỗ' : 'Đăng ký ngay'}</span>
+                        <span>
+                          {!currentSemesterObj.registrationOpen
+                            ? 'Đã đóng ĐK'
+                            : isFull
+                            ? 'Hết chỗ'
+                            : 'Đăng ký ngay'}
+                        </span>
                       </button>
                     )}
                   </div>

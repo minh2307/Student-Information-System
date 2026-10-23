@@ -18,6 +18,7 @@ import {
 export const StudentDashboard = () => {
   const { user } = useAuthStore()
   const [loading, setLoading] = useState(true)
+  const [activeSemester, setActiveSemester] = useState(null)
   const [dashboardData, setDashboardData] = useState({
     stats: {
       registeredCourses: 3,
@@ -70,9 +71,15 @@ export const StudentDashboard = () => {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const res = await api.get('/student/dashboard')
-        if (res.data?.data) {
-          setDashboardData(res.data.data)
+        const [dashRes, semRes] = await Promise.allSettled([
+          api.get('/student/dashboard'),
+          api.get('/semesters/active')
+        ])
+        if (dashRes.status === 'fulfilled' && dashRes.value.data?.data) {
+          setDashboardData(dashRes.value.data.data)
+        }
+        if (semRes.status === 'fulfilled' && semRes.value.data?.data) {
+          setActiveSemester(semRes.value.data.data)
         }
       } catch (err) {
         console.info('Using seed dashboard data:', err.message)
@@ -93,7 +100,7 @@ export const StudentDashboard = () => {
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-medium mb-2">
             <Sparkles size={14} />
-            <span>Học kỳ 2024-25_SEM2</span>
+            <span>{activeSemester ? `${activeSemester.semesterName} (${activeSemester.semesterCode})` : 'Học kỳ 2024-25_SEM2'}</span>
           </div>
           <h1 className="text-2xl font-bold">
             Xin chào, {user?.fullName || 'Nguyễn Văn C'}!

@@ -28,17 +28,20 @@ public class CourseRegistrationService {
     private final ClassSectionRepository classSectionRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final GradeRepository gradeRepository;
+    private final CourseRepository courseRepository;
     private final StudentDashboardService dashboardService;
 
     public CourseRegistrationService(StudentProfileRepository studentProfileRepository,
                                    ClassSectionRepository classSectionRepository,
                                    EnrollmentRepository enrollmentRepository,
                                    GradeRepository gradeRepository,
+                                   CourseRepository courseRepository,
                                    StudentDashboardService dashboardService) {
         this.studentProfileRepository = studentProfileRepository;
         this.classSectionRepository = classSectionRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.gradeRepository = gradeRepository;
+        this.courseRepository = courseRepository;
         this.dashboardService = dashboardService;
     }
 
@@ -133,6 +136,39 @@ public class CourseRegistrationService {
         // Rule 1: Kiểm tra sĩ số lớp
         if (section.getCurrentEnrolled() >= section.getMaxCapacity()) {
             throw new BusinessException("Lớp học phần đã đầy sĩ số (" + section.getMaxCapacity() + "/" + section.getMaxCapacity() + "). Vui lòng chọn lớp khác.");
+        }
+
+        // Rule 1b: Kiểm tra điều kiện môn học tiên quyết (Prerequisite Check - FR-01, FR-06)
+        if (section.getCourse() != null && section.getCourse().getPrerequisiteCourseId() != null) {
+            Long prereqId = section.getCourse().getPrerequisiteCourseId();
+            boolean hasCompletedPrereq = enrollmentRepository.findAllByStudentId(student.getId()).stream()
+                    .anyMatch(e -> e.getClassSection() != null
+                            && e.getClassSection().getCourse() != null
+                            && prereqId.equals(e.getClassSection().getCourse().getId())
+                            && "COMPLETED".equalsIgnoreCase(e.getStatus()));
+
+            if (!hasCompletedPrereq) {
+                Course prereq = courseRepository.findById(prereqId).orElse(null);
+                String prereqInfo = prereq != null ? (prereq.getCourseCode() + " - " + prereq.getName()) : ("ID " + prereqId);
+                throw new BusinessException(String.format(
+                        "Không đủ điều kiện đăng ký! Bạn chưa hoàn thành môn học tiên quyết bắt buộc: %s",
+                        prereqInfo
+                ));
+            }
+        }
+
+        // Rule 1c: Kiểm tra sinh viên đã từng hoàn thành môn học này ở bất kỳ học kỳ nào chưa
+        boolean alreadyCompleted = enrollmentRepository.findAllByStudentId(student.getId()).stream()
+                .anyMatch(e -> e.getClassSection() != null
+                        && e.getClassSection().getCourse() != null
+                        && section.getCourse() != null
+                        && Objects.equals(section.getCourse().getId(), e.getClassSection().getCourse().getId())
+                        && "COMPLETED".equalsIgnoreCase(e.getStatus()));
+        if (alreadyCompleted) {
+            throw new BusinessException(String.format(
+                    "Bạn đã tích lũy và hoàn thành môn học này rồi (%s - %s) với kết quả đạt.",
+                    section.getCourse().getCourseCode(), section.getCourse().getName()
+            ));
         }
 
         // Rule 2: Kiểm tra sinh viên đã đăng ký lớp này chưa

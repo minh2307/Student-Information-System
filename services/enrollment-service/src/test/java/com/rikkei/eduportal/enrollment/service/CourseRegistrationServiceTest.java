@@ -36,6 +36,9 @@ class CourseRegistrationServiceTest {
     private GradeRepository gradeRepository;
 
     @Mock
+    private CourseRepository courseRepository;
+
+    @Mock
     private StudentDashboardService dashboardService;
 
     @InjectMocks

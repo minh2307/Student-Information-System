@@ -49,6 +49,19 @@ CREATE TABLE IF NOT EXISTS courses (
     prerequisite_course_id BIGINT REFERENCES courses(id) ON DELETE SET NULL
 );
 
+-- 4b. Table semesters (Quản lý các Học kỳ)
+CREATE TABLE IF NOT EXISTS semesters (
+    id BIGSERIAL PRIMARY KEY,
+    semester_code VARCHAR(30) UNIQUE NOT NULL,
+    semester_name VARCHAR(100) NOT NULL,
+    academic_year VARCHAR(30) NOT NULL,
+    is_active BOOLEAN DEFAULT FALSE,
+    is_registration_open BOOLEAN DEFAULT TRUE,
+    start_date DATE,
+    end_date DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 5. Table class_sections (Lớp học phần mở trong kỳ)
 CREATE TABLE IF NOT EXISTS class_sections (
     id BIGSERIAL PRIMARY KEY,
