@@ -452,8 +452,36 @@ jobs:
             exit 0
           fi
           mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          python3 -c "
+          import os, re, base64
+          raw = os.environ.get('SSH_KEY', '').strip()
+          if '-----BEGIN' not in raw:
+              try:
+                  dec = base64.b64decode(raw).decode('utf-8', errors='ignore')
+                  if '-----BEGIN' in dec:
+                      raw = dec
+              except Exception:
+                  pass
+          raw = raw.replace('\\\\n', '\n').replace('\r', '')
+          m = re.search(r'(-----BEGIN [A-Z0-9 ]+ PRIVATE KEY-----)(.*?)(-----END [A-Z0-9 ]+ PRIVATE KEY-----)', raw, re.DOTALL)
+          if m:
+              header = m.group(1).strip()
+              body = m.group(2).replace(' ', '').replace('\n', '')
+              footer = m.group(3).strip()
+              formatted = '\n'.join([body[i:i+64] for i in range(0, len(body), 64)])
+              clean = f'{header}\n{formatted}\n{footer}\n'
+          else:
+              clean = raw.strip() + '\n'
+          with open(os.path.expanduser('~/.ssh/deploy_key'), 'w') as f:
+              f.write(clean)
+          "
           chmod 600 ~/.ssh/deploy_key
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; then
+            echo "::error::SSH private key không đúng định dạng OpenSSH/PEM! Vui lòng kiểm tra lại secret SSH_KEY."
+            rm -f ~/.ssh/deploy_key
+            exit 1
+          fi
+          echo "SSH deploy key loaded successfully ✓"
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Deploy via SSH
