@@ -33,6 +33,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(403, ex.getMessage()));
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<?>> handleSpringSecurityAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        log.error("SpringSecurityAccessDenied: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(403, "Forbidden: " + ex.getMessage()));
+    }
+
     @ExceptionHandler(GradeLockedConflictException.class)
     public ResponseEntity<ApiResponse<?>> handleLocked(GradeLockedConflictException ex) {
         log.error("GradeLocked: {}", ex.getMessage());
