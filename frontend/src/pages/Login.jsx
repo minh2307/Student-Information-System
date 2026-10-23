@@ -109,9 +109,17 @@ export const Login = () => {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50/80 flex flex-col font-sans text-stone-800">
+    <div 
+      className="min-h-screen flex flex-col font-sans text-stone-800 relative bg-stone-100 bg-cover bg-center bg-no-repeat"
+      style={{
+        backgroundImage: `linear-gradient(to right, rgba(250, 250, 249, 0.85) 0%, rgba(250, 250, 249, 0.72) 45%, rgba(250, 250, 249, 0.82) 100%), url('/images/login-banner.png')`,
+        backgroundAttachment: 'fixed',
+        backgroundPosition: 'center',
+        backgroundSize: 'cover',
+      }}
+    >
       {/* 1. Official Portal Top Navigation Bar */}
-      <header className="bg-white border-b border-stone-200/90 sticky top-0 z-40">
+      <header className="bg-white/90 backdrop-blur-md border-b border-stone-200/90 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img 
@@ -139,7 +147,7 @@ export const Login = () => {
               <Mail size={13} className="text-red-700" />
               <span>Email: <strong className="text-stone-900 font-mono">daotao@rikkei.edu.vn</strong></span>
             </span>
-            <span className="font-mono text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded border border-stone-200 text-[11px] font-semibold">
+            <span className="font-mono text-stone-700 bg-stone-100/90 px-2.5 py-0.5 rounded border border-stone-200 text-[11px] font-semibold">
               Niên khóa 2024 - 2025
             </span>
           </div>
@@ -307,16 +315,22 @@ export const Login = () => {
 
           {/* ── RIGHT SECTION: Login Card (35 - 40%) ── */}
           <div className="w-full lg:w-[380px] xl:w-[420px] shrink-0 lg:sticky lg:top-24">
-            <div className="bg-white rounded-2xl shadow-xl border border-stone-200/90 overflow-hidden">
+            <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-stone-200/90 overflow-hidden">
               {/* Header of Login Card */}
-              <div className="bg-red-800 p-6 text-white text-center border-b border-red-900">
-                <div className="inline-flex p-2.5 rounded-xl bg-white/10 mb-2 border border-white/20">
-                  <GraduationCap size={28} className="text-white" />
+              <div className="bg-gradient-to-br from-red-800 via-red-900 to-red-950 p-6 text-white text-center border-b border-red-950 relative overflow-hidden">
+                <div 
+                  className="absolute inset-0 opacity-15 bg-cover bg-center pointer-events-none"
+                  style={{ backgroundImage: `url('/images/login-banner.png')` }}
+                />
+                <div className="relative z-10">
+                  <div className="inline-flex p-2.5 rounded-xl bg-white/10 mb-2 border border-white/20 backdrop-blur-xs">
+                    <GraduationCap size={28} className="text-white" />
+                  </div>
+                  <h2 className="text-lg font-bold tracking-tight">Đăng Nhập Cổng Đào Tạo</h2>
+                  <p className="text-xs text-red-100 font-mono mt-0.5">
+                    Xác thực danh tính học vụ điện tử
+                  </p>
                 </div>
-                <h2 className="text-lg font-bold tracking-tight">Đăng Nhập Cổng Đào Tạo</h2>
-                <p className="text-xs text-red-100 font-mono mt-0.5">
-                  Xác thực danh tính học vụ điện tử
-                </p>
               </div>
 
               {/* Login Form */}
@@ -444,7 +458,7 @@ export const Login = () => {
       </main>
 
       {/* 3. Footer */}
-      <footer className="bg-white border-t border-stone-200/90 py-4 text-center text-xs text-stone-500 mt-auto">
+      <footer className="bg-white/90 backdrop-blur-md border-t border-stone-200/90 py-4 text-center text-xs text-stone-500 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="font-mono text-[11px]">© 2026 Học viện Công nghệ Rikkei. Rikkei EduPortal v1.2</span>
           <span className="text-[11px]">Bản quyền thuộc về Phòng Quản lý Đào tạo & Khảo thí</span>
