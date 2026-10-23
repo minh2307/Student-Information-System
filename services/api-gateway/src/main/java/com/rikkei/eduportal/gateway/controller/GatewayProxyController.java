@@ -13,6 +13,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
@@ -84,10 +85,16 @@ public class GatewayProxyController {
                     .headers(cleanResponseHeaders(response.getHeaders()))
                     .body(response.getBody());
         } catch (HttpStatusCodeException ex) {
-            log.error("Downstream service error: {} on {}", ex.getStatusCode(), targetUrl);
+            log.error("Downstream service error: {} on {}, body: '{}'", ex.getStatusCode(), targetUrl, ex.getResponseBodyAsString());
+            byte[] body = ex.getResponseBodyAsByteArray();
+            if (body == null || body.length == 0) {
+                String fallbackJson = "{\"status\":" + ex.getStatusCode().value() + ",\"message\":\"" + 
+                    (ex.getStatusCode().value() == 401 ? "Tên đăng nhập hoặc mật khẩu không chính xác" : ex.getStatusText()) + "\"}";
+                body = fallbackJson.getBytes(StandardCharsets.UTF_8);
+            }
             return ResponseEntity.status(ex.getStatusCode())
-                    .headers(cleanResponseHeaders(ex.getResponseHeaders()))
-                    .body(ex.getResponseBodyAsByteArray());
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body);
         } catch (ResourceAccessException ex) {
             log.error("Downstream service unreachable: {} - {}", targetUrl, ex.getMessage());
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)

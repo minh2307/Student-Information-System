@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../services/api'
 import { getRealAvatar } from '../utils/avatarUtils'
-import { Plus, Search, UserCheck, Shield, Trash2, Edit2, X, Check, Lock, Unlock, AlertCircle, CheckCircle } from 'lucide-react'
+import { Plus, Search, UserCheck, Shield, Trash2, Edit2, X, Check, Lock, Unlock, AlertCircle, CheckCircle, Key } from 'lucide-react'
 
 export const AdminUsers = () => {
   const [users, setUsers] = useState([])
@@ -19,7 +19,7 @@ export const AdminUsers = () => {
   const [createForm, setCreateForm] = useState({
     username: '',
     email: '',
-    password: 'Password@123',
+    password: '123456',
     fullName: '',
     role: 'STUDENT',
     avatarUrl: '',
@@ -101,7 +101,7 @@ export const AdminUsers = () => {
       setCreateForm({
         username: '',
         email: '',
-        password: 'Password@123',
+        password: '123456',
         fullName: '',
         role: 'STUDENT',
         avatarUrl: '',
@@ -180,6 +180,19 @@ export const AdminUsers = () => {
       fetchUsers()
     } catch (err) {
       setMessage({ type: 'error', text: 'Lỗi khi cập nhật trạng thái' })
+    }
+  }
+
+  const handleResetPassword = async (item) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn đặt lại mật khẩu cho tài khoản "${item.user.username}" về mặc định "123456"?`)) {
+      return
+    }
+    try {
+      await api.put(`/admin/users/${item.user.id}`, { password: '123456' })
+      setMessage({ type: 'success', text: `Đã đặt lại mật khẩu của ${item.user.username} về "123456" thành công!` })
+    } catch (err) {
+      const errMsg = err.response?.data?.message || 'Lỗi khi đặt lại mật khẩu'
+      setMessage({ type: 'error', text: errMsg })
     }
   }
 
@@ -351,6 +364,13 @@ export const AdminUsers = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
+                          onClick={() => handleResetPassword(item)}
+                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                          title="Đặt lại mật khẩu về mặc định (123456)"
+                        >
+                          <Key size={16} />
+                        </button>
+                        <button
                           onClick={() => openEditModal(item)}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Chỉnh sửa"
@@ -440,7 +460,9 @@ export const AdminUsers = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Mật khẩu *</label>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Mật khẩu * <span className="text-red-700 font-normal">(Mặc định: 123456)</span>
+                  </label>
                   <input
                     type="password"
                     required
