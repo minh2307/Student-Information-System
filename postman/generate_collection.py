@@ -11,19 +11,6 @@ collection = {
 }
 
 def make_req(name, method, url_str, headers=None, body_json=None, tests=None, pre_script=None):
-    url_parts = url_str.split('?')
-    query = []
-    if len(url_parts) > 1:
-        for q in url_parts[1].split('&'):
-            if '=' in q:
-                k, v = q.split('=', 1)
-                query.append({'key': k, 'value': v})
-
-    url_obj = {
-        'raw': url_str,
-        'query': query
-    }
-    
     header_list = []
     if headers:
         for k, v in headers.items():
@@ -32,7 +19,7 @@ def make_req(name, method, url_str, headers=None, body_json=None, tests=None, pr
     request_obj = {
         'method': method,
         'header': header_list,
-        'url': url_obj
+        'url': url_str
     }
 
     if body_json is not None:

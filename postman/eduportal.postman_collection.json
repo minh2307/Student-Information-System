@@ -20,10 +20,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_auth_url}}{{api_prefix}}/auth/login",
-              "query": []
-            },
+            "url": "{{base_auth_url}}{{api_prefix}}/auth/login",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"username\": \"{{lecturer1_username}}\",\n  \"password\": \"{{lecturer1_password}}\"\n}",
@@ -69,10 +66,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_auth_url}}{{api_prefix}}/auth/login",
-              "query": []
-            },
+            "url": "{{base_auth_url}}{{api_prefix}}/auth/login",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"username\": \"{{lecturer2_username}}\",\n  \"password\": \"{{lecturer2_password}}\"\n}",
@@ -116,10 +110,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_auth_url}}{{api_prefix}}/auth/login",
-              "query": []
-            },
+            "url": "{{base_auth_url}}{{api_prefix}}/auth/login",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"username\": \"{{student1_username}}\",\n  \"password\": \"{{student1_password}}\"\n}",
@@ -163,10 +154,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_auth_url}}{{api_prefix}}/auth/login",
-              "query": []
-            },
+            "url": "{{base_auth_url}}{{api_prefix}}/auth/login",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"username\": \"{{admin_username}}\",\n  \"password\": \"{{admin_password}}\"\n}",
@@ -210,10 +198,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_auth_url}}{{api_prefix}}/auth/login",
-              "query": []
-            },
+            "url": "{{base_auth_url}}{{api_prefix}}/auth/login",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"username\": \"{{lecturer1_username}}\",\n  \"password\": \"wrong_password_xyz\"\n}",
@@ -255,10 +240,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes",
-              "query": []
-            }
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes"
           },
           "response": [],
           "event": [
@@ -296,10 +278,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv1}}",
-              "query": []
-            },
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv1}}",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"midtermScore\": 8.5,\n  \"finalScore\": 9.0\n}",
@@ -341,10 +320,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/admin/class-sections",
-              "query": []
-            },
+            "url": "{{base_lecturer_url}}{{api_prefix}}/admin/class-sections",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"sectionCode\": \"TEST-999\"\n}",
@@ -381,10 +357,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes/{{section_id_gv002}}/students",
-              "query": []
-            }
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes/{{section_id_gv002}}/students"
           },
           "response": [],
           "event": [
@@ -423,15 +396,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes?semester=2024-25_SEM2",
-              "query": [
-                {
-                  "key": "semester",
-                  "value": "2024-25_SEM2"
-                }
-              ]
-            }
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes?semester=2024-25_SEM2"
           },
           "response": [],
           "event": [
@@ -473,10 +438,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes/{{section_id_gv001}}/students",
-              "query": []
-            }
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes/{{section_id_gv001}}/students"
           },
           "response": [],
           "event": [
@@ -523,10 +485,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/enrollments/{{enrollment_id_sv1}}/attendance",
-              "query": []
-            },
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/enrollments/{{enrollment_id_sv1}}/attendance",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"attendanceRate\": 95.0\n}",
@@ -575,10 +534,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv1}}",
-              "query": []
-            },
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv1}}",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"attendanceScore\": 10.0,\n  \"midtermScore\": 8.0,\n  \"finalScore\": 9.0\n}",
@@ -627,10 +583,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv1}}",
-              "query": []
-            },
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv1}}",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"finalScore\": 11.5\n}",
@@ -672,10 +625,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv1}}",
-              "query": []
-            },
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv1}}",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"midtermScore\": -2.0\n}",
@@ -717,10 +667,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv2}}",
-              "query": []
-            },
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv2}}",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"attendanceScore\": 9.0,\n  \"midtermScore\": 7.5,\n  \"finalScore\": 8.0\n}",
@@ -764,10 +711,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes/{{section_id_gv001}}/lock-grades",
-              "query": []
-            }
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes/{{section_id_gv001}}/lock-grades"
           },
           "response": [],
           "event": [
@@ -806,10 +750,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv1}}",
-              "query": []
-            },
+            "url": "{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv1}}",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"finalScore\": 10.0\n}",
@@ -862,10 +803,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_enrollment_url}}{{api_prefix}}/student/enrollments",
-              "query": []
-            },
+            "url": "{{base_enrollment_url}}{{api_prefix}}/student/enrollments",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"classSectionId\": 4\n}",
@@ -913,10 +851,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_enrollment_url}}{{api_prefix}}/student/enrollments",
-              "query": []
-            },
+            "url": "{{base_enrollment_url}}{{api_prefix}}/student/enrollments",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"classSectionId\": 999\n}",
@@ -959,10 +894,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_enrollment_url}}{{api_prefix}}/student/enrollments/3",
-              "query": []
-            }
+            "url": "{{base_enrollment_url}}{{api_prefix}}/student/enrollments/3"
           },
           "response": [],
           "event": [
@@ -1006,10 +938,7 @@
                 "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_enrollment_url}}{{api_prefix}}/student/enrollments",
-              "query": []
-            },
+            "url": "{{base_enrollment_url}}{{api_prefix}}/student/enrollments",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"classSectionId\": 4\n}",
