@@ -177,7 +177,8 @@ jobs:
       # Khởi động auth-service (JWT issuance)
       - name: Start auth-service (port 8081)
         run: |
-          nohup java -jar services/auth-service/build/libs/*.jar \
+          AUTH_JAR=$(ls services/auth-service/build/libs/*.jar | grep -v 'plain' | head -n 1)
+          nohup java -jar "$AUTH_JAR" \
             --server.port=8081 \
             --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
             --spring.datasource.username=postgres \
@@ -190,7 +191,8 @@ jobs:
       # Khởi động lecturer-service (chủ thể test chính)
       - name: Start lecturer-service (port 8085)
         run: |
-          nohup java -jar services/lecturer-service/build/libs/*.jar \
+          LECTURER_JAR=$(ls services/lecturer-service/build/libs/*.jar | grep -v 'plain' | head -n 1)
+          nohup java -jar "$LECTURER_JAR" \
             --server.port=8085 \
             --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
             --spring.datasource.username=postgres \
@@ -203,9 +205,9 @@ jobs:
       # Khởi động enrollment-service (nếu jar tồn tại — merge với Quân)
       - name: Start enrollment-service (port 8083) — optional
         run: |
-          JAR=$(ls services/enrollment-service/build/libs/*.jar 2>/dev/null || true)
-          if [ -n "$JAR" ]; then
-            nohup java -jar "$JAR" \
+          ENROLL_JAR=$(ls services/enrollment-service/build/libs/*.jar 2>/dev/null | grep -v 'plain' | head -n 1 || true)
+          if [ -n "$ENROLL_JAR" ]; then
+            nohup java -jar "$ENROLL_JAR" \
               --server.port=8083 \
               --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
               --spring.datasource.username=postgres \
@@ -221,20 +223,32 @@ jobs:
       - name: Wait for services to be ready
         run: |
           echo "Waiting for auth-service:8081..."
+          AUTH_READY=false
           for i in $(seq 1 30); do
             if curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; then
-              echo "auth-service ready ✓"; break
+              echo "auth-service ready ✓"; AUTH_READY=true; break
             fi
             sleep 3
           done
+          if [ "$AUTH_READY" != "true" ]; then
+            echo "❌ auth-service failed to start! Dumping log:"
+            cat /tmp/auth-service.log || true
+            exit 1
+          fi
 
           echo "Waiting for lecturer-service:8085..."
+          LECTURER_READY=false
           for i in $(seq 1 30); do
             if curl -sf http://localhost:8085/actuator/health > /dev/null 2>&1; then
-              echo "lecturer-service ready ✓"; break
+              echo "lecturer-service ready ✓"; LECTURER_READY=true; break
             fi
             sleep 3
           done
+          if [ "$LECTURER_READY" != "true" ]; then
+            echo "❌ lecturer-service failed to start! Dumping log:"
+            cat /tmp/lecturer-service.log || true
+            exit 1
+          fi
 
       - name: Setup Node.js (Newman)
         uses: actions/setup-node@v4

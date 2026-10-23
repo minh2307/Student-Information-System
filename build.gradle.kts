@@ -26,4 +26,10 @@ subprojects {
     tasks.withType<Test> {
         useJUnitPlatform()
     }
+
+    plugins.withId("org.springframework.boot") {
+        tasks.named<Jar>("jar") {
+            enabled = false
+        }
+    }
 }
