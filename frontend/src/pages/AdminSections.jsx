@@ -159,7 +159,15 @@ export const AdminSections = () => {
     try {
       const res = await api.get('/semesters')
       if (res.data?.data && res.data.data.length > 0) {
-        setSemestersList(res.data.data)
+        const mapped = res.data.data.map(s => {
+          const isOpen = s.isRegistrationOpen !== undefined ? s.isRegistrationOpen : (s.registrationOpen !== undefined ? s.registrationOpen : true)
+          return {
+            ...s,
+            registrationOpen: Boolean(isOpen),
+            isRegistrationOpen: Boolean(isOpen)
+          }
+        })
+        setSemestersList(mapped)
       } else {
         setSemestersList([
           { id: 1, semesterCode: '2024-25_SEM2', semesterName: 'Học kỳ 2 (2024-2025)', isActive: true, registrationOpen: true },
@@ -300,8 +308,9 @@ export const AdminSections = () => {
 
   const handleToggleRegistration = async (semesterId, currentStatus) => {
     try {
-      await api.put(`/admin/semesters/${semesterId}/registration?open=${!currentStatus}`)
-      showToast(`Đã ${!currentStatus ? 'mở' : 'đóng'} cổng đăng ký của học kỳ!`)
+      const targetState = !Boolean(currentStatus)
+      await api.put(`/admin/semesters/${semesterId}/registration?isOpen=${targetState}&open=${targetState}`)
+      showToast(`Đã ${targetState ? 'mở' : 'đóng'} cổng đăng ký của học kỳ!`)
       fetchSemesters()
     } catch (err) {
       showToast(err.response?.data?.message || 'Lỗi khi cập nhật trạng thái đăng ký', 'error')

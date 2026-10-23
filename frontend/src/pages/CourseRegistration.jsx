@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
 import { 
   Search, 
@@ -16,10 +17,15 @@ import {
   CheckCircle2,
   Loader2,
   ShieldCheck,
-  Info
+  Info,
+  Unlock,
+  Lock
 } from 'lucide-react'
 
 export const CourseRegistration = () => {
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'ADMIN'
+
   const [semester, setSemester] = useState('2024-25_SEM2')
   const [semestersList, setSemestersList] = useState([])
   const [keyword, setKeyword] = useState('')
@@ -27,6 +33,7 @@ export const CourseRegistration = () => {
   const [loading, setLoading] = useState(false)
   const [actionLoadingId, setActionLoadingId] = useState(null)
   const [message, setMessage] = useState({ type: '', text: '' })
+  const [togglingPortal, setTogglingPortal] = useState(false)
   const [cancelModal, setCancelModal] = useState({
     open: false,
     enrollmentId: null,
@@ -139,8 +146,18 @@ export const CourseRegistration = () => {
     try {
       const res = await api.get('/semesters')
       if (res.data?.data && res.data.data.length > 0) {
-        setSemestersList(res.data.data)
-        const active = res.data.data.find(s => s.isActive)
+        const mapped = res.data.data.map(s => {
+          const isOpen = s.isRegistrationOpen !== undefined 
+            ? s.isRegistrationOpen 
+            : (s.registrationOpen !== undefined ? s.registrationOpen : true)
+          return {
+            ...s,
+            registrationOpen: Boolean(isOpen),
+            isRegistrationOpen: Boolean(isOpen)
+          }
+        })
+        setSemestersList(mapped)
+        const active = mapped.find(s => s.isActive)
         if (active) {
           setSemester(active.semesterCode)
         }
@@ -170,11 +187,44 @@ export const CourseRegistration = () => {
   }
 
   const currentSemesterObj = useMemo(() => {
-    return semestersList.find(s => s.semesterCode === semester) || {
-      semesterName: semester,
-      registrationOpen: true
+    const found = semestersList.find(s => s.semesterCode === semester)
+    if (!found) {
+      return {
+        semesterName: semester,
+        registrationOpen: true,
+        isRegistrationOpen: true
+      }
+    }
+    const isOpen = found.isRegistrationOpen !== undefined 
+      ? found.isRegistrationOpen 
+      : (found.registrationOpen !== undefined ? found.registrationOpen : true)
+    return {
+      ...found,
+      registrationOpen: Boolean(isOpen),
+      isRegistrationOpen: Boolean(isOpen)
     }
   }, [semestersList, semester])
+
+  const handleToggleRegistrationPortal = async () => {
+    if (!currentSemesterObj?.id) return
+    setTogglingPortal(true)
+    try {
+      const targetState = !currentSemesterObj.registrationOpen
+      await api.put(`/admin/semesters/${currentSemesterObj.id}/registration?isOpen=${targetState}&open=${targetState}`)
+      setMessage({
+        type: 'success',
+        text: `Đã ${targetState ? 'MỞ' : 'ĐÓNG'} cổng đăng ký học phần cho ${currentSemesterObj.semesterName} thành công!`
+      })
+      fetchSemesters()
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: 'Lỗi khi cập nhật trạng thái cổng đăng ký: ' + (err.response?.data?.message || err.message)
+      })
+    } finally {
+      setTogglingPortal(false)
+    }
+  }
 
   // Tính tổng tín chỉ đã đăng ký
   const enrolledSummary = useMemo(() => {
@@ -292,13 +342,44 @@ export const CourseRegistration = () => {
         </div>
       </div>
 
-      {/* 2. Notice if closed */}
-      {!currentSemesterObj.registrationOpen && (
-        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 font-medium">
-          <AlertCircle size={16} className="text-amber-700 shrink-0" />
-          <span>
-            Thời hạn đăng ký tín chỉ cho kỳ <strong>{currentSemesterObj.semesterName || semester}</strong> đã kết thúc. Bạn vẫn có thể xem danh sách lớp học và tra cứu lịch học nhưng không thể đăng ký mới hoặc hủy lớp.
-          </span>
+      {/* 2. Registration Portal Status Banner */}
+      {!currentSemesterObj.registrationOpen ? (
+        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-medium">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} className="text-amber-700 shrink-0" />
+            <span>
+              Thời hạn đăng ký tín chỉ cho kỳ <strong>{currentSemesterObj.semesterName || semester}</strong> hiện đang tạm đóng. Bạn có thể xem danh sách lớp học và tra cứu lịch học.
+            </span>
+          </div>
+          {isAdmin && (
+            <button
+              onClick={handleToggleRegistrationPortal}
+              disabled={togglingPortal}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs whitespace-nowrap self-end sm:self-auto"
+            >
+              <Unlock size={13} />
+              <span>{togglingPortal ? 'Đang mở...' : 'Mở cổng đăng ký ngay'}</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200/90 text-emerald-900 text-xs flex items-center justify-between gap-2 font-medium">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>
+              Cổng đăng ký học phần học kỳ <strong>{currentSemesterObj.semesterName || semester}</strong> đang <strong className="text-emerald-800 uppercase font-mono">MỞ</strong> cho sinh viên toàn học viện.
+            </span>
+          </div>
+          {isAdmin && (
+            <button
+              onClick={handleToggleRegistrationPortal}
+              disabled={togglingPortal}
+              className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition"
+            >
+              <Lock size={12} />
+              <span>{togglingPortal ? 'Đang đóng...' : 'Khóa cổng ĐK'}</span>
+            </button>
+          )}
         </div>
       )}
 

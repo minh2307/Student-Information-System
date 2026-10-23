@@ -1,5 +1,6 @@
 package com.rikkei.eduportal.course.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 
 public record SemesterResponse(
@@ -11,4 +12,9 @@ public record SemesterResponse(
         Boolean isRegistrationOpen,
         LocalDate startDate,
         LocalDate endDate
-) {}
+) {
+    @JsonProperty("registrationOpen")
+    public Boolean registrationOpen() {
+        return isRegistrationOpen;
+    }
+}

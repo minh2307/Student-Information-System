@@ -52,8 +52,10 @@ public class SemesterController {
     @PutMapping("/api/v1/admin/semesters/{id}/registration")
     public ResponseEntity<ApiResponse<SemesterResponse>> toggleRegistration(
             @PathVariable Long id,
-            @RequestParam(required = false) Boolean isOpen) {
-        SemesterResponse updated = semesterService.toggleRegistration(id, isOpen);
+            @RequestParam(required = false) Boolean isOpen,
+            @RequestParam(required = false) Boolean open) {
+        Boolean targetState = isOpen != null ? isOpen : open;
+        SemesterResponse updated = semesterService.toggleRegistration(id, targetState);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái đăng ký học kỳ thành công", updated));
     }
 }
