@@ -37,11 +37,8 @@ export const StudentAdvisorWidget = () => {
   const { user } = useAuthStore()
   const location = useLocation()
 
-  // Only show on student portal or if current user is STUDENT
-  const isStudentPortal =
-    user?.role === 'STUDENT' ||
-    location.pathname.startsWith('/student') ||
-    location.pathname === '/'
+  // Only show for STUDENT role
+  const isStudentPortal = user?.role === 'STUDENT'
 
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState(() => {

@@ -71,8 +71,8 @@ class AiAdvisorControllerTest {
     }
 
     @Test
-    @DisplayName("ADMIN role can also access Academic Advisor (HTTP 200)")
-    void getAcademicAdvice_adminRole_shouldReturn200() throws Exception {
+    @DisplayName("ADMIN role is forbidden from accessing Academic Advisor (HTTP 403)")
+    void getAcademicAdvice_adminRole_shouldReturn403() throws Exception {
         String token = createToken("ADMIN");
         AcademicAdvisorRequest request = new AcademicAdvisorRequest("Quy chế đăng ký tối đa bao nhiêu tín chỉ?");
 
@@ -80,14 +80,13 @@ class AiAdvisorControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value(200))
-                .andExpect(jsonPath("$.data.reply").value(containsString("24 tín chỉ")));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
     }
 
     @Test
-    @DisplayName("LECTURER role can access Academic Advisor (HTTP 200)")
-    void getAcademicAdvice_lecturerRole_shouldReturn200() throws Exception {
+    @DisplayName("LECTURER role is forbidden from accessing Academic Advisor (HTTP 403)")
+    void getAcademicAdvice_lecturerRole_shouldReturn403() throws Exception {
         String token = createToken("LECTURER");
         AcademicAdvisorRequest request = new AcademicAdvisorRequest("Môn CS401 có điều kiện tiên quyết là gì?");
 
@@ -95,9 +94,8 @@ class AiAdvisorControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value(200))
-                .andExpect(jsonPath("$.data.reply").value(containsString("CS201")));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
     }
 
     @Test

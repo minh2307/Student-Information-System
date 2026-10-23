@@ -1,19 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import api from '../services/api'
-import { Plus, Sparkles, BookOpen, Clock, Loader2, Search, Edit2, Trash2, X, AlertCircle, CheckCircle2, FastForward } from 'lucide-react'
+import { Plus, BookOpen, Clock, Loader2, Search, Edit2, Trash2, X, AlertCircle, CheckCircle2 } from 'lucide-react'
 
 export const AdminCourses = () => {
   const [courses, setCourses] = useState([])
   const [loading, setLoading] = useState(false)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [toast, setToast] = useState(null)
-
-  // Top AI Generator standalone box state
-  const [targetCourseName, setTargetCourseName] = useState('')
-  const [targetCredits, setTargetCredits] = useState(3)
-  const [targetRequirements, setTargetRequirements] = useState('')
-  const [generatedSyllabus, setGeneratedSyllabus] = useState('')
-  const [aiGeneratingTop, setAiGeneratingTop] = useState(false)
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -31,15 +24,6 @@ export const AdminCourses = () => {
   })
   const [formError, setFormError] = useState('')
   const [formSubmitting, setFormSubmitting] = useState(false)
-  const [aiGeneratingModal, setAiGeneratingModal] = useState(false)
-
-  // AI Modal Streaming & Preview states
-  const [showAiPreview, setShowAiPreview] = useState(false)
-  const [aiGeneratedPreview, setAiGeneratedPreview] = useState('')
-  const [aiStreamedText, setAiStreamedText] = useState('')
-  const [aiModalStreaming, setAiModalStreaming] = useState(false)
-  const [aiLoadingStep, setAiLoadingStep] = useState('')
-  const aiTimerRef = useRef(null)
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
@@ -79,64 +63,15 @@ export const AdminCourses = () => {
     fetchCourses(searchKeyword)
   }
 
-  // Top Box AI Generator
-  const handleGenerateTopSyllabus = async () => {
-    if (!targetCourseName) return
-    setAiGeneratingTop(true)
-    setGeneratedSyllabus('')
-
-    try {
-      const res = await api.post('/ai/generate-syllabus', {
-        courseName: targetCourseName,
-        credits: targetCredits,
-        requirements: targetRequirements,
-      })
-      if (res.data?.data?.syllabus) {
-        setGeneratedSyllabus(res.data.data.syllabus)
-        showToast('AI đã sinh đề cương chi tiết!')
-      } else {
-        throw new Error('No syllabus returned')
-      }
-    } catch (err) {
-      console.error('AI Syllabus API call error:', err)
-      const fallback =
-        `[AI Generated Syllabus for ${targetCourseName} - ${targetCredits} Credits]:\n` +
-        `1. Mục tiêu học phần: Cung cấp kiến thức nền tảng và kỹ năng thực hành chuyên sâu theo định hướng: ${targetRequirements || 'Thực hành ứng dụng'}.\n` +
-        `2. Tuần 1-4: Nguyên lý cơ bản, thiết lập môi trường và cấu trúc dữ liệu cốt lõi.\n` +
-        `3. Tuần 5-8: Các thuật toán nâng cao, tối ưu hóa độ phức tạp thời gian/bộ nhớ.\n` +
-        `4. Tuần 9-12: Thực hành Project nhóm kết hợp CI/CD và kiến trúc Microservices.\n` +
-        `5. Đánh giá: 10% Chuyên cần, 30% Bài tập lớn/Giữa kỳ, 60% Đồ án kết thúc học phần.`
-      setGeneratedSyllabus(fallback)
-      showToast('Đã sinh đề cương gợi ý bằng AI fallback!')
-    } finally {
-      setAiGeneratingTop(false)
-    }
-  }
-
-  // Clean up AI timer on unmount
-  useEffect(() => {
-    return () => {
-      if (aiTimerRef.current) clearInterval(aiTimerRef.current)
-    }
-  }, [])
-
   const handleOpenCreateModal = () => {
-    if (aiTimerRef.current) {
-      clearInterval(aiTimerRef.current)
-      aiTimerRef.current = null
-    }
-    setShowAiPreview(false)
-    setAiGeneratedPreview('')
-    setAiStreamedText('')
-    setAiModalStreaming(false)
     setModalMode('create')
     setEditingId(null)
     setFormData({
       courseCode: '',
-      name: targetCourseName || '',
-      credits: targetCredits || 3,
+      name: '',
+      credits: 3,
       weeklyHours: 4,
-      syllabusDescription: generatedSyllabus || '',
+      syllabusDescription: '',
       prerequisiteCourseId: '',
     })
     setFormError('')
@@ -144,14 +79,6 @@ export const AdminCourses = () => {
   }
 
   const handleOpenEditModal = (c) => {
-    if (aiTimerRef.current) {
-      clearInterval(aiTimerRef.current)
-      aiTimerRef.current = null
-    }
-    setShowAiPreview(false)
-    setAiGeneratedPreview('')
-    setAiStreamedText('')
-    setAiModalStreaming(false)
     setModalMode('edit')
     setEditingId(c.id)
     setFormData({
@@ -164,96 +91,6 @@ export const AdminCourses = () => {
     })
     setFormError('')
     setIsModalOpen(true)
-  }
-
-  const startModalTypewriter = (fullText) => {
-    setAiGeneratedPreview(fullText)
-    setAiModalStreaming(true)
-    setAiStreamedText('')
-
-    let idx = 0
-    const len = fullText.length
-    const chunkSize = len > 350 ? 5 : 2
-    const intervalMs = 18
-
-    if (aiTimerRef.current) clearInterval(aiTimerRef.current)
-
-    aiTimerRef.current = setInterval(() => {
-      idx += chunkSize
-      if (idx >= len) {
-        setAiStreamedText(fullText)
-        setAiModalStreaming(false)
-        clearInterval(aiTimerRef.current)
-        aiTimerRef.current = null
-      } else {
-        setAiStreamedText(fullText.slice(0, idx))
-      }
-    }, intervalMs)
-  }
-
-  const handleSkipModalTyping = () => {
-    if (aiTimerRef.current) {
-      clearInterval(aiTimerRef.current)
-      aiTimerRef.current = null
-    }
-    setAiModalStreaming(false)
-    setAiStreamedText(aiGeneratedPreview)
-  }
-
-  const handleApplyAiSyllabus = () => {
-    const textToApply = aiGeneratedPreview || aiStreamedText
-    if (!textToApply) return
-    if (aiTimerRef.current) {
-      clearInterval(aiTimerRef.current)
-      aiTimerRef.current = null
-    }
-    setAiModalStreaming(false)
-    setFormData((prev) => ({ ...prev, syllabusDescription: textToApply }))
-    showToast('Đã áp dụng đề cương AI trực tiếp vào ô Syllabus Description!')
-  }
-
-  const handleGenerateModalSyllabus = async () => {
-    if (!formData.name) {
-      setFormError('Vui lòng nhập Tên môn học trước khi gọi AI sinh đề cương!')
-      return
-    }
-    setFormError('')
-    setAiGeneratingModal(true)
-    setShowAiPreview(true)
-    setAiStreamedText('')
-    setAiGeneratedPreview('')
-    setAiLoadingStep('Đang kết nối Spring AI & phân tích môn học...')
-
-    if (aiTimerRef.current) {
-      clearInterval(aiTimerRef.current)
-      aiTimerRef.current = null
-    }
-
-    try {
-      const res = await api.post('/ai/generate-syllabus', {
-        courseName: formData.name,
-        credits: formData.credits,
-      })
-      if (res.data?.data?.syllabus) {
-        startModalTypewriter(res.data.data.syllabus)
-        showToast('AI đã tạo đề cương chi tiết thành công!')
-      } else {
-        throw new Error('No syllabus returned')
-      }
-    } catch (err) {
-      console.warn('AI Syllabus API call error, using fallback:', err)
-      const generated =
-        `[Đề cương môn học ${formData.name} - ${formData.credits} Tín chỉ - Tạo tự động bởi Spring AI]:\n` +
-        `1. Mục tiêu học phần: Cung cấp kiến thức nền tảng và kỹ năng thực hành chuyên sâu theo chuẩn đầu ra ngành CNTT.\n` +
-        `2. Tuần 1-4: Nguyên lý cốt lõi, môi trường phát triển và các cấu trúc cơ bản.\n` +
-        `3. Tuần 5-8: Kỹ thuật nâng cao, giải quyết bài toán phức hợp và tối ưu hiệu năng.\n` +
-        `4. Tuần 9-12: Thực hành Project nhóm kết hợp CI/CD và kiến trúc Microservices hiện đại.\n` +
-        `5. Cơ chế đánh giá: 10% Chuyên cần, 30% Đánh giá giữa kỳ, 60% Đồ án/Thi kết thúc học phần.`
-      startModalTypewriter(generated)
-      showToast('Đã tạo đề cương bằng Spring AI fallback!')
-    } finally {
-      setAiGeneratingModal(false)
-    }
   }
 
   const handleSaveCourse = async (e) => {
@@ -329,7 +166,7 @@ export const AdminCourses = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Quản lý Danh mục Môn học</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Quản trị danh mục học phần, môn tiên quyết và tích hợp Spring AI sinh đề cương (FR-06, FR-08)</p>
+          <p className="text-slate-500 text-sm mt-0.5">Quản trị danh mục học phần, thông tin tín chỉ và môn học tiên quyết (FR-06)</p>
         </div>
         <button
           onClick={handleOpenCreateModal}
@@ -338,64 +175,6 @@ export const AdminCourses = () => {
           <Plus size={18} />
           <span>Thêm môn học mới</span>
         </button>
-      </div>
-
-      {/* AI Syllabus Generator Box (Top Widget) */}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
-          <Sparkles size={18} />
-          <span>AI Syllabus Generator (Trí tuệ nhân tạo sinh đề cương môn học)</span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-          <input
-            type="text"
-            placeholder="Tên môn học (VD: Cloud Computing, DevOps, An toàn thông tin...)"
-            value={targetCourseName}
-            onChange={(e) => setTargetCourseName(e.target.value)}
-            className="md:col-span-5 px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <select
-            value={targetCredits}
-            onChange={(e) => setTargetCredits(Number(e.target.value))}
-            className="md:col-span-2 px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            {[1, 2, 3, 4, 5, 6].map((num) => (
-              <option key={num} value={num}>
-                {num} Tín chỉ
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="Yêu cầu bổ sung (VD: Thực hành Kubernetes, AWS...)"
-            value={targetRequirements}
-            onChange={(e) => setTargetRequirements(e.target.value)}
-            className="md:col-span-3 px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <button
-            onClick={handleGenerateTopSyllabus}
-            disabled={aiGeneratingTop || !targetCourseName}
-            className="md:col-span-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-colors"
-          >
-            {aiGeneratingTop ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            <span>{aiGeneratingTop ? 'AI đang tạo...' : 'Sinh đề cương'}</span>
-          </button>
-        </div>
-
-        {generatedSyllabus && (
-          <div className="bg-white p-4 rounded-lg border border-indigo-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed shadow-inner space-y-3">
-            <div>{generatedSyllabus}</div>
-            <div className="flex justify-end pt-2 border-t border-slate-100">
-              <button
-                onClick={handleOpenCreateModal}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-xs"
-              >
-                <Plus size={14} />
-                <span>Thêm vào danh mục với đề cương này</span>
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Search & Filter Toolbar */}
@@ -599,156 +378,13 @@ export const AdminCourses = () => {
                 </select>
               </div>
 
-              {/* AI Syllabus Trigger Box inside Modal */}
-              <div className="bg-gradient-to-r from-indigo-50/90 via-purple-50/80 to-blue-50/90 border border-indigo-200/80 rounded-xl p-3.5 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-indigo-700 font-semibold text-xs">
-                    <Sparkles size={16} className="text-indigo-600" />
-                    <span>Hỗ trợ soạn đề cương chi tiết bằng Spring AI (FR-08)</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleGenerateModalSyllabus}
-                    disabled={aiGeneratingModal || aiModalStreaming || !formData.name}
-                    className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
-                    title="Gọi Spring AI sinh đề cương chi tiết"
-                  >
-                    {aiGeneratingModal ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={14} />
-                    )}
-                    <span>
-                      {aiGeneratingModal
-                        ? 'Đang tạo...'
-                        : aiModalStreaming
-                        ? 'AI đang gõ...'
-                        : 'Gọi AI soạn đề cương'}
-                    </span>
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  Nhập tên môn học và nhấn nút để Spring AI tự động phân tích mục tiêu học phần, cấu trúc từng tuần học và chuẩn đầu ra.
-                </p>
-              </div>
-
-              {/* AI Generated Live Streaming Preview Card */}
-              {showAiPreview && (
-                <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50/90 via-purple-50/40 to-white p-4 space-y-3 shadow-md">
-                  <div className="flex items-center justify-between pb-2 border-b border-indigo-100">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm">
-                        <Sparkles
-                          size={13}
-                          className={aiModalStreaming || aiGeneratingModal ? 'animate-spin' : ''}
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-xs font-bold text-indigo-950">
-                          Bản thảo Đề cương từ Spring AI
-                        </h4>
-                        {aiModalStreaming && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-100 text-indigo-700 font-semibold animate-pulse flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-ping"></span>
-                            Đang sinh nội dung...
-                          </span>
-                        )}
-                        {!aiModalStreaming && !aiGeneratingModal && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-700 font-semibold flex items-center gap-1">
-                            <CheckCircle2 size={11} />
-                            Đã sinh hoàn tất
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      {aiModalStreaming && (
-                        <button
-                          type="button"
-                          onClick={handleSkipModalTyping}
-                          className="px-2 py-1 text-[11px] font-medium text-indigo-700 hover:text-indigo-900 hover:bg-indigo-100/60 rounded-md flex items-center gap-1 transition-colors"
-                          title="Bỏ qua hiệu ứng gõ và hiển thị toàn bộ"
-                        >
-                          <FastForward size={12} />
-                          <span>Hiện đầy đủ</span>
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (aiTimerRef.current) clearInterval(aiTimerRef.current)
-                          setShowAiPreview(false)
-                          setAiModalStreaming(false)
-                        }}
-                        className="p-1 text-slate-400 hover:text-slate-600 rounded-md"
-                        title="Đóng bản thảo"
-                      >
-                        <X size={15} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Streaming Content or Loading state */}
-                  {aiGeneratingModal ? (
-                    <div className="py-6 flex flex-col items-center justify-center gap-2 text-indigo-600">
-                      <Loader2 size={24} className="animate-spin text-indigo-600" />
-                      <span className="text-xs font-semibold">
-                        {aiLoadingStep || 'Spring AI đang soạn thảo đề cương môn học...'}
-                      </span>
-                      <span className="text-[11px] text-slate-500">
-                        Đang tổng hợp mục tiêu học phần, chuẩn đầu ra và cấu trúc tuần học
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <div className="max-h-48 overflow-y-auto p-3 bg-white/95 rounded-lg border border-indigo-100 text-xs text-slate-800 leading-relaxed font-mono whitespace-pre-wrap select-text shadow-inner">
-                        {aiStreamedText}
-                        {aiModalStreaming && (
-                          <span className="inline-block w-1.5 h-3.5 bg-indigo-600 ml-0.5 animate-pulse align-middle" />
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Apply Directly to Syllabus Description Button */}
-                  {!aiGeneratingModal && (aiStreamedText || aiGeneratedPreview) && (
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1 border-t border-indigo-100/70">
-                      <p className="text-[11px] text-slate-500 italic">
-                        Bấm nút bên cạnh để áp dụng trực tiếp bản thảo này vào ô mô tả bên dưới:
-                      </p>
-                      <button
-                        type="button"
-                        onClick={handleApplyAiSyllabus}
-                        className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm shadow-emerald-500/20 active:scale-95 transition-all"
-                      >
-                        <CheckCircle2 size={15} />
-                        <span>Áp dụng vào ô Syllabus Description</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Mô tả đề cương học phần (Syllabus Description)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleGenerateModalSyllabus}
-                    disabled={aiGeneratingModal || aiModalStreaming || !formData.name}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200/80 transition-all disabled:opacity-50"
-                    title="Gọi Spring AI soạn thảo tự động đề cương"
-                  >
-                    <Sparkles size={12} className="text-indigo-600" />
-                    <span>Gọi AI soạn đề cương</span>
-                  </button>
-                </div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Mô tả đề cương học phần (Syllabus Description)
+                </label>
                 <textarea
                   rows="4"
-                  placeholder="Nội dung tóm tắt đề cương môn học..."
+                  placeholder="Nội dung tóm tắt đề cương môn học, chuẩn đầu ra..."
                   value={formData.syllabusDescription}
                   onChange={(e) => setFormData({ ...formData, syllabusDescription: e.target.value })}
                   className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white leading-relaxed font-mono"

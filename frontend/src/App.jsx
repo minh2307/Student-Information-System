@@ -41,11 +41,12 @@ export default function App() {
             {/* Profile Route */}
             <Route path="/profile" element={<Profile />} />
 
-            {/* Student Portal (Role: STUDENT, ADMIN) */}
-            <Route element={<ProtectedRoute allowedRoles={['STUDENT', 'ADMIN']} />}>
+            {/* Student Portal (Role: STUDENT) */}
+            <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
               <Route path="/student/dashboard"    element={<StudentDashboard />} />
               <Route path="/student/registration" element={<CourseRegistration />} />
               <Route path="/student/grades"       element={<StudentGrades />} />
+              <Route path="/ai/advisor"           element={<AiAdvisor />} />
             </Route>
 
             {/* ── Lecturer Portal (Role: LECTURER, ADMIN) ── */}
@@ -60,9 +61,6 @@ export default function App() {
               <Route path="/admin/courses"  element={<AdminCourses />} />
               <Route path="/admin/sections" element={<AdminSections />} />
             </Route>
-
-            {/* AI Advisor Chatbot */}
-            <Route path="/ai/advisor" element={<AiAdvisor />} />
           </Route>
         </Route>
 

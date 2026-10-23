@@ -3,8 +3,11 @@ import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { StudentAdvisorWidget } from './StudentAdvisorWidget'
+import { useAuthStore } from '../store/authStore'
 
 export const MainLayout = () => {
+  const { user } = useAuthStore()
+
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
       <Sidebar />
@@ -14,7 +17,7 @@ export const MainLayout = () => {
           <Outlet />
         </main>
       </div>
-      <StudentAdvisorWidget />
+      {user?.role === 'STUDENT' && <StudentAdvisorWidget />}
     </div>
   )
 }

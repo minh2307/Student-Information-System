@@ -29,13 +29,13 @@ public class AiAdvisorController {
 
     /**
      * API POST /api/v1/ai/academic-advisor
-     * Restricted to Roles: STUDENT (and ADMIN, LECTURER)
+     * Restricted strictly to Role: STUDENT
      *
      * Provides academic advising consultation for course registrations,
      * credit regulations, prerequisite dependencies, and schedule conflict resolution.
      */
     @PostMapping("/academic-advisor")
-    @RequireRoles({Role.STUDENT, Role.ADMIN, Role.LECTURER})
+    @RequireRoles({Role.STUDENT})
     public ResponseEntity<ApiResponse<AcademicAdvisorResponse>> getAcademicAdvice(
             @Valid @RequestBody AcademicAdvisorRequest request) {
 

@@ -55,6 +55,10 @@ export const Sidebar = () => {
               <GraduationCap size={18} />
               <span>Tra cứu điểm thi</span>
             </NavLink>
+            <NavLink to="/ai/advisor" className={navItemClass}>
+              <BotMessageSquare size={18} className="text-indigo-600" />
+              <span className="font-semibold text-indigo-900">Cố vấn học tập AI</span>
+            </NavLink>
           </>
         )}
 
@@ -92,18 +96,6 @@ export const Sidebar = () => {
             </NavLink>
           </>
         )}
-
-        {/* AI Assistant for all */}
-        <div className="pt-4 mt-4 border-t border-slate-100">
-          <div className="px-4 py-2 text-xs font-semibold text-indigo-500 uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles size={14} />
-            <span>AI Assistant</span>
-          </div>
-          <NavLink to="/ai/advisor" className={navItemClass}>
-            <BotMessageSquare size={18} className="text-indigo-600" />
-            <span className="font-semibold text-indigo-900">Cố vấn học tập AI</span>
-          </NavLink>
-        </div>
 
         {/* Profile */}
         <div className="pt-2">
