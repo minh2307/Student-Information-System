@@ -10,10 +10,10 @@ import {
   FileText,
   ShieldCheck,
   Building,
-  Sparkles,
-  ArrowRight,
+  Check,
   Filter,
-  Check
+  Download,
+  Info
 } from 'lucide-react'
 
 export const StudentTuition = () => {
@@ -68,7 +68,7 @@ export const StudentTuition = () => {
     try {
       const res = await api.post('/student/tuition/pay', {
         semester: selectedSemester,
-        paymentMethod: 'VietQR / Chuyển khoản ngân hàng'
+        paymentMethod: 'VietQR / Chuyển khoản ngân hàng 24/7'
       })
       if (res.data?.data) {
         setTuition(res.data.data)
@@ -77,7 +77,7 @@ export const StudentTuition = () => {
           setShowQrModal(false)
           setPaymentSuccess(false)
           setShowReceiptModal(true)
-        }, 1500)
+        }, 1200)
       }
     } catch (err) {
       alert('Không thể hoàn tất thanh toán: ' + (err.response?.data?.message || err.message))
@@ -93,26 +93,28 @@ export const StudentTuition = () => {
   const isPaid = tuition?.status === 'PAID'
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm print:hidden">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-            <CreditCard size={22} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Tra Cứu Học Phí & Công Nợ</h1>
-            <p className="text-xs text-slate-500">Chi tiết học phí các học phần đã đăng ký và tình trạng nộp học phí</p>
-          </div>
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* 1. Official Header & Semester Switcher */}
+      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-stone-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+        <div>
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700">
+            Phòng Kế Hoạch - Tài Chính • Ban Thu Học Phí
+          </span>
+          <h1 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
+            Biểu Kê Học Phí & Nghĩa Vụ Tài Chính Sinh Viên
+          </h1>
+          <p className="text-xs text-stone-600 mt-0.5">
+            Quyết toán định mức tín chỉ các lớp học phần và phương thức thanh toán trực tuyến
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-            <Filter size={15} className="text-slate-500" />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200">
+            <Filter size={14} className="text-stone-500" />
             <select
               value={selectedSemester}
               onChange={(e) => setSelectedSemester(e.target.value)}
-              className="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-semibold text-stone-800 focus:outline-none cursor-pointer"
             >
               {semesters.map((s) => (
                 <option key={s.id || s.semesterCode} value={s.semesterCode}>
@@ -125,126 +127,134 @@ export const StudentTuition = () => {
           {isPaid && (
             <button
               onClick={() => setShowReceiptModal(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-stone-900 hover:bg-black text-white transition shadow-2xs"
             >
-              <FileText size={15} />
-              <span>Xem Biên Lai</span>
+              <FileText size={14} />
+              <span>Biên lai điện tử</span>
             </button>
           )}
         </div>
       </div>
 
       {loading ? (
-        <div className="bg-white rounded-2xl p-16 border border-slate-200 text-center">
-          <div className="inline-block w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-3 text-sm text-slate-500">Đang tải thông tin công nợ học phí...</p>
+        <div className="bg-white rounded-2xl p-16 border border-stone-200/90 text-center">
+          <div className="inline-block w-8 h-8 border-3 border-red-700 border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-3 text-xs text-stone-600">Đang đối soát công nợ từ cổng tài chính...</p>
         </div>
       ) : !tuition ? (
-        <div className="bg-white rounded-2xl p-12 border border-dashed border-slate-300 text-center">
-          <p className="text-sm text-slate-500">Chưa có thông tin học phí cho học kỳ này.</p>
+        <div className="bg-white rounded-2xl p-12 border border-dashed border-stone-300 text-center">
+          <p className="text-xs text-stone-600">Không tìm thấy biểu phí học phần cho kỳ đào tạo này.</p>
         </div>
       ) : (
         <>
-          {/* Tuition Status Card */}
-          <div className={`rounded-2xl p-6 border shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 ${
+          {/* 2. Official Financial Standing Card */}
+          <div className={`rounded-2xl p-6 border shadow-2xs relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 ${
             isPaid
-              ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-100/60 border-emerald-200'
-              : 'bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100/60 border-amber-200'
+              ? 'bg-stone-50 border-stone-200/90'
+              : 'bg-stone-50 border-stone-200/90'
           }`}>
-            <div className="flex items-start gap-4">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                isPaid ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
-              }`}>
-                {isPaid ? <CheckCircle2 size={26} /> : <AlertCircle size={26} />}
+            {/* Watermark Seal */}
+            <div className="absolute right-4 -bottom-4 opacity-5 pointer-events-none w-48 h-48">
+              <img src="/images/stamp-seal.svg" alt="Seal" className="w-full h-full" />
+            </div>
+
+            <div className="space-y-2 relative z-10">
+              <div className="flex items-center gap-2">
+                <span className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-bold uppercase tracking-wider ${
+                  isPaid ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-red-100 text-red-800 border border-red-200'
+                }`}>
+                  {isPaid ? 'ĐÃ HOÀN TẤT NGHĨA VỤ HỌC PHÍ' : 'CHƯA THANH TOÁN (CÒN NỢ)'}
+                </span>
+                <span className="text-xs text-stone-600 font-mono">
+                  Mã học kỳ: <strong>{tuition.semesterName}</strong>
+                </span>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-                    isPaid ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-900'
-                  }`}>
-                    {isPaid ? 'Đã thanh toán đủ' : 'Chưa nộp học phí'}
-                  </span>
-                  <span className="text-xs text-slate-500 font-medium">Học kỳ: {tuition.semesterName}</span>
-                </div>
-                <h2 className="text-2xl font-extrabold text-slate-900 mt-1">
+
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-2xl sm:text-3xl font-mono font-bold text-stone-900 tracking-tight">
                   {formatVnd(tuition.totalAmount)}
                 </h2>
-                <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 mt-2">
-                  <span>Tổng tín chỉ: <strong className="text-slate-900">{tuition.totalCredits} TC</strong></span>
-                  <span>•</span>
-                  <span>Đơn giá: <strong className="text-slate-900">{formatVnd(tuition.creditUnitPrice)} / TC</strong></span>
-                  <span>•</span>
-                  <span>Hạn nộp: <strong className="text-rose-600">{tuition.dueDate || '30/04/2025'}</strong></span>
-                </div>
+                <span className="text-xs text-stone-600 font-medium">toàn bộ định mức kỳ</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4 text-xs text-stone-600 pt-1 font-mono">
+                <span>Tổng số tín chỉ: <strong className="text-stone-900">{tuition.totalCredits} TC</strong></span>
+                <span>•</span>
+                <span>Đơn giá học phần: <strong className="text-stone-900">{formatVnd(tuition.creditUnitPrice)} / TC</strong></span>
+                <span>•</span>
+                <span>Hạn chót quyết toán: <strong className="text-red-700">{tuition.dueDate || '30/04/2025'}</strong></span>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+            <div className="relative z-10 flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
               {!isPaid ? (
                 <button
                   onClick={() => setShowQrModal(true)}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white transition shadow-md shadow-amber-600/20"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-xs font-bold bg-red-700 hover:bg-red-800 text-white transition shadow-2xs"
                 >
-                  <QrCode size={18} />
-                  <span>Nộp Học Phí Trực Tuyến</span>
+                  <QrCode size={16} />
+                  <span>Nộp Học Phí Trực Tuyến VietQR</span>
                 </button>
               ) : (
-                <div className="bg-white/80 backdrop-blur-xs p-3 rounded-xl border border-emerald-200 text-xs text-slate-700 space-y-1">
-                  <div>Mã GD: <strong className="font-mono text-emerald-800">{tuition.transactionCode}</strong></div>
-                  <div>Hình thức: <span className="font-medium text-slate-800">{tuition.paymentMethod || 'VietQR'}</span></div>
+                <div className="bg-white p-3 rounded-lg border border-stone-200 text-xs text-stone-700 space-y-1 font-mono">
+                  <div>Mã biên nhận: <strong className="text-stone-900">{tuition.transactionCode}</strong></div>
+                  <div>Phương thức: <span className="text-stone-800">{tuition.paymentMethod || 'VietQR 24/7'}</span></div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Breakdown Courses Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-              <h3 className="font-bold text-sm text-slate-800">
-                Chi tiết các khoản phí học phần trong kỳ ({tuition.courses?.length || 0} môn)
-              </h3>
-              <span className="text-xs text-slate-500">Căn cứ vào số tín chỉ các lớp học phần đã đăng ký</span>
+          {/* 3. Breakdown Course Fee Table */}
+          <div className="bg-white rounded-2xl border border-stone-200/90 shadow-2xs overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-stone-200/80 bg-stone-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="font-bold text-xs sm:text-sm text-stone-900 uppercase font-mono tracking-wider">
+                  Bảng Kê Chi Tiết Học Phần Thu Phí ({tuition.courses?.length || 0} môn)
+                </h3>
+                <span className="text-[11px] text-stone-600">
+                  Căn cứ theo số tín chỉ các lớp học phần đăng ký hợp lệ trong kỳ
+                </span>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-500 uppercase tracking-wider font-semibold">
-                    <th className="py-3 px-4">STT</th>
-                    <th className="py-3 px-4">Mã môn</th>
+                  <tr className="border-b border-stone-200 bg-stone-100/60 text-stone-600 uppercase tracking-wider font-mono text-[10px]">
+                    <th className="py-3 px-4 w-12">STT</th>
+                    <th className="py-3 px-4">Mã học phần</th>
                     <th className="py-3 px-4">Tên môn học / Học phần</th>
-                    <th className="py-3 px-4 text-center">Số tín chỉ</th>
+                    <th className="py-3 px-4 text-center">Số TC</th>
                     <th className="py-3 px-4 text-right">Đơn giá / TC</th>
                     <th className="py-3 px-4 text-right">Thành tiền</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-stone-100 font-sans">
                   {tuition.courses?.map((c, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50 transition">
-                      <td className="py-3.5 px-4 font-mono text-slate-400">{idx + 1}</td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-red-700">{c.courseCode}</td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-800">{c.courseName}</td>
-                      <td className="py-3.5 px-4 text-center font-bold text-slate-700">{c.credits}</td>
-                      <td className="py-3.5 px-4 text-right text-slate-500">{formatVnd(tuition.creditUnitPrice)}</td>
-                      <td className="py-3.5 px-4 text-right font-bold text-slate-900">{formatVnd(c.fee)}</td>
+                    <tr key={idx} className="hover:bg-stone-50/70 transition">
+                      <td className="py-3.5 px-4 font-mono text-stone-600">{idx + 1}</td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-red-800">{c.courseCode}</td>
+                      <td className="py-3.5 px-4 font-medium text-stone-900">{c.courseName}</td>
+                      <td className="py-3.5 px-4 text-center font-mono font-semibold text-stone-800">{c.credits}</td>
+                      <td className="py-3.5 px-4 text-right font-mono text-stone-600">{formatVnd(tuition.creditUnitPrice)}</td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-stone-900">{formatVnd(c.fee)}</td>
                     </tr>
                   ))}
-                  {/* Fixed Facility Fee */}
-                  <tr className="bg-slate-50/40 font-medium">
-                    <td className="py-3.5 px-4 font-mono text-slate-400">-</td>
-                    <td className="py-3.5 px-4 font-mono text-slate-500">FEE-FACILITY</td>
-                    <td className="py-3.5 px-4 text-slate-700">Phí cơ sở vật chất, thư viện điện tử & bảo trì phòng Lab</td>
-                    <td className="py-3.5 px-4 text-center text-slate-400">-</td>
-                    <td className="py-3.5 px-4 text-right text-slate-400">Định mức kỳ</td>
-                    <td className="py-3.5 px-4 text-right font-bold text-slate-900">{formatVnd(tuition.facilityFee)}</td>
+                  <tr className="bg-stone-50/50">
+                    <td className="py-3.5 px-4 font-mono text-stone-600">-</td>
+                    <td className="py-3.5 px-4 font-mono text-stone-600">FEE-LAB-LIB</td>
+                    <td className="py-3.5 px-4 text-stone-700">Phí bảo trì thư viện điện tử, cơ sở vật chất phòng máy chủ</td>
+                    <td className="py-3.5 px-4 text-center font-mono text-stone-600">-</td>
+                    <td className="py-3.5 px-4 text-right font-mono text-stone-600">Định mức kỳ</td>
+                    <td className="py-3.5 px-4 text-right font-mono font-bold text-stone-900">{formatVnd(tuition.facilityFee)}</td>
                   </tr>
                 </tbody>
                 <tfoot>
-                  <tr className="bg-slate-100/70 border-t-2 border-slate-200 text-sm font-bold">
-                    <td colSpan="3" className="py-4 px-4 text-slate-800">TỔNG CỘNG HỌC PHÍ PHẢI NỘP</td>
-                    <td className="py-4 px-4 text-center text-red-700">{tuition.totalCredits} TC</td>
+                  <tr className="bg-stone-100/80 border-t border-stone-200 text-xs font-bold font-mono">
+                    <td colSpan="3" className="py-4 px-4 text-stone-900 uppercase">TỔNG CỘNG HỌC PHÍ PHẢI THANH TOÁN</td>
+                    <td className="py-4 px-4 text-center text-red-800">{tuition.totalCredits} TC</td>
                     <td className="py-4 px-4"></td>
-                    <td className="py-4 px-4 text-right text-base text-red-700">{formatVnd(tuition.totalAmount)}</td>
+                    <td className="py-4 px-4 text-right text-sm text-red-800">{formatVnd(tuition.totalAmount)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -253,85 +263,82 @@ export const StudentTuition = () => {
         </>
       )}
 
-      {/* Online Payment QR Modal */}
+      {/* Online Payment Modal */}
       {showQrModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <QrCode size={18} className="text-amber-600" />
-                Cổng Thanh Toán Trực Tuyến
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-stone-200">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+              <h3 className="text-sm font-bold text-stone-900 uppercase font-mono tracking-wider flex items-center gap-2">
+                <QrCode size={16} className="text-red-700" />
+                Cổng Thanh Toán Trực Tuyến VietQR
               </h3>
               <button
                 onClick={() => setShowQrModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+                className="text-stone-400 hover:text-stone-600 text-xl leading-none"
               >
                 &times;
               </button>
             </div>
 
             <div className="mt-4 text-center space-y-4">
-              <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-xs text-amber-800">
-                Quét mã VietQR bằng ứng dụng Ngân hàng (MB, Vietcombank, Techcombank...) hoặc Momo để nộp học phí tức thì.
+              <div className="bg-stone-50 border border-stone-200 p-2.5 rounded-lg text-[11px] text-stone-600 text-left">
+                Quét mã VietQR chuẩn NAPAS bằng bất kỳ ứng dụng ngân hàng di động nào. Hệ thống sẽ tự động cập nhật công nợ trong vòng 60 giây.
               </div>
 
-              {/* Mock QR Code Display */}
-              <div className="relative mx-auto w-56 h-56 bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-3 flex flex-col items-center justify-center">
+              {/* QR Code Container */}
+              <div className="relative mx-auto w-52 h-52 bg-white border border-stone-200 rounded-xl p-3 flex flex-col items-center justify-center shadow-2xs">
                 {paymentSuccess ? (
-                  <div className="flex flex-col items-center gap-2 text-emerald-600 animate-in zoom-in">
-                    <CheckCircle2 size={54} />
-                    <p className="font-bold text-sm">Giao dịch thành công!</p>
+                  <div className="flex flex-col items-center gap-2 text-emerald-700">
+                    <CheckCircle2 size={48} />
+                    <p className="font-bold text-xs">Giao dịch được xác nhận thành công!</p>
                   </div>
                 ) : (
-                  <>
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=2024-25_SEM2_TUITION_${tuition.totalAmount}`}
-                      alt="VietQR Học phí"
-                      className="w-44 h-44 rounded-lg object-contain"
-                    />
-                    <div className="absolute inset-0 bg-transparent flex items-center justify-center pointer-events-none"></div>
-                  </>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=2024-25_SEM2_TUITION_${tuition?.totalAmount}`}
+                    alt="VietQR"
+                    className="w-40 h-40 object-contain"
+                  />
                 )}
               </div>
 
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-left space-y-1.5 font-mono">
+              <div className="bg-stone-50 p-3 rounded-lg border border-stone-200 text-xs text-left space-y-1 font-mono">
                 <div className="flex justify-between">
-                  <span className="text-slate-500 font-sans">Đơn vị thụ hưởng:</span>
-                  <span className="font-bold text-slate-800">TRUONG DH RIKKEI</span>
+                  <span className="text-stone-500 font-sans">Đơn vị hưởng:</span>
+                  <strong className="text-stone-900">HỌC VIỆN ĐÀO TẠO RIKKEI</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500 font-sans">Số tài khoản:</span>
-                  <span className="font-bold text-red-700">999988882025 (MB Bank)</span>
+                  <span className="text-stone-500 font-sans">Số tài khoản:</span>
+                  <strong className="text-red-800">999988882025 (MB BANK)</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500 font-sans">Số tiền:</span>
-                  <span className="font-bold text-rose-600 font-sans">{formatVnd(tuition.totalAmount)}</span>
+                  <span className="text-stone-500 font-sans">Số tiền:</span>
+                  <strong className="text-stone-900">{formatVnd(tuition?.totalAmount)}</strong>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500 font-sans">Nội dung CK:</span>
-                  <span className="font-bold text-slate-800">SV2024001 HP {tuition.semesterName}</span>
+                  <span className="text-stone-500 font-sans">Nội dung CK:</span>
+                  <strong className="text-stone-800">SV2024001 HP {tuition?.semesterName}</strong>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 flex gap-3">
+            <div className="mt-5 flex gap-2">
               <button
                 disabled={paying}
                 onClick={() => setShowQrModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                className="flex-1 py-2 rounded-lg border border-stone-300 text-xs font-medium text-stone-700 hover:bg-stone-50 transition"
               >
                 Hủy bỏ
               </button>
               <button
                 disabled={paying || paymentSuccess}
                 onClick={handleConfirmPayment}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm"
+                className="flex-1 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-2xs"
               >
                 {paying ? (
-                  <span>Đang xử lý giao dịch...</span>
+                  <span>Đang ghi nhận...</span>
                 ) : (
                   <>
-                    <Check size={16} />
+                    <Check size={14} />
                     <span>Xác nhận đã nộp</span>
                   </>
                 )}
@@ -341,73 +348,83 @@ export const StudentTuition = () => {
         </div>
       )}
 
-      {/* Electronic Receipt Modal */}
+      {/* Official Electronic Receipt Modal */}
       {showReceiptModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 print:hidden">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Biên lai thu học phí điện tử
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-stone-200 relative">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200 print:hidden">
+              <span className="text-xs font-mono font-bold text-stone-700 uppercase">
+                Chứng Từ Thu Học Phí Điện Tử
               </span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-stone-100 hover:bg-stone-200 text-stone-800 transition"
                 >
                   <Printer size={13} />
-                  <span>In phiếu</span>
+                  <span>In chứng từ</span>
                 </button>
                 <button
                   onClick={() => setShowReceiptModal(false)}
-                  className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+                  className="text-stone-400 hover:text-stone-600 text-xl leading-none"
                 >
                   &times;
                 </button>
               </div>
             </div>
 
-            {/* Receipt Form */}
-            <div className="mt-4 p-5 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 space-y-4">
-              <div className="text-center border-b border-slate-200 pb-3">
-                <p className="text-[11px] font-bold text-slate-500 uppercase">BỘ GIÁO DỤC VÀ ĐÀO TẠO</p>
-                <h3 className="text-base font-extrabold text-red-900">CỔNG ĐÀO TẠO RIKKEI EDUPORTAL</h3>
-                <h4 className="text-sm font-bold text-slate-800 mt-1 uppercase">PHIẾU THU TIỀN HỌC PHÍ ĐIỆN TỬ</h4>
-                <p className="text-[11px] font-mono text-slate-400 mt-0.5">Số biên nhận: {tuition?.transactionCode || 'TXN-2025'}</p>
+            {/* Official University Receipt Certificate */}
+            <div className="mt-4 p-5 rounded-lg border border-stone-300 bg-stone-50/30 relative overflow-hidden space-y-4 print-card">
+              {/* Circular Red University Stamp Watermark */}
+              <div className="absolute right-6 top-28 opacity-15 pointer-events-none w-44 h-44 rotate-[-12deg]">
+                <img src="/images/stamp-seal.svg" alt="Official Stamp" className="w-full h-full" />
               </div>
 
-              <div className="space-y-2 text-xs">
+              <div className="text-center border-b border-stone-200 pb-3">
+                <p className="text-[10px] font-mono font-semibold text-stone-500 uppercase tracking-wider">
+                  BỘ GIÁO DỤC VÀ ĐÀO TẠO • HỌC VIỆN CÔNG NGHỆ RIKKEI
+                </p>
+                <h3 className="font-serif font-bold text-sm sm:text-base text-stone-900 uppercase mt-0.5 tracking-tight">
+                  PHIẾU XÁC NHẬN NỘP HỌC PHÍ ĐIỆN TỬ
+                </h3>
+                <p className="text-[10px] font-mono text-stone-500 mt-0.5">
+                  Mã giao dịch / Số chứng từ: <span className="font-bold text-stone-900">{tuition?.transactionCode || 'TXN-2025'}</span>
+                </p>
+              </div>
+
+              <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Họ và tên sinh viên:</span>
-                  <span className="font-bold text-slate-900">Nguyễn Văn C (SV2024001)</span>
+                  <span className="text-stone-500">Sinh viên:</span>
+                  <span className="font-bold text-stone-900">Nguyễn Văn C (MSSV: SV2024001)</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Học kỳ:</span>
-                  <span className="font-bold text-slate-800">{tuition?.semesterName}</span>
+                  <span className="text-stone-500">Học kỳ đào tạo:</span>
+                  <span className="font-bold text-stone-800">{tuition?.semesterName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Tổng số tín chỉ thu phí:</span>
-                  <span className="font-bold text-slate-800">{tuition?.totalCredits} Tín chỉ</span>
+                  <span className="text-stone-500">Số tín chỉ quyết toán:</span>
+                  <span className="font-bold font-mono text-stone-800">{tuition?.totalCredits} TC</span>
                 </div>
-                <div className="flex justify-between border-t border-slate-200 pt-2 text-sm font-bold">
-                  <span className="text-slate-700">Tổng số tiền đã thanh toán:</span>
-                  <span className="text-emerald-700">{formatVnd(tuition?.totalAmount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Hình thức nộp:</span>
-                  <span className="font-medium text-slate-800">{tuition?.paymentMethod || 'VietQR Chuyển khoản'}</span>
+                <div className="flex justify-between border-t border-stone-200 pt-2 text-sm font-bold">
+                  <span className="text-stone-800">Số tiền đã quyết toán:</span>
+                  <span className="font-mono text-red-800">{formatVnd(tuition?.totalAmount)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Thời gian giao dịch:</span>
-                  <span className="font-mono text-slate-700">{new Date().toLocaleString('vi-VN')}</span>
+                  <span className="text-stone-500">Phương thức:</span>
+                  <span className="font-medium text-stone-800">{tuition?.paymentMethod || 'VietQR'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Thời điểm ghi nhận:</span>
+                  <span className="font-mono text-stone-700">{new Date().toLocaleString('vi-VN')}</span>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500">
-                <div className="flex items-center gap-1.5 text-emerald-700 font-semibold">
+              <div className="pt-4 border-t border-stone-200 flex justify-between items-center text-xs">
+                <div className="flex items-center gap-1.5 text-emerald-800 font-medium">
                   <ShieldCheck size={16} />
-                  <span>Xác thực ký số điện tử hợp lệ</span>
+                  <span>Ký số điện tử SHA-256 xác thực</span>
                 </div>
-                <div className="text-right italic">
+                <div className="text-right text-stone-600 italic text-[11px]">
                   Phòng Kế hoạch - Tài chính
                 </div>
               </div>
@@ -416,7 +433,7 @@ export const StudentTuition = () => {
             <div className="mt-4 flex justify-end print:hidden">
               <button
                 onClick={() => setShowReceiptModal(false)}
-                className="px-4 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white rounded-xl transition"
+                className="px-4 py-2 text-xs font-semibold bg-stone-800 hover:bg-stone-900 text-white rounded-lg transition"
               >
                 Đóng
               </button>
@@ -427,3 +444,5 @@ export const StudentTuition = () => {
     </div>
   )
 }
+
+export default StudentTuition

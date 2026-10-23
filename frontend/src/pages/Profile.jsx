@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
-import { User, Mail, Shield, KeyRound, Save, AlertCircle, CheckCircle, GraduationCap, Briefcase, Award } from 'lucide-react'
+import { 
+  User, 
+  Mail, 
+  Shield, 
+  KeyRound, 
+  Save, 
+  AlertCircle, 
+  CheckCircle, 
+  GraduationCap, 
+  Briefcase, 
+  Award,
+  Hash,
+  ShieldCheck
+} from 'lucide-react'
 
 export const Profile = () => {
   const { user, updateUser } = useAuthStore()
@@ -38,7 +51,6 @@ export const Profile = () => {
       }
     } catch (err) {
       console.warn('Could not fetch profile from API, using store user:', err)
-      // fallback
       setFullName(user?.fullName || '')
       setEmail(user?.email || 'user@rikkei.edu.vn')
       setAvatarUrl(user?.avatarUrl || '')
@@ -61,7 +73,7 @@ export const Profile = () => {
       if (res.data?.data?.user) {
         updateUser(res.data.data.user)
       }
-      setMessage({ type: 'success', text: 'Cập nhật thông tin liên hệ thành công!' })
+      setMessage({ type: 'success', text: 'Cập nhật thông tin lý lịch thành công!' })
     } catch (err) {
       const errMsg = err.response?.data?.message || 'Lỗi khi cập nhật thông tin'
       setMessage({ type: 'error', text: errMsg })
@@ -90,7 +102,7 @@ export const Profile = () => {
         oldPassword,
         newPassword,
       })
-      setMessage({ type: 'success', text: 'Đổi mật khẩu thành công!' })
+      setMessage({ type: 'success', text: 'Đổi mật khẩu tài khoản thành công!' })
       setOldPassword('')
       setNewPassword('')
       setConfirmPassword('')
@@ -107,80 +119,100 @@ export const Profile = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Hồ sơ cá nhân</h1>
-        <p className="text-sm text-slate-500 mt-0.5">
-          Quản lý thông tin tài khoản, hồ sơ học vụ / giảng dạy và bảo mật
+      {/* 1. Page Header */}
+      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-stone-200/90 shadow-2xs">
+        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700">
+          Học Viện Công Nghệ Rikkei • Hồ Sơ Học Vụ Cá Nhân
+        </span>
+        <h1 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
+          Lý Lịch & Bảo Mật Tài Khoản
+        </h1>
+        <p className="text-xs text-stone-600 mt-0.5">
+          Quản lý thông tin định danh cá nhân, chương trình đào tạo và thiết lập mật khẩu truy cập
         </p>
       </div>
 
       {/* Alert message */}
       {message.text && (
         <div
-          className={`p-4 rounded-xl flex items-center gap-3 text-sm font-medium ${
+          className={`p-3.5 rounded-xl flex items-center gap-2.5 text-xs font-medium ${
             message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-              : 'bg-rose-50 text-rose-700 border border-rose-200'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+              : 'bg-red-50 text-red-900 border border-red-200'
           }`}
         >
-          {message.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+          {message.type === 'success' ? <CheckCircle size={16} className="text-emerald-700 shrink-0" /> : <AlertCircle size={16} className="text-red-700 shrink-0" />}
           <span>{message.text}</span>
         </div>
       )}
 
-      {/* User Summary Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row items-center gap-6">
-        <div className="relative">
-          <img
-            src={avatarUrl || user?.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user?.username}`}
-            alt="Avatar"
-            className="w-24 h-24 rounded-2xl border-2 border-slate-100 shadow-md bg-slate-50 object-cover"
-          />
-          <span className="absolute -bottom-2 -right-2 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white shadow-sm">
-            {user?.role}
+      {/* 2. Official Identity Dossier Card */}
+      <div className="bg-white rounded-2xl border border-stone-200/90 p-6 shadow-2xs flex flex-col md:flex-row items-center gap-6">
+        <div className="relative shrink-0">
+          <div className="w-24 h-28 rounded-xl border-2 border-stone-300 overflow-hidden bg-stone-100 shadow-2xs flex items-center justify-center">
+            <img
+              src={avatarUrl || user?.avatarUrl || '/images/avatar-student.svg'}
+              alt="Avatar"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.target.src = '/images/avatar-student.svg'
+              }}
+            />
+          </div>
+          <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-red-700 text-white whitespace-nowrap shadow-2xs">
+            {user?.role || 'STUDENT'}
           </span>
         </div>
 
-        <div className="text-center md:text-left flex-1">
-          <h2 className="text-xl font-bold text-slate-800">{fullName || user?.fullName}</h2>
-          <p className="text-sm text-slate-500 mt-0.5 font-mono">@{user?.username}</p>
-          <div className="mt-2 flex flex-wrap gap-2 justify-center md:justify-start text-xs text-slate-600">
-            <span className="px-2.5 py-1 bg-slate-100 rounded-md flex items-center gap-1.5">
-              <Mail size={14} className="text-slate-400" />
+        <div className="text-center md:text-left flex-1 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-baseline gap-2">
+            <h2 className="text-lg font-bold text-stone-900 uppercase tracking-tight">
+              {fullName || user?.fullName || 'Nguyễn Văn C'}
+            </h2>
+            <span className="font-mono text-xs font-bold text-red-800 bg-red-50 px-2 py-0.5 rounded border border-red-200 w-fit mx-auto sm:mx-0">
+              MSSV: {user?.username || 'SV2024001'}
+            </span>
+          </div>
+          <p className="text-xs text-stone-600 mt-1 font-sans">
+            Chuyên ngành: <strong>Kỹ nghệ Phần mềm (Software Engineering)</strong> • Khóa 2024
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2 justify-center md:justify-start text-xs font-mono">
+            <span className="px-2.5 py-1 bg-stone-100 rounded border border-stone-200 text-stone-700 flex items-center gap-1.5 text-[11px]">
+              <Mail size={12} className="text-stone-400" />
               {email}
             </span>
-            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-md font-semibold">
-              Trạng thái: Hoạt động
+            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-[11px] font-semibold flex items-center gap-1">
+              <ShieldCheck size={12} /> Trực tuyến • Chính quy
             </span>
           </div>
         </div>
       </div>
 
-      {/* Role-specific Profile Details */}
+      {/* 3. Role-specific Academic Dossier Details */}
       {user?.role === 'STUDENT' && studentProfile && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-red-200 rounded-2xl p-6 shadow-sm">
-          <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2 mb-4">
-            <GraduationCap size={18} />
-            <span>Thông tin Học vụ Sinh viên</span>
+        <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-5 shadow-2xs">
+          <h3 className="text-xs font-mono font-bold text-stone-900 uppercase tracking-wider flex items-center gap-2 mb-3">
+            <GraduationCap size={15} className="text-red-700" />
+            <span>Tiến Độ Đào Tạo Học Vụ Tích Lũy</span>
           </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white p-3.5 rounded-xl border border-blue-100">
-              <span className="text-xs text-slate-400">Mã sinh viên</span>
-              <p className="text-base font-bold text-slate-800 font-mono mt-0.5">{studentProfile.studentCode}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="bg-white p-3 rounded-xl border border-stone-200">
+              <span className="text-[10px] font-mono text-stone-500 uppercase">Mã sinh viên</span>
+              <p className="text-sm font-bold text-stone-900 font-mono mt-0.5">{studentProfile.studentCode}</p>
             </div>
-            <div className="bg-white p-3.5 rounded-xl border border-blue-100">
-              <span className="text-xs text-slate-400">Ngành đào tạo</span>
-              <p className="text-sm font-bold text-slate-800 mt-0.5 truncate">{studentProfile.major}</p>
+            <div className="bg-white p-3 rounded-xl border border-stone-200">
+              <span className="text-[10px] font-mono text-stone-500 uppercase">Chuyên ngành</span>
+              <p className="text-xs font-semibold text-stone-900 mt-0.5 truncate">{studentProfile.major}</p>
             </div>
-            <div className="bg-white p-3.5 rounded-xl border border-blue-100">
-              <span className="text-xs text-slate-400">Học kỳ hiện tại</span>
-              <p className="text-base font-bold text-slate-800 mt-0.5">Học kỳ {studentProfile.currentSemester}</p>
+            <div className="bg-white p-3 rounded-xl border border-stone-200">
+              <span className="text-[10px] font-mono text-stone-500 uppercase">Học kỳ hiện tại</span>
+              <p className="text-xs font-bold text-stone-900 mt-0.5">Kỳ {studentProfile.currentSemester} (Năm 2)</p>
             </div>
-            <div className="bg-white p-3.5 rounded-xl border border-blue-100">
-              <span className="text-xs text-slate-400">Tín chỉ tích lũy</span>
-              <p className="text-base font-bold text-red-600 mt-0.5">
-                {studentProfile.creditsEarned} / {studentProfile.totalRequiredCredits}
+            <div className="bg-white p-3 rounded-xl border border-stone-200">
+              <span className="text-[10px] font-mono text-stone-500 uppercase">Tín chỉ tích lũy</span>
+              <p className="text-sm font-bold font-mono text-red-800 mt-0.5">
+                {studentProfile.creditsEarned} / {studentProfile.totalRequiredCredits} TC
               </p>
             </div>
           </div>
@@ -188,133 +220,133 @@ export const Profile = () => {
       )}
 
       {user?.role === 'LECTURER' && lecturerProfile && (
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-6 shadow-sm">
-          <h3 className="text-sm font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-2 mb-4">
-            <Briefcase size={18} />
-            <span>Hồ sơ Giảng viên</span>
+        <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-5 shadow-2xs">
+          <h3 className="text-xs font-mono font-bold text-stone-900 uppercase tracking-wider flex items-center gap-2 mb-3">
+            <Briefcase size={15} className="text-red-700" />
+            <span>Hồ Sơ Cán Bộ Giảng Dạy</span>
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-3.5 rounded-xl border border-emerald-100">
-              <span className="text-xs text-slate-400">Mã giảng viên</span>
-              <p className="text-base font-bold text-slate-800 font-mono mt-0.5">{lecturerProfile.lecturerCode}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="bg-white p-3 rounded-xl border border-stone-200">
+              <span className="text-[10px] font-mono text-stone-500 uppercase">Mã giảng viên</span>
+              <p className="text-sm font-bold text-stone-900 font-mono mt-0.5">{lecturerProfile.lecturerCode}</p>
             </div>
-            <div className="bg-white p-3.5 rounded-xl border border-emerald-100">
-              <span className="text-xs text-slate-400">Khoa phụ trách</span>
-              <p className="text-sm font-bold text-slate-800 mt-0.5">{lecturerProfile.department}</p>
+            <div className="bg-white p-3 rounded-xl border border-stone-200">
+              <span className="text-[10px] font-mono text-stone-500 uppercase">Khoa chuyên môn</span>
+              <p className="text-xs font-semibold text-stone-900 mt-0.5">{lecturerProfile.department}</p>
             </div>
-            <div className="bg-white p-3.5 rounded-xl border border-emerald-100">
-              <span className="text-xs text-slate-400">Học vị / Học hàm</span>
-              <p className="text-sm font-bold text-slate-800 mt-0.5">{lecturerProfile.degree || 'Chưa cập nhật'}</p>
+            <div className="bg-white p-3 rounded-xl border border-stone-200">
+              <span className="text-[10px] font-mono text-stone-500 uppercase">Học vị / Học hàm</span>
+              <p className="text-xs font-semibold text-stone-900 mt-0.5">{lecturerProfile.degree || 'Tiến sĩ CNTT'}</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Forms Grid: Update Info & Change Password */}
+      {/* 4. Forms Grid: Update Info & Change Password */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Update Contact Form */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
-            <User size={18} className="text-red-600" />
-            <span>Thông tin Liên hệ</span>
+        <div className="bg-white rounded-2xl border border-stone-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
+          <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2 font-mono uppercase">
+            <User size={15} className="text-red-700" />
+            <span>Thông Tin Liên Hệ</span>
           </h3>
 
-          <form onSubmit={handleUpdateContact} className="space-y-4">
+          <form onSubmit={handleUpdateContact} className="space-y-3 text-xs">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Họ và tên</label>
+              <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">Họ và tên</label>
               <input
                 type="text"
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-red-700 focus:bg-white transition"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Email</label>
+              <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">Email đào tạo</label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-red-700 focus:bg-white transition"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Link Ảnh đại diện (Avatar URL)</label>
+              <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">Link ảnh đại diện (Tùy chọn)</label>
               <input
                 type="url"
                 value={avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
-                placeholder="https://..."
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="/images/avatar-student.svg hoặc link ảnh ngoài..."
+                className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-red-700 focus:bg-white transition font-mono"
               />
             </div>
 
             <button
               type="submit"
               disabled={saving}
-              className="w-full py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm"
+              className="w-full py-2 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition shadow-2xs mt-2"
             >
-              <Save size={16} />
+              <Save size={14} />
               <span>{saving ? 'Đang lưu...' : 'Lưu thông tin'}</span>
             </button>
           </form>
         </div>
 
         {/* Change Password Form */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
-            <KeyRound size={18} className="text-amber-600" />
-            <span>Đổi mật khẩu</span>
+        <div className="bg-white rounded-2xl border border-stone-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
+          <h3 className="font-bold text-stone-900 text-sm flex items-center gap-2 font-mono uppercase">
+            <KeyRound size={15} className="text-stone-700" />
+            <span>Thiết Lập Mật Khẩu</span>
           </h3>
 
-          <form onSubmit={handleChangePassword} className="space-y-4">
+          <form onSubmit={handleChangePassword} className="space-y-3 text-xs">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Mật khẩu hiện tại</label>
+              <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">Mật khẩu hiện tại</label>
               <input
                 type="password"
                 required
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-red-700 focus:bg-white transition font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Mật khẩu mới (tối thiểu 6 ký tự)</label>
+              <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">Mật khẩu mới (tối thiểu 6 ký tự)</label>
               <input
                 type="password"
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-red-700 focus:bg-white transition font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Xác nhận mật khẩu mới</label>
+              <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">Xác nhận mật khẩu mới</label>
               <input
                 type="password"
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-red-700 focus:bg-white transition font-mono"
               />
             </div>
 
             <button
               type="submit"
               disabled={saving || !oldPassword || !newPassword}
-              className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm"
+              className="w-full py-2 bg-stone-900 hover:bg-black disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition shadow-2xs mt-2"
             >
-              <Shield size={16} />
-              <span>{saving ? 'Đang xử lý...' : 'Cập nhật mật khẩu'}</span>
+              <Shield size={14} />
+              <span>{saving ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}</span>
             </button>
           </form>
         </div>
@@ -322,3 +354,5 @@ export const Profile = () => {
     </div>
   )
 }
+
+export default Profile

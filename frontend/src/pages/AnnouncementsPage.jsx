@@ -10,11 +10,10 @@ import {
   Plus,
   Trash2,
   BookOpen,
-  Award,
-  Sparkles,
   ChevronRight,
   User,
-  CheckCircle2
+  ShieldCheck,
+  FileText
 } from 'lucide-react'
 
 const CATEGORIES = ['Tất cả', 'HỌC VỤ', 'LỊCH THI', 'HỌC BỔNG', 'HOẠT ĐỘNG']
@@ -107,53 +106,55 @@ export const AnnouncementsPage = () => {
   const getCategoryBadge = (cat) => {
     switch (cat) {
       case 'HỌC VỤ':
-        return 'bg-red-50 text-red-700 border-red-200'
+        return 'bg-red-50 text-red-800 border-red-200'
       case 'LỊCH THI':
-        return 'bg-rose-50 text-rose-700 border-rose-200'
+        return 'bg-stone-100 text-stone-800 border-stone-300'
       case 'HỌC BỔNG':
-        return 'bg-amber-50 text-amber-700 border-amber-200'
+        return 'bg-amber-50 text-amber-800 border-amber-200'
       default:
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        return 'bg-stone-50 text-stone-700 border-stone-200'
     }
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
-            <Bell size={22} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Bảng Tin & Thông Báo Đào Tạo</h1>
-            <p className="text-xs text-slate-500">Tin tức học vụ, lịch thi, học bổng và các sự kiện chung của nhà trường</p>
-          </div>
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* 1. Official Gazette Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-stone-200/90 shadow-2xs">
+        <div>
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700">
+            Học Viện Công Nghệ Rikkei • Văn Phòng Quản Lý Đào Tạo
+          </span>
+          <h1 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
+            Bản Tin Công Báo & Văn Bản Đào Tạo Học Viện
+          </h1>
+          <p className="text-xs text-stone-600 mt-0.5">
+            Thông tin kế hoạch đào tạo, công văn học vụ, lịch xét tốt nghiệp và học bổng
+          </p>
         </div>
 
         {isAdmin && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg text-xs font-semibold transition shadow-2xs"
           >
-            <Plus size={16} />
-            <span>Đăng thông báo mới</span>
+            <Plus size={15} />
+            <span>Ban hành công văn mới</span>
           </button>
         )}
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+      {/* 2. Filter and Search Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-stone-200/90 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
         {/* Category Tabs */}
         <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
           {CATEGORIES.map(cat => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                 selectedCategory === cat
-                  ? 'bg-red-600 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-stone-900 text-white font-semibold'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
               }`}
             >
               {cat}
@@ -163,26 +164,26 @@ export const AnnouncementsPage = () => {
 
         {/* Search Input */}
         <div className="relative w-full sm:w-72">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             type="text"
-            placeholder="Tìm kiếm thông báo..."
+            placeholder="Tra cứu công văn..."
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-red-500 focus:bg-white transition"
+            className="w-full pl-8 pr-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none focus:border-red-700 focus:bg-white transition"
           />
         </div>
       </div>
 
-      {/* Content List */}
+      {/* 3. Content List */}
       {loading ? (
-        <div className="bg-white rounded-2xl p-16 border border-slate-200 text-center">
-          <div className="inline-block w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-3 text-sm text-slate-500">Đang tải bảng tin thông báo...</p>
+        <div className="bg-white rounded-2xl p-16 border border-stone-200/90 text-center">
+          <div className="inline-block w-8 h-8 border-3 border-red-700 border-t-transparent rounded-full animate-spin"></div>
+          <p className="mt-3 text-xs text-stone-600">Đang tải danh sách công văn học viện...</p>
         </div>
       ) : filteredList.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 border border-dashed border-slate-300 text-center">
-          <p className="text-sm text-slate-500">Không tìm thấy thông báo nào phù hợp với bộ lọc.</p>
+        <div className="bg-white rounded-2xl p-12 border border-dashed border-stone-300 text-center">
+          <p className="text-xs text-stone-600">Không tìm thấy thông báo nào trong danh mục này.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -190,41 +191,45 @@ export const AnnouncementsPage = () => {
             <div
               key={item.id}
               onClick={() => setSelectedArticle(item)}
-              className={`bg-white rounded-2xl border p-5 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group ${
-                item.isPinned ? 'border-amber-300 bg-amber-50/15' : 'border-slate-200'
+              className={`bg-white rounded-2xl border p-5 shadow-2xs hover:border-red-300 transition-all cursor-pointer flex flex-col justify-between group ${
+                item.isPinned ? 'border-stone-300 bg-stone-50/40' : 'border-stone-200/90'
               }`}
             >
               <div>
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getCategoryBadge(item.category)}`}>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${getCategoryBadge(item.category)}`}>
                       {item.category}
                     </span>
                     {item.isPinned && (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                        <Pin size={11} className="fill-amber-600" />
-                        Ghim
+                      <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
+                        <Pin size={10} className="fill-stone-600" />
+                        KHẨN
                       </span>
                     )}
                   </div>
-                  <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                    <Calendar size={12} />
+                  <span className="text-[10px] font-mono text-stone-500 flex items-center gap-1">
+                    <Calendar size={11} />
                     {new Date(item.createdAt).toLocaleDateString('vi-VN')}
                   </span>
                 </div>
 
-                <h3 className="font-bold text-slate-900 text-base group-hover:text-red-600 transition-colors line-clamp-2">
+                <div className="text-[11px] font-mono text-stone-500 mb-1">
+                  Số: {100 + Number(item.id)}/TB-ĐT
+                </div>
+
+                <h3 className="font-bold text-stone-900 text-sm group-hover:text-red-800 transition-colors line-clamp-2">
                   {item.title}
                 </h3>
 
-                <p className="text-xs text-slate-500 mt-2 line-clamp-3 leading-relaxed">
+                <p className="text-xs text-stone-600 mt-1.5 line-clamp-3 leading-relaxed">
                   {item.content}
                 </p>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                <span className="flex items-center gap-1.5 font-medium text-slate-600">
-                  <User size={13} className="text-slate-400" />
+              <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
+                <span className="flex items-center gap-1.5 font-medium text-stone-700">
+                  <User size={13} className="text-stone-400" />
                   {item.author || 'Phòng Đào tạo'}
                 </span>
 
@@ -235,14 +240,14 @@ export const AnnouncementsPage = () => {
                         e.stopPropagation()
                         handleDelete(item.id, item.title)
                       }}
-                      className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition"
-                      title="Xóa thông báo"
+                      className="p-1.5 rounded text-red-700 hover:bg-red-50 transition"
+                      title="Xóa công văn"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
                   )}
-                  <span className="font-bold text-red-600 group-hover:translate-x-1 transition-transform flex items-center gap-0.5">
-                    Đọc tiếp <ChevronRight size={13} />
+                  <span className="font-semibold text-red-700 group-hover:text-red-900 flex items-center gap-0.5 text-xs">
+                    Chi tiết <ChevronRight size={13} />
                   </span>
                 </div>
               </div>
@@ -251,49 +256,52 @@ export const AnnouncementsPage = () => {
         </div>
       )}
 
-      {/* Article Detail Modal */}
+      {/* Modal View Detail */}
       {selectedArticle && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-xl border border-stone-200 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
               <div className="flex items-center gap-2">
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${getCategoryBadge(selectedArticle.category)}`}>
+                <span className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-bold uppercase ${getCategoryBadge(selectedArticle.category)}`}>
                   {selectedArticle.category}
                 </span>
                 {selectedArticle.isPinned && (
-                  <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    <Pin size={12} className="fill-amber-600" /> Tin ghim
+                  <span className="text-xs font-mono font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
+                    Công văn khẩn
                   </span>
                 )}
               </div>
               <button
                 onClick={() => setSelectedArticle(null)}
-                className="text-slate-400 hover:text-slate-600 text-xl leading-none"
+                className="text-stone-400 hover:text-stone-600 text-xl leading-none"
               >
                 &times;
               </button>
             </div>
 
             <div className="overflow-y-auto mt-4 pr-1 space-y-4">
-              <h2 className="text-xl font-bold text-slate-900 leading-snug">
+              <div className="text-[11px] font-mono text-stone-500">
+                Số: {100 + Number(selectedArticle.id)}/TB-ĐT
+              </div>
+              <h2 className="text-lg font-bold text-stone-900 leading-snug">
                 {selectedArticle.title}
               </h2>
 
-              <div className="flex items-center gap-4 text-xs text-slate-400 border-b border-slate-100 pb-3">
-                <span>Người đăng: <strong className="text-slate-700">{selectedArticle.author}</strong></span>
+              <div className="flex items-center gap-4 text-xs text-stone-500 border-b border-stone-100 pb-3 font-mono">
+                <span>Ban hành: <strong className="text-stone-800">{selectedArticle.author || 'Phòng Đào tạo'}</strong></span>
                 <span>•</span>
-                <span>Ngày đăng: <strong className="text-slate-700">{new Date(selectedArticle.createdAt).toLocaleString('vi-VN')}</strong></span>
+                <span>Ngày: <strong className="text-stone-800">{new Date(selectedArticle.createdAt).toLocaleString('vi-VN')}</strong></span>
               </div>
 
-              <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed space-y-3">
+              <div className="text-xs text-stone-700 whitespace-pre-wrap leading-relaxed space-y-3 font-sans">
                 {selectedArticle.content}
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+            <div className="mt-6 pt-3 border-t border-stone-100 flex justify-end">
               <button
                 onClick={() => setSelectedArticle(null)}
-                className="px-5 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white rounded-xl transition"
+                className="px-4 py-2 text-xs font-semibold bg-stone-800 hover:bg-stone-900 text-white rounded-lg transition"
               >
                 Đóng
               </button>
@@ -302,40 +310,46 @@ export const AnnouncementsPage = () => {
         </div>
       )}
 
-      {/* Admin Create Modal */}
+      {/* Modal Create Announcement (Admin) */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-base text-slate-900">Đăng Thông Báo Học Vụ Mới</h3>
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border border-stone-200">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <h3 className="text-sm font-bold text-stone-900 uppercase font-mono tracking-wider">
+                Ban Hành Công Văn / Thông Báo Đào Tạo
+              </h3>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+                className="text-stone-400 hover:text-stone-600 text-xl leading-none"
               >
                 &times;
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="mt-4 space-y-4 text-xs">
+            <form onSubmit={handleCreate} className="mt-4 space-y-4">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Tiêu đề thông báo *</label>
+                <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">
+                  Tiêu đề công văn / Thông báo
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="Nhập tiêu đề thông báo..."
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-red-500 focus:bg-white"
+                  placeholder="V/v: Lịch thi học kỳ II năm học 2024 - 2025..."
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none focus:border-red-700 focus:bg-white transition"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Danh mục *</label>
+                  <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">
+                    Phân loại danh mục
+                  </label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-red-500"
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:outline-none focus:border-red-700"
                   >
                     <option value="HỌC VỤ">HỌC VỤ</option>
                     <option value="LỊCH THI">LỊCH THI</option>
@@ -345,55 +359,60 @@ export const AnnouncementsPage = () => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Đơn vị ban hành</label>
+                  <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">
+                    Đơn vị ban hành
+                  </label>
                   <input
                     type="text"
+                    required
                     value={formData.author}
                     onChange={(e) => setFormData({ ...formData, author: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-red-500"
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none focus:border-red-700"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Nội dung chi tiết *</label>
+                <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">
+                  Nội dung chi tiết công văn
+                </label>
                 <textarea
                   required
-                  rows={5}
-                  placeholder="Nhập nội dung đầy đủ của thông báo..."
+                  rows={6}
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-red-500 focus:bg-white resize-none"
+                  placeholder="Căn cứ theo kế hoạch năm học, Ban Đào tạo thông báo..."
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none focus:border-red-700 focus:bg-white transition"
                 />
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   id="pinCheck"
                   checked={formData.isPinned}
                   onChange={(e) => setFormData({ ...formData, isPinned: e.target.checked })}
-                  className="rounded border-slate-300 text-red-600 focus:ring-red-500"
+                  className="rounded border-stone-300 text-red-700"
                 />
-                <label htmlFor="pinCheck" className="font-semibold text-slate-700 cursor-pointer">
-                  Ghim thông báo lên đầu trang
+                <label htmlFor="pinCheck" className="text-xs font-medium text-stone-700 cursor-pointer">
+                  Đánh dấu công văn khẩn (Ghim lên đầu bảng tin)
                 </label>
               </div>
 
-              <div className="mt-6 flex justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="pt-3 border-t border-stone-100 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 font-bold text-slate-700 hover:bg-slate-50"
+                  className="px-3.5 py-1.5 rounded-lg border border-stone-300 text-xs font-medium text-stone-700 hover:bg-stone-50 transition"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition shadow-sm"
+                  className="px-4 py-1.5 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-semibold transition shadow-2xs"
                 >
-                  {submitting ? 'Đang lưu...' : 'Đăng bài'}
+                  {submitting ? 'Đang lưu...' : 'Ban hành'}
                 </button>
               </div>
             </form>
@@ -403,3 +422,5 @@ export const AnnouncementsPage = () => {
     </div>
   )
 }
+
+export default AnnouncementsPage

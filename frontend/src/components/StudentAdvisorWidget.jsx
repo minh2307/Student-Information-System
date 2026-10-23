@@ -355,19 +355,19 @@ export const StudentAdvisorWidget = () => {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="group relative flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all duration-200"
+          className="group relative flex items-center gap-2.5 px-4 py-3 bg-red-700 hover:bg-red-800 text-white rounded-full shadow-lg shadow-red-700/25 hover:shadow-red-700/40 hover:scale-105 active:scale-95 transition-all duration-200 border border-red-800"
           title="Mở Cố vấn Học tập AI"
         >
           <div className="relative">
-            <Bot size={22} className="animate-pulse" />
+            <Bot size={20} className="animate-pulse" />
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 border-2 border-white rounded-full"></span>
           </div>
           <div className="text-left hidden sm:block">
-            <div className="text-xs font-bold leading-none flex items-center gap-1">
+            <div className="text-xs font-bold leading-none flex items-center gap-1 font-mono">
               <span>Cố vấn AI</span>
               <Sparkles size={11} className="text-amber-300" />
             </div>
-            <div className="text-[10px] text-blue-100 font-medium leading-none mt-1">
+            <div className="text-[10px] text-red-100 font-medium leading-none mt-1">
               Tư vấn môn học & quy chế
             </div>
           </div>
@@ -376,22 +376,22 @@ export const StudentAdvisorWidget = () => {
 
       {/* Floating Chat Window */}
       {isOpen && (
-        <div className="w-[370px] sm:w-[420px] h-[560px] max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
+        <div className="w-[370px] sm:w-[420px] h-[560px] max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-stone-200/90 overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
           {/* Header */}
-          <div className="px-4 py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 text-white flex items-center justify-between shrink-0 shadow-sm">
+          <div className="px-4 py-3 bg-red-800 text-white flex items-center justify-between shrink-0 shadow-sm border-b border-red-900">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-inner">
-                <Bot size={20} />
+              <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/20">
+                <Bot size={18} />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="font-bold text-sm tracking-tight">Cố vấn Học tập AI</h3>
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                     Online
                   </span>
                 </div>
-                <p className="text-[11px] text-blue-100/90">
+                <p className="text-[10px] text-red-100/90 font-mono">
                   Rikkei EduPortal • Spring AI Advisor
                 </p>
               </div>
@@ -400,46 +400,46 @@ export const StudentAdvisorWidget = () => {
             <div className="flex items-center gap-1">
               <button
                 onClick={handleClearHistory}
-                className="p-1.5 text-blue-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 title="Xóa lịch sử hội thoại"
               >
-                <RotateCcw size={15} />
+                <RotateCcw size={14} />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 text-blue-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 title="Thu nhỏ"
               >
-                <Minus size={16} />
+                <Minus size={15} />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 text-blue-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 title="Đóng widget"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
           </div>
 
           {/* Messages Area */}
-          <div className="flex-1 p-3.5 space-y-3 overflow-y-auto bg-slate-50/60 text-xs">
+          <div className="flex-1 p-3.5 space-y-3 overflow-y-auto bg-stone-50/60 text-xs">
             {messages.map((msg) => (
               <div
                 key={msg.id}
                 className={`flex gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {msg.role === 'assistant' && (
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                    <Bot size={15} />
+                  <div className="w-7 h-7 rounded-lg bg-stone-800 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                    <Bot size={14} />
                   </div>
                 )}
 
                 <div
-                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-sm leading-relaxed ${
+                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-2xs leading-relaxed ${
                     msg.role === 'user'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-none'
-                      : 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-none'
+                      ? 'bg-red-700 text-white rounded-tr-none'
+                      : 'bg-white border border-stone-200/90 text-stone-800 rounded-tl-none'
                   }`}
                 >
                   <div className="break-words">
@@ -450,8 +450,8 @@ export const StudentAdvisorWidget = () => {
                     )}
                   </div>
                   <div
-                    className={`text-[9px] mt-1 text-right ${
-                      msg.role === 'user' ? 'text-blue-100/80' : 'text-slate-400'
+                    className={`text-[9px] mt-1 text-right font-mono ${
+                      msg.role === 'user' ? 'text-red-100/80' : 'text-stone-400'
                     }`}
                   >
                     {msg.timestamp}
@@ -459,8 +459,8 @@ export const StudentAdvisorWidget = () => {
                 </div>
 
                 {msg.role === 'user' && (
-                  <div className="w-7 h-7 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center shrink-0 mt-0.5">
-                    <User size={14} />
+                  <div className="w-7 h-7 rounded-lg bg-stone-200 text-stone-700 flex items-center justify-center shrink-0 mt-0.5">
+                    <User size={13} />
                   </div>
                 )}
               </div>
@@ -469,18 +469,18 @@ export const StudentAdvisorWidget = () => {
             {/* Live Streaming / Typewriter State */}
             {isStreaming && (
               <div className="flex gap-2.5 justify-start">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                  <Bot size={15} />
+                <div className="w-7 h-7 rounded-lg bg-stone-800 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                  <Bot size={14} />
                 </div>
-                <div className="max-w-[85%] bg-white border border-indigo-200 text-slate-800 rounded-2xl rounded-tl-none px-3.5 py-2.5 shadow-md leading-relaxed relative">
-                  <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-indigo-50">
-                    <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-1">
+                <div className="max-w-[85%] bg-white border border-red-200 text-stone-800 rounded-2xl rounded-tl-none px-3.5 py-2.5 shadow-2xs leading-relaxed relative">
+                  <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-red-50">
+                    <span className="text-[10px] text-red-700 font-semibold flex items-center gap-1 font-mono">
                       <Sparkles size={11} className="animate-spin" />
                       AI đang trả lời...
                     </span>
                     <button
                       onClick={handleSkipTyping}
-                      className="text-[10px] text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-0.5 hover:underline"
+                      className="text-[10px] text-red-700 hover:text-red-900 font-medium flex items-center gap-0.5 hover:underline"
                       title="Hiện đầy đủ ngay lập tức"
                     >
                       <FastForward size={11} />
@@ -489,7 +489,7 @@ export const StudentAdvisorWidget = () => {
                   </div>
                   <div className="break-words">
                     {renderMessageContent(streamingText)}
-                    <span className="inline-block w-1.5 h-3.5 bg-indigo-600 ml-0.5 animate-pulse align-middle" />
+                    <span className="inline-block w-1.5 h-3.5 bg-red-700 ml-0.5 animate-pulse align-middle" />
                   </div>
                 </div>
               </div>
@@ -498,12 +498,12 @@ export const StudentAdvisorWidget = () => {
             {/* Loading / Thinking State */}
             {loading && !isStreaming && (
               <div className="flex gap-2.5 justify-start">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot size={15} />
+                <div className="w-7 h-7 rounded-lg bg-stone-800 text-white flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot size={14} />
                 </div>
-                <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-none px-4 py-2.5 shadow-sm flex items-center gap-2 text-slate-500">
-                  <Loader2 size={14} className="animate-spin text-indigo-600" />
-                  <span className="text-[11px] font-medium text-slate-600">
+                <div className="bg-white border border-stone-200 rounded-2xl rounded-tl-none px-4 py-2.5 shadow-2xs flex items-center gap-2 text-stone-500">
+                  <Loader2 size={13} className="animate-spin text-red-700" />
+                  <span className="text-[11px] font-mono text-stone-600">
                     Cố vấn AI đang phân tích dữ liệu...
                   </span>
                 </div>
@@ -515,8 +515,8 @@ export const StudentAdvisorWidget = () => {
 
           {/* Quick Suggestions Chips */}
           {!loading && !isStreaming && suggestions.length > 0 && (
-            <div className="px-3 py-2 bg-white border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-              <span className="text-[10px] text-slate-400 font-medium shrink-0 flex items-center gap-1">
+            <div className="px-3 py-2 bg-white border-t border-stone-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+              <span className="text-[10px] text-stone-500 font-medium shrink-0 flex items-center gap-1">
                 <Sparkles size={10} className="text-amber-500" />
                 Gợi ý:
               </span>
@@ -524,7 +524,7 @@ export const StudentAdvisorWidget = () => {
                 <button
                   key={i}
                   onClick={() => handleSendMessage(item)}
-                  className="px-2.5 py-1 text-[11px] bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 rounded-lg whitespace-nowrap transition-colors border border-slate-200/60 shrink-0 font-medium"
+                  className="px-2.5 py-1 text-[11px] bg-stone-100 hover:bg-red-50 hover:text-red-800 text-stone-700 rounded-lg whitespace-nowrap transition-colors border border-stone-200/80 shrink-0 font-medium"
                 >
                   {item}
                 </button>
@@ -538,7 +538,7 @@ export const StudentAdvisorWidget = () => {
               e.preventDefault()
               handleSendMessage()
             }}
-            className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0"
+            className="p-3 bg-white border-t border-stone-200 flex items-center gap-2 shrink-0"
           >
             <input
               ref={inputRef}
@@ -551,15 +551,15 @@ export const StudentAdvisorWidget = () => {
                   ? 'AI đang tạo câu trả lời...'
                   : 'Hỏi về quy chế, trùng lịch, môn tiên quyết...'
               }
-              className="flex-1 px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all disabled:opacity-60"
+              className="flex-1 px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:border-red-700 focus:bg-white outline-none transition-all disabled:opacity-60"
             />
             <button
               type="submit"
               disabled={!input.trim() || loading || isStreaming}
-              className="p-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-40 text-white rounded-xl shadow-sm transition-all shrink-0 active:scale-95"
+              className="p-2 bg-red-700 hover:bg-red-800 disabled:opacity-40 text-white rounded-lg shadow-2xs transition-all shrink-0 active:scale-95"
               title="Gửi câu hỏi"
             >
-              <Send size={15} />
+              <Send size={14} />
             </button>
           </form>
         </div>

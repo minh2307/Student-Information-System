@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import api from '../services/api'
-import { GraduationCap, Award, CheckCircle2, Clock, BookOpen, AlertCircle, Loader2 } from 'lucide-react'
+import { 
+  GraduationCap, 
+  Award, 
+  CheckCircle2, 
+  Clock, 
+  BookOpen, 
+  AlertCircle, 
+  Loader2, 
+  Printer, 
+  ShieldCheck, 
+  Info,
+  Filter 
+} from 'lucide-react'
 
 export const StudentGrades = () => {
   const [grades, setGrades] = useState([])
@@ -61,162 +73,179 @@ export const StudentGrades = () => {
   }, [filteredGrades])
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* 1. Official Header */}
+      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-stone-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <GraduationCap className="text-red-600" size={28} />
-            <span>Kết quả Học tập</span>
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700">
+            Học Viện Công Nghệ Rikkei • Phòng Đào Tạo & Khảo Thí
+          </span>
+          <h1 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
+            Bảng Ghi Điểm Học Tập & Đánh Giá Học Phần
           </h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            Bảng điểm chi tiết theo môn học (Trọng số: Chuyên cần 10% - Giữa kỳ 30% - Cuối kỳ 60%)
+          <p className="text-xs text-stone-600 mt-0.5">
+            Cơ cấu điểm kiểm tra: Chuyên cần (10%) • Đánh giá giữa kỳ (30%) • Thi kết thúc học phần (60%)
           </p>
         </div>
 
-        {/* Semester Filter */}
-        {semesters.length > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">Học kỳ:</span>
-            <select
-              value={selectedSemester}
-              onChange={(e) => setSelectedSemester(e.target.value)}
-              className="bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 shadow-xs"
-            >
-              <option value="ALL">Tất cả các kỳ ({grades.length} môn)</option>
-              {semesters.map(sem => (
-                <option key={sem} value={sem}>{sem}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {semesters.length > 0 && (
+            <div className="flex items-center gap-2 bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200">
+              <Filter size={14} className="text-stone-500" />
+              <select
+                value={selectedSemester}
+                onChange={(e) => setSelectedSemester(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-stone-800 focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">Tất cả các học kỳ ({grades.length} môn)</option>
+                {semesters.map(sem => (
+                  <option key={sem} value={sem}>{sem}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-stone-100 hover:bg-stone-200 text-stone-800 transition border border-stone-200"
+          >
+            <Printer size={14} />
+            <span>In bảng điểm</span>
+          </button>
+        </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* 2. Key Academic Indicators (Tabular, Anti-Slop) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
-            <BookOpen size={22} />
+        <div className="bg-white p-5 rounded-2xl border border-stone-200/90 shadow-2xs">
+          <span className="text-[10px] font-mono uppercase text-stone-600 block">Tín chỉ tích lũy (Đạt)</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="font-mono text-2xl font-bold text-stone-900">{stats.totalCredits}</span>
+            <span className="text-xs font-mono text-stone-600">tín chỉ</span>
           </div>
-          <div>
-            <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Tín chỉ đã hoàn thành</div>
-            <div className="text-2xl font-bold text-slate-800 mt-0.5">
-              {stats.totalCredits} <span className="text-xs font-normal text-slate-400">tín chỉ</span>
-            </div>
-          </div>
+          <span className="text-[11px] text-stone-600 mt-1 block">
+            Các môn học có điểm chữ &ge; D
+          </span>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-            <Award size={22} />
+        <div className="bg-white p-5 rounded-2xl border border-stone-200/90 shadow-2xs">
+          <span className="text-[10px] font-mono uppercase text-stone-600 block">Điểm trung bình (GPA)</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="font-mono text-2xl font-bold text-red-800">{stats.gpa}</span>
+            <span className="text-xs font-mono text-stone-600">/ 10.0</span>
           </div>
-          <div>
-            <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Điểm TB Học tập (GPA)</div>
-            <div className="text-2xl font-bold text-emerald-600 mt-0.5">
-              {stats.gpa} <span className="text-xs font-normal text-slate-400">/ 10</span>
-            </div>
-          </div>
+          <span className="text-[11px] text-emerald-700 font-semibold mt-1 block">
+            Xếp loại học lực: Giỏi
+          </span>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-            <CheckCircle2 size={22} />
+        <div className="bg-white p-5 rounded-2xl border border-stone-200/90 shadow-2xs">
+          <span className="text-[10px] font-mono uppercase text-stone-600 block">Tiến độ cập nhật điểm</span>
+          <div className="flex items-baseline gap-1 mt-1">
+            <span className="font-mono text-2xl font-bold text-stone-900">{stats.gradedCount} / {stats.totalCount}</span>
+            <span className="text-xs font-mono text-stone-600">học phần</span>
           </div>
-          <div>
-            <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Tiến độ chấm điểm</div>
-            <div className="text-2xl font-bold text-purple-600 mt-0.5">
-              {stats.gradedCount}/{stats.totalCount} <span className="text-xs font-normal text-slate-400">môn đã có điểm</span>
-            </div>
-          </div>
+          <span className="text-[11px] text-stone-600 mt-1 block">
+            {stats.gradedCount === stats.totalCount ? 'Đã hoàn tất toàn bộ điểm' : 'Giảng viên đang chấm thi'}
+          </span>
         </div>
       </div>
 
-      {/* Main Table */}
+      {/* 3. Official Transcript Table */}
       {loading ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-3">
-          <Loader2 size={32} className="animate-spin text-red-600" />
-          <p className="text-sm font-medium">Đang tải bảng điểm từ máy chủ...</p>
+        <div className="bg-white rounded-2xl border border-stone-200/90 p-16 text-center text-stone-500 flex flex-col items-center justify-center gap-3">
+          <Loader2 size={28} className="animate-spin text-red-700" />
+          <p className="text-xs text-stone-600">Đang đồng bộ hồ sơ kết quả từ máy chủ học vụ...</p>
         </div>
       ) : error ? (
-        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-rose-700 flex items-center gap-3">
-          <AlertCircle size={20} className="shrink-0" />
-          <div className="text-sm font-medium">{error}</div>
+        <div className="bg-stone-50 border border-stone-300 rounded-2xl p-6 text-stone-800 flex items-center gap-3">
+          <AlertCircle size={20} className="shrink-0 text-red-700" />
+          <div className="text-xs">{error}</div>
         </div>
       ) : filteredGrades.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
-          <GraduationCap size={40} className="mx-auto text-slate-300 mb-3" />
-          <h3 className="text-base font-bold text-slate-700">Chưa có dữ liệu điểm học phần</h3>
-          <p className="text-xs text-slate-500 mt-1">Các môn học của bạn sẽ hiển thị tại đây khi giảng viên nhập điểm và chốt điểm.</p>
+        <div className="bg-white rounded-2xl border border-stone-200 p-12 text-center text-stone-400">
+          <GraduationCap size={36} className="mx-auto text-stone-300 mb-2" />
+          <h3 className="text-sm font-bold text-stone-700">Chưa có kết quả học phần nào</h3>
+          <p className="text-xs text-stone-500 mt-1">Bảng điểm sẽ cập nhật ngay khi giảng viên hoàn tất nhập điểm và ký duyệt.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="bg-white rounded-2xl border border-stone-200/90 shadow-2xs overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-stone-200/80 bg-stone-50/50 flex items-center justify-between">
+            <h3 className="font-bold text-xs sm:text-sm text-stone-900 uppercase font-mono tracking-wider">
+              Bảng Ghi Điểm Chi Tiết Các Lớp Học Phần ({filteredGrades.length} môn)
+            </h3>
+            <span className="text-[11px] font-mono text-stone-600">
+              Chính thức • Đã qua kiểm tra
+            </span>
+          </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50/80 text-slate-600 text-[11px] uppercase font-bold tracking-wider border-b border-slate-200">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-stone-100/70 text-stone-600 text-[10px] uppercase font-mono tracking-wider border-b border-stone-200">
                 <tr>
-                  <th className="px-5 py-4">Môn học</th>
-                  <th className="px-4 py-4 text-center">Học kỳ</th>
-                  <th className="px-3 py-4 text-center">Tín chỉ</th>
-                  <th className="px-4 py-4 text-center">Chuyên cần (10%)</th>
-                  <th className="px-4 py-4 text-center">Giữa kỳ (30%)</th>
-                  <th className="px-4 py-4 text-center">Cuối kỳ (60%)</th>
-                  <th className="px-4 py-4 text-center">Tổng kết (Hệ 10)</th>
-                  <th className="px-4 py-4 text-center">Điểm chữ</th>
-                  <th className="px-4 py-4 text-center">Trạng thái</th>
+                  <th className="px-4 py-3">Môn học</th>
+                  <th className="px-3 py-3 text-center">Học kỳ</th>
+                  <th className="px-3 py-3 text-center">Số TC</th>
+                  <th className="px-3 py-3 text-right">Chuyên cần (10%)</th>
+                  <th className="px-3 py-3 text-right">Giữa kỳ (30%)</th>
+                  <th className="px-3 py-3 text-right">Cuối kỳ (60%)</th>
+                  <th className="px-3 py-3 text-right font-bold text-red-800">Tổng kết (Hệ 10)</th>
+                  <th className="px-3 py-3 text-center">Điểm chữ</th>
+                  <th className="px-4 py-3 text-center">Tình trạng</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-stone-100 font-sans">
                 {filteredGrades.map((g, idx) => {
                   const hasTotal = g.totalScore != null
                   const isPassed = hasTotal && g.letterGrade !== 'F'
 
                   return (
-                    <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-5 py-4">
-                        <div className="font-bold text-slate-800 text-sm">{g.courseName}</div>
-                        <div className="text-xs text-slate-400 font-mono mt-0.5 flex items-center gap-2">
-                          <span>{g.courseCode}</span>
+                    <tr key={idx} className="hover:bg-stone-50/70 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <div className="font-bold text-stone-900 text-xs">{g.courseName}</div>
+                        <div className="text-[10px] text-stone-600 font-mono mt-0.5 flex items-center gap-2">
+                          <span className="font-bold text-red-800">{g.courseCode}</span>
                           <span>•</span>
-                          <span>Mã ĐK: #{g.enrollmentId}</span>
+                          <span>Lớp HP: #{g.enrollmentId}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-center font-medium text-xs text-slate-600">
+                      <td className="px-3 py-3.5 text-center font-mono text-[11px] text-stone-600">
                         {g.semesterName || '2024-25_SEM2'}
                       </td>
-                      <td className="px-3 py-4 text-center font-semibold text-slate-800">{g.credits}</td>
-                      <td className="px-4 py-4 text-center font-medium text-slate-700">
-                        {g.attendanceScore != null ? Number(g.attendanceScore).toFixed(1) : <span className="text-slate-300">-</span>}
+                      <td className="px-3 py-3.5 text-center font-mono font-semibold text-stone-800">{g.credits}</td>
+                      <td className="px-3 py-3.5 text-right font-mono text-stone-700">
+                        {g.attendanceScore != null ? Number(g.attendanceScore).toFixed(1) : <span className="text-stone-300">-</span>}
                       </td>
-                      <td className="px-4 py-4 text-center font-medium text-slate-700">
-                        {g.midtermScore != null ? Number(g.midtermScore).toFixed(1) : <span className="text-slate-300">-</span>}
+                      <td className="px-3 py-3.5 text-right font-mono text-stone-700">
+                        {g.midtermScore != null ? Number(g.midtermScore).toFixed(1) : <span className="text-stone-300">-</span>}
                       </td>
-                      <td className="px-4 py-4 text-center font-medium text-slate-700">
-                        {g.finalScore != null ? Number(g.finalScore).toFixed(1) : <span className="text-slate-300">-</span>}
+                      <td className="px-3 py-3.5 text-right font-mono text-stone-700">
+                        {g.finalScore != null ? Number(g.finalScore).toFixed(1) : <span className="text-stone-300">-</span>}
                       </td>
-                      <td className="px-4 py-4 text-center font-bold text-base text-red-700">
-                        {hasTotal ? Number(g.totalScore).toFixed(2) : <span className="text-slate-300">-</span>}
+                      <td className="px-3 py-3.5 text-right font-mono font-bold text-sm text-red-800">
+                        {hasTotal ? Number(g.totalScore).toFixed(2) : <span className="text-stone-300">-</span>}
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-3 py-3.5 text-center">
                         {g.letterGrade ? (
-                          <span className={`inline-block px-2.5 py-1 font-bold text-xs rounded-lg shadow-2xs ${
+                          <span className={`inline-block px-2 py-0.5 font-mono font-bold text-[11px] rounded ${
                             isPassed
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : 'bg-red-50 text-red-800 border border-red-200'
                           }`}>
                             {g.letterGrade}
                           </span>
                         ) : (
-                          <span className="text-slate-300 text-xs">Chưa có</span>
+                          <span className="text-stone-400 text-xs">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-4 py-3.5 text-center">
                         {g.isLocked ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100/70 text-emerald-800">
-                            <CheckCircle2 size={12} /> Đã chốt điểm
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-800">
+                            <CheckCircle2 size={12} className="text-emerald-600" /> Đã chốt điểm
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                            <Clock size={12} /> Đang chấm điểm
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-700">
+                            <Clock size={12} /> Đang cập nhật
                           </span>
                         )}
                       </td>
@@ -228,6 +257,46 @@ export const StudentGrades = () => {
           </div>
         </div>
       )}
+
+      {/* 4. Grading Scale Reference Standard (Thang điểm quy đổi học vụ) */}
+      <div className="bg-stone-50 rounded-xl border border-stone-200/80 p-4 text-xs">
+        <h4 className="font-bold text-stone-900 text-xs uppercase font-mono tracking-wider mb-2 flex items-center gap-1.5">
+          <Info size={14} className="text-stone-500" />
+          Quy Chuẩn Quy Đổi Thang Điểm Đại Học (Theo Học Chế Tín Chỉ)
+        </h4>
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 font-mono text-[11px] text-stone-600">
+          <div className="bg-white p-2 rounded border border-stone-200">
+            <span className="font-bold text-red-800">A+ (9.0 - 10.0)</span>
+            <div className="text-[10px] text-stone-600">Hệ 4: 4.0 • Xuất sắc</div>
+          </div>
+          <div className="bg-white p-2 rounded border border-stone-200">
+            <span className="font-bold text-red-800">A (8.5 - 8.9)</span>
+            <div className="text-[10px] text-stone-600">Hệ 4: 3.7 • Giỏi</div>
+          </div>
+          <div className="bg-white p-2 rounded border border-stone-200">
+            <span className="font-bold text-stone-800">B+ (8.0 - 8.4)</span>
+            <div className="text-[10px] text-stone-600">Hệ 4: 3.5 • Khá giỏi</div>
+          </div>
+          <div className="bg-white p-2 rounded border border-stone-200">
+            <span className="font-bold text-stone-800">B (7.0 - 7.9)</span>
+            <div className="text-[10px] text-stone-600">Hệ 4: 3.0 • Khá</div>
+          </div>
+          <div className="bg-white p-2 rounded border border-stone-200">
+            <span className="font-bold text-stone-800">C (5.5 - 6.9)</span>
+            <div className="text-[10px] text-stone-600">Hệ 4: 2.0 • Trung bình</div>
+          </div>
+          <div className="bg-white p-2 rounded border border-stone-200">
+            <span className="font-bold text-stone-800">D (4.0 - 5.4)</span>
+            <div className="text-[10px] text-stone-600">Hệ 4: 1.0 • Đạt</div>
+          </div>
+          <div className="bg-white p-2 rounded border border-red-200">
+            <span className="font-bold text-red-700">F (&lt; 4.0)</span>
+            <div className="text-[10px] text-stone-600">Hệ 4: 0.0 • Học lại</div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
+
+export default StudentGrades

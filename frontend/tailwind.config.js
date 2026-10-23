@@ -6,14 +6,19 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['Cinzel', 'Georgia', 'serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+      },
       colors: {
         primary: {
-          50: '#fef2f2',
-          100: '#fee2e2',
-          200: '#fecaca',
-          300: '#fca5a5',
-          400: '#f87171',
-          500: '#ef4444',
+          50: '#fff1f2',
+          100: '#ffe4e6',
+          200: '#fecdd3',
+          300: '#fda4af',
+          400: '#fb7185',
+          500: '#e11d48',
           600: '#dc2626',
           700: '#b91c1c',
           800: '#991b1b',
@@ -31,6 +36,14 @@ export default {
           700: '#be123c',
           800: '#9f1239',
           900: '#881337',
+          950: '#4c0519',
+        },
+        paper: {
+          50: '#fafaf9',
+          100: '#f5f5f4',
+          200: '#e7e5e4',
+          300: '#d6d3d1',
+          400: '#a8a29e',
         }
       }
     },
