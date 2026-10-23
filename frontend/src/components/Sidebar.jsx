@@ -6,11 +6,15 @@ import {
   BookOpen, 
   GraduationCap, 
   Calendar, 
+  CalendarDays,
   Users, 
   FolderKanban, 
   BotMessageSquare, 
   Sparkles,
-  UserCircle
+  UserCircle,
+  CreditCard,
+  FileCheck2,
+  Bell
 } from 'lucide-react'
 
 export const Sidebar = () => {
@@ -18,7 +22,7 @@ export const Sidebar = () => {
   const role = user?.role || 'STUDENT'
 
   const navItemClass = ({ isActive }) =>
-    `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+    `flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
       isActive
         ? 'bg-blue-600 text-white shadow-sm'
         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -36,28 +40,40 @@ export const Sidebar = () => {
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {/* Student Links */}
         {role === 'STUDENT' && (
           <>
-            <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="px-4 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               Cổng Sinh viên
             </div>
             <NavLink to="/student/dashboard" className={navItemClass}>
-              <LayoutDashboard size={18} />
+              <LayoutDashboard size={17} />
               <span>Dashboard học kỳ</span>
             </NavLink>
+            <NavLink to="/student/timetable" className={navItemClass}>
+              <CalendarDays size={17} />
+              <span>Thời khóa biểu tuần</span>
+            </NavLink>
             <NavLink to="/student/registration" className={navItemClass}>
-              <BookOpen size={18} />
+              <BookOpen size={17} />
               <span>Đăng ký học phần</span>
             </NavLink>
             <NavLink to="/student/grades" className={navItemClass}>
-              <GraduationCap size={18} />
+              <GraduationCap size={17} />
               <span>Tra cứu điểm thi</span>
             </NavLink>
+            <NavLink to="/student/tuition" className={navItemClass}>
+              <CreditCard size={17} />
+              <span>Học phí & Công nợ</span>
+            </NavLink>
+            <NavLink to="/student/exams" className={navItemClass}>
+              <FileCheck2 size={17} />
+              <span>Lịch thi & Phòng thi</span>
+            </NavLink>
             <NavLink to="/ai/advisor" className={navItemClass}>
-              <BotMessageSquare size={18} className="text-indigo-600" />
-              <span className="font-semibold text-indigo-900">Cố vấn học tập AI</span>
+              <BotMessageSquare size={17} className="text-indigo-600" />
+              <span className="font-bold text-indigo-900">Cố vấn học tập AI</span>
             </NavLink>
           </>
         )}
@@ -65,42 +81,52 @@ export const Sidebar = () => {
         {/* Lecturer Links */}
         {role === 'LECTURER' && (
           <>
-            <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="px-4 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               Cổng Giảng viên
             </div>
             <NavLink to="/lecturer/classes" className={navItemClass}>
-              <Calendar size={18} />
+              <Calendar size={17} />
               <span>Lớp học phần dạy</span>
             </NavLink>
-            {/* Nhập điểm nằm trong trang chi tiết lớp — không có entry riêng */}
+            <NavLink to="/lecturer/timetable" className={navItemClass}>
+              <CalendarDays size={17} />
+              <span>Thời khóa biểu dạy</span>
+            </NavLink>
           </>
         )}
 
         {/* Admin Links */}
         {role === 'ADMIN' && (
           <>
-            <div className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="px-4 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               Quản trị Hệ thống
             </div>
             <NavLink to="/admin/users" className={navItemClass}>
-              <Users size={18} />
+              <Users size={17} />
               <span>Quản lý Tài khoản</span>
             </NavLink>
             <NavLink to="/admin/courses" className={navItemClass}>
-              <BookOpen size={18} />
+              <BookOpen size={17} />
               <span>Danh mục Môn học</span>
             </NavLink>
             <NavLink to="/admin/sections" className={navItemClass}>
-              <FolderKanban size={18} />
+              <FolderKanban size={17} />
               <span>Mở lớp & Duyệt tín</span>
             </NavLink>
           </>
         )}
 
-        {/* Profile */}
-        <div className="pt-2">
+        {/* Common Section for All Roles */}
+        <div className="pt-3 border-t border-slate-100">
+          <div className="px-4 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            Tiện ích chung
+          </div>
+          <NavLink to="/announcements" className={navItemClass}>
+            <Bell size={17} />
+            <span>Bảng tin Thông báo</span>
+          </NavLink>
           <NavLink to="/profile" className={navItemClass}>
-            <UserCircle size={18} />
+            <UserCircle size={17} />
             <span>Hồ sơ cá nhân</span>
           </NavLink>
         </div>
@@ -108,10 +134,11 @@ export const Sidebar = () => {
 
       <div className="p-4 border-t border-slate-100 bg-slate-50">
         <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-500 flex items-center justify-between">
-          <span>Sprint 7 ngày (MVP)</span>
-          <span className="font-bold text-blue-600">v0.0.1</span>
+          <span>EduPortal Full Suite</span>
+          <span className="font-bold text-blue-600">v1.0.0</span>
         </div>
       </div>
     </aside>
   )
 }
+export default Sidebar

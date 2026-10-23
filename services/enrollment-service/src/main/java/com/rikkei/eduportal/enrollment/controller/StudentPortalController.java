@@ -25,12 +25,15 @@ public class StudentPortalController {
 
     private final StudentDashboardService dashboardService;
     private final CourseRegistrationService registrationService;
+    private final com.rikkei.eduportal.enrollment.service.ExamScheduleService examScheduleService;
     private final ObjectMapper objectMapper;
 
     public StudentPortalController(StudentDashboardService dashboardService,
-                                   CourseRegistrationService registrationService) {
+                                   CourseRegistrationService registrationService,
+                                   com.rikkei.eduportal.enrollment.service.ExamScheduleService examScheduleService) {
         this.dashboardService = dashboardService;
         this.registrationService = registrationService;
+        this.examScheduleService = examScheduleService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -43,6 +46,32 @@ public class StudentPortalController {
         String studentIdentifier = extractStudentIdentifier(request);
         StudentDashboardResponse response = dashboardService.getStudentDashboard(studentIdentifier);
         return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu dashboard thành công", response));
+    }
+
+    /**
+     * GET /api/v1/student/timetable?semester=...
+     * Lấy thời khóa biểu học phần theo kỳ
+     */
+    @GetMapping("/timetable")
+    public ResponseEntity<ApiResponse<List<UpcomingClassDto>>> getTimetable(
+            @RequestParam(required = false) String semester,
+            HttpServletRequest request) {
+        String studentIdentifier = extractStudentIdentifier(request);
+        List<UpcomingClassDto> timetable = dashboardService.getStudentTimetable(studentIdentifier, semester);
+        return ResponseEntity.ok(ApiResponse.success("Lấy thời khóa biểu thành công", timetable));
+    }
+
+    /**
+     * GET /api/v1/student/exams?semester=...
+     * Tra cứu lịch thi cá nhân theo kỳ
+     */
+    @GetMapping("/exams")
+    public ResponseEntity<ApiResponse<List<com.rikkei.eduportal.enrollment.dto.ExamScheduleDto>>> getExams(
+            @RequestParam(required = false) String semester,
+            HttpServletRequest request) {
+        String studentIdentifier = extractStudentIdentifier(request);
+        List<com.rikkei.eduportal.enrollment.dto.ExamScheduleDto> exams = examScheduleService.getStudentExams(studentIdentifier, semester);
+        return ResponseEntity.ok(ApiResponse.success("Lấy lịch thi thành công", exams));
     }
 
     /**

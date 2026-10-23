@@ -90,7 +90,11 @@ public class StudentDashboardService {
                         sec.getStartTime() != null ? sec.getStartTime().toString().substring(0, 5) : "",
                         sec.getEndTime() != null ? sec.getEndTime().toString().substring(0, 5) : "",
                         sec.getRoomName(),
-                        lecturerName
+                        lecturerName,
+                        sec.getSectionCode(),
+                        sec.getCourse().getCredits(),
+                        sec.getSemesterName(),
+                        enrollment.getStatus()
                 ));
             }
         }
@@ -126,6 +130,58 @@ public class StudentDashboardService {
         );
 
         return new StudentDashboardResponse(stats, upcomingClasses, progress);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UpcomingClassDto> getStudentTimetable(String studentIdentifier, String semester) {
+        StudentProfile student = resolveStudent(studentIdentifier);
+        List<Enrollment> enrollments;
+        if (semester != null && !semester.trim().isEmpty() && !"ALL".equalsIgnoreCase(semester.trim())) {
+            enrollments = enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(student.getId(), semester.trim());
+        } else {
+            enrollments = enrollmentRepository.findActiveEnrollmentsByStudent(student.getId());
+        }
+
+        List<UpcomingClassDto> timetable = new ArrayList<>();
+        Map<String, Integer> dayOrder = Map.of(
+                "MON", 1, "TUE", 2, "WED", 3, "THU", 4, "FRI", 5, "SAT", 6, "SUN", 7
+        );
+
+        for (Enrollment enrollment : enrollments) {
+            ClassSection sec = enrollment.getClassSection();
+            if (sec != null && sec.getCourse() != null) {
+                String lecturerName = "Chưa phân công";
+                if (sec.getLecturer() != null && sec.getLecturer().getUser() != null) {
+                    String degree = sec.getLecturer().getDegree();
+                    String fullName = sec.getLecturer().getUser().getFullName();
+                    lecturerName = (degree != null ? degree + " " : "") + fullName;
+                }
+
+                timetable.add(new UpcomingClassDto(
+                        sec.getId(),
+                        sec.getCourse().getCourseCode(),
+                        sec.getCourse().getName(),
+                        sec.getDayOfWeek(),
+                        sec.getStartTime() != null ? sec.getStartTime().toString().substring(0, 5) : "",
+                        sec.getEndTime() != null ? sec.getEndTime().toString().substring(0, 5) : "",
+                        sec.getRoomName(),
+                        lecturerName,
+                        sec.getSectionCode(),
+                        sec.getCourse().getCredits(),
+                        sec.getSemesterName(),
+                        enrollment.getStatus()
+                ));
+            }
+        }
+
+        timetable.sort((a, b) -> {
+            int orderA = dayOrder.getOrDefault(a.getDayOfWeek(), 99);
+            int orderB = dayOrder.getOrDefault(b.getDayOfWeek(), 99);
+            if (orderA != orderB) return Integer.compare(orderA, orderB);
+            return a.getStartTime().compareTo(b.getStartTime());
+        });
+
+        return timetable;
     }
 
     public StudentProfile resolveStudent(String identifier) {

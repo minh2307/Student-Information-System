@@ -6,14 +6,19 @@ import { MainLayout } from './components/MainLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Profile } from './pages/Profile'
 import { StudentDashboard } from './pages/StudentDashboard'
+import { StudentTimetable } from './pages/StudentTimetable'
 import { CourseRegistration } from './pages/CourseRegistration'
 import { StudentGrades } from './pages/StudentGrades'
+import { StudentTuition } from './pages/StudentTuition'
+import { StudentExams } from './pages/StudentExams'
+import { LecturerTimetable } from './pages/LecturerTimetable'
+import { AnnouncementsPage } from './pages/AnnouncementsPage'
 import { AdminUsers } from './pages/AdminUsers'
 import { AdminCourses } from './pages/AdminCourses'
 import { AdminSections } from './pages/AdminSections'
 import { AiAdvisor } from './pages/AiAdvisor'
 
-// ── Lecturer Portal (Hoàng Văn Lương) ─────────────────────────────────────
+// ── Lecturer Portal ─────────────────────────────────────
 import { LecturerClassesPage, ClassStudentsPage } from './features/lecturer'
 
 // Component to redirect root to specific role dashboard
@@ -41,11 +46,17 @@ export default function App() {
             {/* Profile Route */}
             <Route path="/profile" element={<Profile />} />
 
+            {/* Announcements (General for all logged in roles) */}
+            <Route path="/announcements" element={<AnnouncementsPage />} />
+
             {/* Student Portal (Role: STUDENT) */}
             <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
               <Route path="/student/dashboard"    element={<StudentDashboard />} />
+              <Route path="/student/timetable"    element={<StudentTimetable />} />
               <Route path="/student/registration" element={<CourseRegistration />} />
               <Route path="/student/grades"       element={<StudentGrades />} />
+              <Route path="/student/tuition"      element={<StudentTuition />} />
+              <Route path="/student/exams"        element={<StudentExams />} />
               <Route path="/ai/advisor"           element={<AiAdvisor />} />
             </Route>
 
@@ -53,6 +64,7 @@ export default function App() {
             <Route element={<ProtectedRoute allowedRoles={['LECTURER', 'ADMIN']} />}>
               <Route path="/lecturer/classes"            element={<LecturerClassesPage />} />
               <Route path="/lecturer/classes/:sectionId" element={<ClassStudentsPage />} />
+              <Route path="/lecturer/timetable"          element={<LecturerTimetable />} />
             </Route>
 
             {/* Admin Portal (Strictly Role: ADMIN) */}

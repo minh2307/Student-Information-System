@@ -112,3 +112,58 @@ CREATE INDEX IF NOT EXISTS idx_class_sections_course ON class_sections(course_id
 CREATE INDEX IF NOT EXISTS idx_class_sections_lecturer ON class_sections(lecturer_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_section ON enrollments(class_section_id);
+
+-- 8. Table tuition_fees (Quản lý Học phí & Công nợ)
+CREATE TABLE IF NOT EXISTS tuition_fees (
+    id BIGSERIAL PRIMARY KEY,
+    student_id BIGINT NOT NULL REFERENCES student_profiles(id) ON DELETE CASCADE,
+    semester_name VARCHAR(30) NOT NULL,
+    total_credits INT NOT NULL DEFAULT 0,
+    credit_unit_price NUMERIC(12,2) DEFAULT 450000.00,
+    facility_fee NUMERIC(12,2) DEFAULT 300000.00,
+    total_amount NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+    paid_amount NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(20) NOT NULL DEFAULT 'UNPAID' CHECK (status IN ('UNPAID', 'PAID', 'PARTIAL')),
+    due_date DATE,
+    payment_date TIMESTAMP,
+    transaction_code VARCHAR(100),
+    payment_method VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_student_semester_tuition UNIQUE (student_id, semester_name)
+);
+
+-- 9. Table announcements (Bảng tin Đào tạo)
+CREATE TABLE IF NOT EXISTS announcements (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL DEFAULT 'HỌC VỤ',
+    content TEXT NOT NULL,
+    author VARCHAR(100) DEFAULT 'Phòng Đào tạo',
+    is_pinned BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 10. Table notifications (Chuông thông báo người dùng)
+CREATE TABLE IF NOT EXISTS notifications (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(50) DEFAULT 'GENERAL',
+    is_read BOOLEAN DEFAULT FALSE,
+    link_url VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 11. Table exam_schedules (Lịch thi & Phòng thi)
+CREATE TABLE IF NOT EXISTS exam_schedules (
+    id BIGSERIAL PRIMARY KEY,
+    class_section_id BIGINT NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
+    exam_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    room_name VARCHAR(50) NOT NULL,
+    exam_type VARCHAR(50) NOT NULL DEFAULT 'TỰ LUẬN',
+    notes VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
