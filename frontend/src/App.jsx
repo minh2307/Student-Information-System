@@ -41,19 +41,25 @@ export default function App() {
             {/* Profile Route */}
             <Route path="/profile" element={<Profile />} />
 
-            {/* Student Portal */}
-            <Route path="/student/dashboard"    element={<StudentDashboard />} />
-            <Route path="/student/registration" element={<CourseRegistration />} />
-            <Route path="/student/grades"       element={<StudentGrades />} />
+            {/* Student Portal (Role: STUDENT, ADMIN) */}
+            <Route element={<ProtectedRoute allowedRoles={['STUDENT', 'ADMIN']} />}>
+              <Route path="/student/dashboard"    element={<StudentDashboard />} />
+              <Route path="/student/registration" element={<CourseRegistration />} />
+              <Route path="/student/grades"       element={<StudentGrades />} />
+            </Route>
 
-            {/* ── Lecturer Portal ── */}
-            <Route path="/lecturer/classes"                  element={<LecturerClassesPage />} />
-            <Route path="/lecturer/classes/:sectionId"       element={<ClassStudentsPage />} />
+            {/* ── Lecturer Portal (Role: LECTURER, ADMIN) ── */}
+            <Route element={<ProtectedRoute allowedRoles={['LECTURER', 'ADMIN']} />}>
+              <Route path="/lecturer/classes"            element={<LecturerClassesPage />} />
+              <Route path="/lecturer/classes/:sectionId" element={<ClassStudentsPage />} />
+            </Route>
 
-            {/* Admin Portal */}
-            <Route path="/admin/users"    element={<AdminUsers />} />
-            <Route path="/admin/courses"  element={<AdminCourses />} />
-            <Route path="/admin/sections" element={<AdminSections />} />
+            {/* Admin Portal (Strictly Role: ADMIN) */}
+            <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+              <Route path="/admin/users"    element={<AdminUsers />} />
+              <Route path="/admin/courses"  element={<AdminCourses />} />
+              <Route path="/admin/sections" element={<AdminSections />} />
+            </Route>
 
             {/* AI Advisor Chatbot */}
             <Route path="/ai/advisor" element={<AiAdvisor />} />
