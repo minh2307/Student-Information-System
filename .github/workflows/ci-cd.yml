@@ -442,28 +442,45 @@ jobs:
           echo "tag=$(echo ${GITHUB_REF_NAME} | tr '/' '-')-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Setup SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST || '221.121.3.201' }}
         run: |
+          if [ -z "$SSH_KEY" ]; then
+            echo "::warning::Secret SSH_KEY chưa được cấu hình trong GitHub Secrets. Bỏ qua bước Deploy."
+            exit 0
+          fi
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Deploy via SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST || '221.121.3.201' }}
+          SSH_USER: ${{ secrets.SSH_USER || 'root' }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
         run: |
+          if [ ! -s ~/.ssh/deploy_key ]; then
+            echo "Bỏ qua Deploy vì không có SSH key."
+            exit 0
+          fi
           ssh -i ~/.ssh/deploy_key \
             -o StrictHostKeyChecking=no \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "${SSH_USER}@${SSH_HOST}" \
           "
             set -e
             cd /opt/eduportal
 
             # Ghi biến môi trường runtime
-            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" > .env
-            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
-            echo "REGISTRY=${{ env.REGISTRY }}" >> .env
-            echo "IMAGE_TAG=${{ steps.resolve.outputs.tag }}" >> .env
-            echo "IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}" >> .env
-            echo "AI_API_KEY=${{ secrets.AI_API_KEY }}" >> .env
+            echo \"DB_PASSWORD=${DB_PASSWORD}\" > .env
+            echo \"JWT_SECRET=${JWT_SECRET}\" >> .env
+            echo \"REGISTRY=${{ env.REGISTRY }}\" >> .env
+            echo \"IMAGE_TAG=${{ steps.resolve.outputs.tag }}\" >> .env
+            echo \"IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}\" >> .env
+            echo \"AI_API_KEY=${AI_API_KEY}\" >> .env
 
             # Pull images mới và restart
             docker compose -f ${{ steps.resolve.outputs.compose_file }} pull
