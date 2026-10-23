@@ -178,6 +178,18 @@ export const CourseRegistration = () => {
 
   const handleEnroll = async (sectionId) => {
     setMessage({ type: '', text: '' })
+
+    // Kiểm tra chặn ngay phía Client nếu vượt quá giới hạn 24 tín chỉ
+    const targetSec = availableSections.find((s) => s.id === sectionId)
+    const targetCredits = targetSec?.credits || 0
+    if (enrolledSummary.credits + targetCredits > 24) {
+      setMessage({
+        type: 'error',
+        text: `Không thể đăng ký: Tổng số tín chỉ sẽ vượt quá giới hạn tối đa 24 tín chỉ trong học kỳ! (Hiện tại: ${enrolledSummary.credits} TC + Lớp này: ${targetCredits} TC = ${enrolledSummary.credits + targetCredits} TC)`,
+      })
+      return
+    }
+
     setActionLoadingId(sectionId)
     try {
       const res = await api.post('/student/enrollments', { classSectionId: sectionId })
@@ -349,14 +361,29 @@ export const CourseRegistration = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
           <div>
             <span className="text-[10px] font-mono uppercase text-stone-600 block">Tín chỉ đăng ký trong kỳ</span>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="font-mono text-2xl font-bold text-red-800">{enrolledSummary.credits}</span>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className={`font-mono text-2xl font-bold ${enrolledSummary.credits >= 24 ? 'text-red-700' : 'text-stone-900'}`}>
+                {enrolledSummary.credits}
+              </span>
               <span className="font-mono text-xs text-stone-600">/ 24 Tín chỉ tối đa</span>
+              {enrolledSummary.credits >= 24 && (
+                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${
+                  enrolledSummary.credits > 24 
+                    ? 'bg-red-50 text-red-700 border-red-300 animate-pulse' 
+                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                }`}>
+                  {enrolledSummary.credits > 24 ? 'VƯỢT GIỚI HẠN' : 'ĐÃ ĐẠT GIỚI HẠN'}
+                </span>
+              )}
             </div>
             <div className="w-full bg-stone-100 rounded-full h-1.5 mt-2">
               <div
                 className={`h-1.5 rounded-full transition-all duration-500 ${
-                  enrolledSummary.credits >= 24 ? 'bg-amber-500' : 'bg-red-700'
+                  enrolledSummary.credits > 24
+                    ? 'bg-red-600'
+                    : enrolledSummary.credits === 24
+                    ? 'bg-amber-500'
+                    : 'bg-red-700'
                 }`}
                 style={{ width: `${Math.min(100, (enrolledSummary.credits / 24) * 100)}%` }}
               />
@@ -468,6 +495,8 @@ export const CourseRegistration = () => {
             filteredSections.map((sec) => {
               const isFull = sec.currentEnrolled >= sec.maxCapacity
               const isBusy = actionLoadingId === (sec.isEnrolled ? sec.enrollmentId : sec.id)
+              const wouldExceedCredits =
+                !sec.isEnrolled && !sec.isCompleted && enrolledSummary.credits + (sec.credits || 0) > 24
 
               return (
                 <div 
@@ -508,6 +537,11 @@ export const CourseRegistration = () => {
                       {isFull && !sec.isEnrolled && !sec.isCompleted && (
                         <span className="px-2 py-0.5 rounded text-[10px] font-mono text-stone-500 bg-stone-100">
                           Hết chỗ
+                        </span>
+                      )}
+                      {wouldExceedCredits && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                          <AlertCircle size={11} className="text-amber-600" /> Vượt hạn mức 24 TC
                         </span>
                       )}
                     </div>
@@ -557,9 +591,17 @@ export const CourseRegistration = () => {
                     ) : (
                       <button
                         onClick={() => handleEnroll(sec.id)}
-                        disabled={isBusy || isFull || !currentSemesterObj.registrationOpen}
-                        className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-red-700 hover:bg-red-800 disabled:bg-stone-300 disabled:cursor-not-allowed flex items-center gap-1.5 transition shadow-2xs"
-                        title={!currentSemesterObj.registrationOpen ? 'Cổng đăng ký đang đóng' : ''}
+                        disabled={isBusy || isFull || !currentSemesterObj.registrationOpen || wouldExceedCredits}
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-red-700 hover:bg-red-800 disabled:bg-stone-200 disabled:text-stone-400 disabled:border-stone-200 disabled:cursor-not-allowed flex items-center gap-1.5 transition shadow-2xs"
+                        title={
+                          !currentSemesterObj.registrationOpen
+                            ? 'Cổng đăng ký đang đóng'
+                            : isFull
+                            ? 'Lớp đã đủ sĩ số'
+                            : wouldExceedCredits
+                            ? `Vượt quá giới hạn 24 tín chỉ (${enrolledSummary.credits} + ${sec.credits} = ${enrolledSummary.credits + sec.credits} TC)`
+                            : ''
+                        }
                       >
                         {isBusy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
                         <span>
@@ -567,6 +609,8 @@ export const CourseRegistration = () => {
                             ? 'Đã đóng ĐK'
                             : isFull
                             ? 'Hết chỗ'
+                            : wouldExceedCredits
+                            ? 'Vượt quá 24 TC'
                             : 'Đăng ký'}
                         </span>
                       </button>
