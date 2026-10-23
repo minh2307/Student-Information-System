@@ -39,15 +39,14 @@ const TIME_SLOTS = [
   { id: 5, name: 'Ca 5 (Tối)', period: 'Tiết 13 - 15', time: '18:00 - 20:15', startHour: 18, endHour: 20.25 },
 ]
 
-// Bảng màu trực quan theo môn học
+// Bảng màu trực quan theo môn học (Red & Academic Palettes)
 const COLOR_PALETTES = [
-  { bg: 'bg-blue-50/90 hover:bg-blue-100/90', border: 'border-blue-300', text: 'text-blue-900', badge: 'bg-blue-100 text-blue-700 border-blue-200' },
-  { bg: 'bg-indigo-50/90 hover:bg-indigo-100/90', border: 'border-indigo-300', text: 'text-indigo-900', badge: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-  { bg: 'bg-emerald-50/90 hover:bg-emerald-100/90', border: 'border-emerald-300', text: 'text-emerald-900', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  { bg: 'bg-amber-50/90 hover:bg-amber-100/90', border: 'border-amber-300', text: 'text-amber-900', badge: 'bg-amber-100 text-amber-700 border-amber-200' },
-  { bg: 'bg-purple-50/90 hover:bg-purple-100/90', border: 'border-purple-300', text: 'text-purple-900', badge: 'bg-purple-100 text-purple-700 border-purple-200' },
-  { bg: 'bg-rose-50/90 hover:bg-rose-100/90', border: 'border-rose-300', text: 'text-rose-900', badge: 'bg-rose-100 text-rose-700 border-rose-200' },
-  { bg: 'bg-cyan-50/90 hover:bg-cyan-100/90', border: 'border-cyan-300', text: 'text-cyan-900', badge: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
+  { bg: 'bg-red-50/90 hover:bg-red-100/90', border: 'border-red-300', text: 'text-red-950', badge: 'bg-red-100 text-red-800 border-red-200' },
+  { bg: 'bg-rose-50/90 hover:bg-rose-100/90', border: 'border-rose-300', text: 'text-rose-950', badge: 'bg-rose-100 text-rose-800 border-rose-200' },
+  { bg: 'bg-amber-50/90 hover:bg-amber-100/90', border: 'border-amber-300', text: 'text-amber-950', badge: 'bg-amber-100 text-amber-800 border-amber-200' },
+  { bg: 'bg-emerald-50/90 hover:bg-emerald-100/90', border: 'border-emerald-300', text: 'text-emerald-950', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  { bg: 'bg-orange-50/90 hover:bg-orange-100/90', border: 'border-orange-300', text: 'text-orange-950', badge: 'bg-orange-100 text-orange-800 border-orange-200' },
+  { bg: 'bg-stone-100/90 hover:bg-stone-200/90', border: 'border-stone-300', text: 'text-stone-900', badge: 'bg-stone-200 text-stone-800 border-stone-300' },
 ]
 
 const getCourseColor = (code = '') => {
@@ -165,7 +164,7 @@ export const StudentTimetable = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm print:hidden">
         <div>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
               <CalendarDays size={22} />
             </div>
             <div>
@@ -199,7 +198,7 @@ export const StudentTimetable = () => {
               onClick={() => setViewMode('grid')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === 'grid'
-                  ? 'bg-white text-blue-700 shadow-sm'
+                  ? 'bg-white text-red-700 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -210,7 +209,7 @@ export const StudentTimetable = () => {
               onClick={() => setViewMode('list')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 viewMode === 'list'
-                  ? 'bg-white text-blue-700 shadow-sm'
+                  ? 'bg-white text-red-700 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -233,7 +232,7 @@ export const StudentTimetable = () => {
       {/* Metric Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 print:hidden">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center font-bold">
             <BookOpen size={20} />
           </div>
           <div>
@@ -299,16 +298,16 @@ export const StudentTimetable = () => {
         </div>
 
         <div className="text-xs sm:text-sm font-semibold text-slate-700 flex items-center gap-2">
-          <Clock size={15} className="text-blue-600" />
-          <span>Khoảng thời gian: <strong className="text-blue-700">{currentWeekRange}</strong></span>
+          <Clock size={15} className="text-red-600" />
+          <span>Khoảng thời gian: <strong className="text-red-700">{currentWeekRange}</strong></span>
         </div>
 
         <div className="hidden sm:flex items-center gap-3 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-blue-500"></span> Hôm nay
+            <span className="w-3 h-3 rounded-full bg-red-500"></span> Hôm nay
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-blue-100 border border-blue-300"></span> Có tiết học
+            <span className="w-3 h-3 rounded bg-red-100 border border-red-300"></span> Có tiết học
           </span>
         </div>
       </div>
@@ -316,7 +315,7 @@ export const StudentTimetable = () => {
       {/* Main Timetable Content */}
       {loading ? (
         <div className="bg-white rounded-2xl p-16 border border-slate-200 text-center">
-          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="inline-block w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
           <p className="mt-3 text-sm text-slate-500">Đang tải lịch học học kỳ...</p>
         </div>
       ) : timetable.length === 0 ? (
@@ -346,13 +345,13 @@ export const StudentTimetable = () => {
                       <th
                         key={day.key}
                         className={`py-3.5 px-3 text-center font-bold border-r border-slate-200 last:border-r-0 ${
-                          isToday ? 'bg-blue-50/80 text-blue-700' : ''
+                          isToday ? 'bg-red-50/80 text-red-700' : ''
                         }`}
                       >
                         <div className="flex flex-col items-center gap-0.5">
                           <span className="text-xs">{day.label}</span>
                           {isToday && (
-                            <span className="inline-block px-2 py-0.2 rounded-full text-[10px] bg-blue-600 text-white font-semibold shadow-xs">
+                            <span className="inline-block px-2 py-0.2 rounded-full text-[10px] bg-red-600 text-white font-semibold shadow-xs">
                               Hôm nay
                             </span>
                           )}
@@ -370,7 +369,7 @@ export const StudentTimetable = () => {
                     {/* Time slot header */}
                     <td className="py-4 px-3 border-r border-slate-200 bg-slate-50/50 text-center align-middle">
                       <div className="font-bold text-slate-800">{slot.name}</div>
-                      <div className="text-[11px] font-semibold text-blue-600 mt-0.5">{slot.time}</div>
+                      <div className="text-[11px] font-semibold text-red-600 mt-0.5">{slot.time}</div>
                       <div className="text-[10px] text-slate-400 mt-0.5">{slot.period}</div>
                     </td>
 
@@ -383,7 +382,7 @@ export const StudentTimetable = () => {
                         <td
                           key={day.key}
                           className={`p-2 border-r border-slate-200 last:border-r-0 align-top h-28 transition-colors ${
-                            isToday ? 'bg-blue-50/20' : ''
+                            isToday ? 'bg-red-50/20' : ''
                           }`}
                         >
                           {matchedClasses.length > 0 ? (
@@ -462,7 +461,7 @@ export const StudentTimetable = () => {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      <span className="font-mono text-xs font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
                         {item.courseCode}
                       </span>
                       {item.sectionCode && (
@@ -489,7 +488,7 @@ export const StudentTimetable = () => {
                 <div className="flex items-center gap-3 self-end sm:self-center">
                   <div className="text-right">
                     <div className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                      <Clock size={14} className="text-blue-600" />
+                      <Clock size={14} className="text-red-600" />
                       {item.startTime} - {item.endTime}
                     </div>
                     <div className="text-xs text-slate-400">{dayObj.label} hàng tuần</div>
@@ -506,7 +505,7 @@ export const StudentTimetable = () => {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+              <span className="text-xs font-bold uppercase tracking-wider text-red-600">
                 Chi tiết lớp học phần
               </span>
               <button
@@ -535,7 +534,7 @@ export const StudentTimetable = () => {
                 </div>
                 <div>
                   <span className="text-slate-400">Thời gian học:</span>
-                  <p className="font-semibold text-blue-700">{selectedClassDetail.startTime} - {selectedClassDetail.endTime}</p>
+                  <p className="font-semibold text-red-700">{selectedClassDetail.startTime} - {selectedClassDetail.endTime}</p>
                 </div>
                 <div>
                   <span className="text-slate-400">Phòng học:</span>
@@ -546,7 +545,7 @@ export const StudentTimetable = () => {
               <div>
                 <span className="text-xs text-slate-400">Giảng viên giảng dạy:</span>
                 <p className="font-semibold text-slate-800 flex items-center gap-2 mt-0.5">
-                  <User size={15} className="text-blue-600" />
+                  <User size={15} className="text-red-600" />
                   {selectedClassDetail.lecturerName || 'Chưa cập nhật'}
                 </p>
               </div>

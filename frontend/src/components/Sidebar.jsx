@@ -22,21 +22,24 @@ export const Sidebar = () => {
   const role = user?.role || 'STUDENT'
 
   const navItemClass = ({ isActive }) =>
-    `flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+    `flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
       isActive
-        ? 'bg-blue-600 text-white shadow-sm'
-        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        ? 'bg-red-600 text-white shadow-md shadow-red-600/20'
+        : 'text-slate-600 hover:bg-red-50 hover:text-red-700'
     }`
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 min-h-screen">
-      <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-blue-500/20">
+      {/* Brand Header */}
+      <div className="p-5 border-b border-slate-100 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-red-600 via-rose-600 to-red-700 flex items-center justify-center text-white font-extrabold text-lg shadow-md shadow-red-500/25">
           RE
         </div>
         <div>
-          <h1 className="font-bold text-slate-800 leading-tight">EduPortal</h1>
-          <p className="text-xs text-slate-400 font-medium">Student Info System</p>
+          <h1 className="font-extrabold text-slate-900 leading-tight tracking-tight text-base">
+            Rikkei <span className="text-red-600">EduPortal</span>
+          </h1>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Học viện Đại học</p>
         </div>
       </div>
 
@@ -72,8 +75,8 @@ export const Sidebar = () => {
               <span>Lịch thi & Phòng thi</span>
             </NavLink>
             <NavLink to="/ai/advisor" className={navItemClass}>
-              <BotMessageSquare size={17} className="text-indigo-600" />
-              <span className="font-bold text-indigo-900">Cố vấn học tập AI</span>
+              <BotMessageSquare size={17} className="text-red-600" />
+              <span className="font-bold text-red-900">Cố vấn học tập AI</span>
             </NavLink>
           </>
         )}
@@ -132,10 +135,14 @@ export const Sidebar = () => {
         </div>
       </nav>
 
-      <div className="p-4 border-t border-slate-100 bg-slate-50">
-        <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs text-slate-500 flex items-center justify-between">
-          <span>EduPortal Full Suite</span>
-          <span className="font-bold text-blue-600">v1.0.0</span>
+      {/* Footer Badge */}
+      <div className="p-4 border-t border-slate-100 bg-red-50/30">
+        <div className="bg-white p-3 rounded-xl border border-red-100 text-xs text-slate-500 flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+            <span>Rikkei Portal</span>
+          </div>
+          <span className="font-extrabold text-red-600">v1.2.0</span>
         </div>
       </div>
     </aside>

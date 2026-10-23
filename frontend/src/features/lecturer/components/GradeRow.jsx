@@ -17,7 +17,7 @@ function previewTotal(att, mid, fin) {
 function letterColor(letter) {
   if (!letter) return 'text-slate-400'
   if (letter === 'A+' || letter === 'A') return 'text-emerald-600'
-  if (letter === 'B+' || letter === 'B') return 'text-blue-600'
+  if (letter === 'B+' || letter === 'B') return 'text-red-600'
   if (letter === 'C') return 'text-amber-600'
   if (letter === 'D') return 'text-orange-500'
   return 'text-rose-600'
@@ -25,7 +25,7 @@ function letterColor(letter) {
 
 const INPUT_CLS =
   'w-20 text-center py-1.5 text-sm border border-slate-200 rounded-lg ' +
-  'focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 ' +
+  'focus:outline-none focus:ring-2 focus:ring-red-400/40 focus:border-blue-400 ' +
   'transition-colors bg-white disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed'
 
 /**
@@ -214,7 +214,7 @@ export function GradeRow({ student, isSaving, onSave, onToast }) {
             onClick={handleSave}
             disabled={!dirty}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                       bg-blue-600 text-white hover:bg-blue-700 transition-colors
+                       bg-red-600 text-white hover:bg-red-700 transition-colors
                        disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
             <Save size={12} /> Lưu
@@ -297,7 +297,7 @@ export function GradeCard({ student, isSaving, onSave, onToast }) {
               type="number" step={step} min="0" max={max}
               value={val} onChange={handleChange(set)}
               disabled={locked || isSaving}
-              className="w-full text-center py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/40 disabled:bg-slate-50 disabled:text-slate-400"
+              className="w-full text-center py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400/40 disabled:bg-slate-50 disabled:text-slate-400"
             />
           </div>
         ))}
@@ -319,7 +319,7 @@ export function GradeCard({ student, isSaving, onSave, onToast }) {
             onClick={handleSave}
             disabled={!dirty || isSaving}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                       bg-blue-600 text-white hover:bg-blue-700 transition-colors
+                       bg-red-600 text-white hover:bg-red-700 transition-colors
                        disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
           >
             {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}

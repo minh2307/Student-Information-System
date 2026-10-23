@@ -137,7 +137,7 @@ export const Profile = () => {
             alt="Avatar"
             className="w-24 h-24 rounded-2xl border-2 border-slate-100 shadow-md bg-slate-50 object-cover"
           />
-          <span className="absolute -bottom-2 -right-2 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-600 text-white shadow-sm">
+          <span className="absolute -bottom-2 -right-2 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white shadow-sm">
             {user?.role}
           </span>
         </div>
@@ -159,7 +159,7 @@ export const Profile = () => {
 
       {/* Role-specific Profile Details */}
       {user?.role === 'STUDENT' && studentProfile && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-red-200 rounded-2xl p-6 shadow-sm">
           <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2 mb-4">
             <GraduationCap size={18} />
             <span>Thông tin Học vụ Sinh viên</span>
@@ -179,7 +179,7 @@ export const Profile = () => {
             </div>
             <div className="bg-white p-3.5 rounded-xl border border-blue-100">
               <span className="text-xs text-slate-400">Tín chỉ tích lũy</span>
-              <p className="text-base font-bold text-blue-600 mt-0.5">
+              <p className="text-base font-bold text-red-600 mt-0.5">
                 {studentProfile.creditsEarned} / {studentProfile.totalRequiredCredits}
               </p>
             </div>
@@ -215,7 +215,7 @@ export const Profile = () => {
         {/* Update Contact Form */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
           <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
-            <User size={18} className="text-blue-600" />
+            <User size={18} className="text-red-600" />
             <span>Thông tin Liên hệ</span>
           </h3>
 
@@ -227,7 +227,7 @@ export const Profile = () => {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
 
@@ -238,7 +238,7 @@ export const Profile = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
 
@@ -249,14 +249,14 @@ export const Profile = () => {
                 value={avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
                 placeholder="https://..."
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
 
             <button
               type="submit"
               disabled={saving}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm"
+              className="w-full py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm"
             >
               <Save size={16} />
               <span>{saving ? 'Đang lưu...' : 'Lưu thông tin'}</span>
@@ -280,7 +280,7 @@ export const Profile = () => {
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
 
@@ -292,7 +292,7 @@ export const Profile = () => {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
 
@@ -304,7 +304,7 @@ export const Profile = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
 

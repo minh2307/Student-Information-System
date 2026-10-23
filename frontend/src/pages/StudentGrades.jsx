@@ -66,7 +66,7 @@ export const StudentGrades = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <GraduationCap className="text-blue-600" size={28} />
+            <GraduationCap className="text-red-600" size={28} />
             <span>Kết quả Học tập</span>
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
@@ -81,7 +81,7 @@ export const StudentGrades = () => {
             <select
               value={selectedSemester}
               onChange={(e) => setSelectedSemester(e.target.value)}
-              className="bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+              className="bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 shadow-xs"
             >
               <option value="ALL">Tất cả các kỳ ({grades.length} môn)</option>
               {semesters.map(sem => (
@@ -95,7 +95,7 @@ export const StudentGrades = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+          <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
             <BookOpen size={22} />
           </div>
           <div>
@@ -134,7 +134,7 @@ export const StudentGrades = () => {
       {/* Main Table */}
       {loading ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 flex flex-col items-center justify-center gap-3">
-          <Loader2 size={32} className="animate-spin text-blue-600" />
+          <Loader2 size={32} className="animate-spin text-red-600" />
           <p className="text-sm font-medium">Đang tải bảng điểm từ máy chủ...</p>
         </div>
       ) : error ? (
@@ -193,7 +193,7 @@ export const StudentGrades = () => {
                       <td className="px-4 py-4 text-center font-medium text-slate-700">
                         {g.finalScore != null ? Number(g.finalScore).toFixed(1) : <span className="text-slate-300">-</span>}
                       </td>
-                      <td className="px-4 py-4 text-center font-bold text-base text-blue-700">
+                      <td className="px-4 py-4 text-center font-bold text-base text-red-700">
                         {hasTotal ? Number(g.totalScore).toFixed(2) : <span className="text-slate-300">-</span>}
                       </td>
                       <td className="px-4 py-4 text-center">

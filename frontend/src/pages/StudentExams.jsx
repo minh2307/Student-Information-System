@@ -60,13 +60,13 @@ export const StudentExams = () => {
   const getExamTypeBadge = (type) => {
     switch (type) {
       case 'TRẮC NGHIỆM':
-        return 'bg-purple-50 text-purple-700 border-purple-200'
+        return 'bg-red-50 text-red-700 border-red-200'
       case 'THỰC HÀNH':
         return 'bg-emerald-50 text-emerald-700 border-emerald-200'
       case 'ĐỒ ÁN':
         return 'bg-amber-50 text-amber-700 border-amber-200'
       default:
-        return 'bg-blue-50 text-blue-700 border-blue-200'
+        return 'bg-blue-50 text-red-700 border-blue-200'
     }
   }
 
@@ -80,7 +80,7 @@ export const StudentExams = () => {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm print:hidden">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
             <FileCheck2 size={22} />
           </div>
           <div>
@@ -130,7 +130,7 @@ export const StudentExams = () => {
 
       {loading ? (
         <div className="bg-white rounded-2xl p-16 border border-slate-200 text-center">
-          <div className="inline-block w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="inline-block w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
           <p className="mt-3 text-sm text-slate-500">Đang tải lịch thi học kỳ...</p>
         </div>
       ) : sortedExams.length === 0 ? (
@@ -158,8 +158,8 @@ export const StudentExams = () => {
               >
                 <div className="flex items-start gap-4">
                   {/* Date badge */}
-                  <div className="w-16 h-16 rounded-2xl bg-purple-50 border border-purple-200 flex flex-col items-center justify-center text-purple-900 shrink-0 shadow-2xs">
-                    <span className="text-[10px] font-bold uppercase text-purple-600">
+                  <div className="w-16 h-16 rounded-2xl bg-red-50 border border-red-200 flex flex-col items-center justify-center text-red-900 shrink-0 shadow-2xs">
+                    <span className="text-[10px] font-bold uppercase text-red-600">
                       {new Date(exam.examDate).toLocaleDateString('vi-VN', { month: 'short' })}
                     </span>
                     <span className="text-xl font-extrabold leading-none">
@@ -172,7 +172,7 @@ export const StudentExams = () => {
 
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                      <span className="font-mono text-xs font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
                         {exam.courseCode}
                       </span>
                       <span className="text-xs text-slate-400 font-mono">({exam.sectionCode})</span>
@@ -188,7 +188,7 @@ export const StudentExams = () => {
                         <MapPin size={13} /> Phòng thi: {exam.roomName}
                       </span>
                       <span className="flex items-center gap-1 font-medium text-slate-700">
-                        <Clock size={13} className="text-blue-600" />
+                        <Clock size={13} className="text-red-600" />
                         Giờ thi: {exam.startTime} - {exam.endTime}
                       </span>
                       {exam.credits && (
@@ -206,7 +206,7 @@ export const StudentExams = () => {
 
                 <div className="text-right shrink-0 self-end sm:self-center bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-200">
                   <div className="text-[10px] uppercase font-bold text-slate-400">Số báo danh (SBD)</div>
-                  <div className="text-base font-extrabold font-mono text-blue-700">SV2024001</div>
+                  <div className="text-base font-extrabold font-mono text-red-700">SV2024001</div>
                   <div className="text-[10px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1 justify-end">
                     <CheckCircle2 size={11} /> Đủ điều kiện dự thi
                   </div>

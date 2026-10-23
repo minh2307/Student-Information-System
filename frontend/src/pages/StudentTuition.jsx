@@ -222,7 +222,7 @@ export const StudentTuition = () => {
                   {tuition.courses?.map((c, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition">
                       <td className="py-3.5 px-4 font-mono text-slate-400">{idx + 1}</td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-blue-700">{c.courseCode}</td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-red-700">{c.courseCode}</td>
                       <td className="py-3.5 px-4 font-semibold text-slate-800">{c.courseName}</td>
                       <td className="py-3.5 px-4 text-center font-bold text-slate-700">{c.credits}</td>
                       <td className="py-3.5 px-4 text-right text-slate-500">{formatVnd(tuition.creditUnitPrice)}</td>
@@ -242,9 +242,9 @@ export const StudentTuition = () => {
                 <tfoot>
                   <tr className="bg-slate-100/70 border-t-2 border-slate-200 text-sm font-bold">
                     <td colSpan="3" className="py-4 px-4 text-slate-800">TỔNG CỘNG HỌC PHÍ PHẢI NỘP</td>
-                    <td className="py-4 px-4 text-center text-blue-700">{tuition.totalCredits} TC</td>
+                    <td className="py-4 px-4 text-center text-red-700">{tuition.totalCredits} TC</td>
                     <td className="py-4 px-4"></td>
-                    <td className="py-4 px-4 text-right text-base text-blue-700">{formatVnd(tuition.totalAmount)}</td>
+                    <td className="py-4 px-4 text-right text-base text-red-700">{formatVnd(tuition.totalAmount)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -301,7 +301,7 @@ export const StudentTuition = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-sans">Số tài khoản:</span>
-                  <span className="font-bold text-blue-700">999988882025 (MB Bank)</span>
+                  <span className="font-bold text-red-700">999988882025 (MB Bank)</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-sans">Số tiền:</span>
@@ -370,7 +370,7 @@ export const StudentTuition = () => {
             <div className="mt-4 p-5 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 space-y-4">
               <div className="text-center border-b border-slate-200 pb-3">
                 <p className="text-[11px] font-bold text-slate-500 uppercase">BỘ GIÁO DỤC VÀ ĐÀO TẠO</p>
-                <h3 className="text-base font-extrabold text-blue-900">CỔNG ĐÀO TẠO RIKKEI EDUPORTAL</h3>
+                <h3 className="text-base font-extrabold text-red-900">CỔNG ĐÀO TẠO RIKKEI EDUPORTAL</h3>
                 <h4 className="text-sm font-bold text-slate-800 mt-1 uppercase">PHIẾU THU TIỀN HỌC PHÍ ĐIỆN TỬ</h4>
                 <p className="text-[11px] font-mono text-slate-400 mt-0.5">Số biên nhận: {tuition?.transactionCode || 'TXN-2025'}</p>
               </div>

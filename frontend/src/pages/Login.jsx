@@ -98,7 +98,7 @@ export const Login = () => {
   const getCategoryBadge = (cat) => {
     switch (cat) {
       case 'HỌC VỤ':
-        return 'bg-blue-50 text-blue-700 border-blue-200'
+        return 'bg-red-50 text-red-700 border-red-200'
       case 'LỊCH THI':
         return 'bg-rose-50 text-rose-700 border-rose-200'
       case 'HỌC BỔNG':
@@ -114,14 +114,14 @@ export const Login = () => {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-xl shadow-md shadow-blue-500/20">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-red-600 to-rose-700 flex items-center justify-center text-white font-extrabold text-xl shadow-md shadow-red-500/20">
               RE
             </div>
             <div>
               <h1 className="font-extrabold text-base sm:text-lg text-slate-900 leading-tight">
                 HỌC VIỆN ĐÀO TẠO RIKKEI ACADEMY
               </h1>
-              <p className="text-[11px] text-blue-600 font-semibold tracking-wide">
+              <p className="text-[11px] text-red-600 font-semibold tracking-wide">
                 CỔNG THÔNG TIN ĐÀO TẠO & QUẢN LÝ SINH VIÊN (EDUPORTAL)
               </p>
             </div>
@@ -129,14 +129,14 @@ export const Login = () => {
 
           <div className="hidden md:flex items-center gap-6 text-xs text-slate-500">
             <span className="flex items-center gap-1.5 font-medium">
-              <Phone size={14} className="text-blue-600" />
+              <Phone size={14} className="text-red-600" />
               Hotline: <strong className="text-slate-800">(024) 7300 6886</strong>
             </span>
             <span className="flex items-center gap-1.5 font-medium">
-              <Mail size={14} className="text-blue-600" />
+              <Mail size={14} className="text-red-600" />
               Email: <strong className="text-slate-800">daotao@rikkei.edu.vn</strong>
             </span>
-            <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-bold border border-blue-200">
+            <span className="bg-red-50 text-red-700 px-3 py-1 rounded-full font-bold border border-red-200">
               Năm học 2024 - 2025
             </span>
           </div>
@@ -152,7 +152,7 @@ export const Login = () => {
             {/* Board Title Banner */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
                   <Bell size={20} />
                 </div>
                 <div>
@@ -173,7 +173,7 @@ export const Login = () => {
                   placeholder="Tìm thông báo..."
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500 focus:bg-white transition"
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-red-500 focus:bg-white transition"
                 />
               </div>
             </div>
@@ -186,7 +186,7 @@ export const Login = () => {
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
                     selectedCategory === cat
-                      ? 'bg-blue-600 text-white shadow-xs'
+                      ? 'bg-red-600 text-white shadow-xs'
                       : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
                   }`}
                 >
@@ -221,7 +221,7 @@ export const Login = () => {
                         <span className="text-[10px] font-bold text-slate-400 uppercase">
                           {new Date(item.createdAt).toLocaleDateString('vi-VN', { month: 'short' })}
                         </span>
-                        <span className="text-lg font-extrabold text-blue-700 leading-none">
+                        <span className="text-lg font-extrabold text-red-700 leading-none">
                           {new Date(item.createdAt).getDate()}
                         </span>
                         <span className="text-[9px] text-slate-400">
@@ -246,7 +246,7 @@ export const Login = () => {
                           </span>
                         </div>
 
-                        <h3 className="text-sm sm:text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-2">
+                        <h3 className="text-sm sm:text-base font-bold text-slate-900 group-hover:text-red-600 transition-colors line-clamp-2">
                           {item.title}
                         </h3>
 
@@ -258,7 +258,7 @@ export const Login = () => {
                           <span className="text-[11px] text-slate-400 font-medium">
                             Đăng lúc {new Date(item.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                           </span>
-                          <span className="font-bold text-blue-600 group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-xs">
+                          <span className="font-bold text-red-600 group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-xs">
                             Chi tiết <ChevronRight size={14} />
                           </span>
                         </div>
@@ -270,7 +270,7 @@ export const Login = () => {
             )}
 
             {/* Quick Links / Student Guides */}
-            <div className="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-5">
+            <div className="bg-red-50/70 border border-red-200/80 rounded-2xl p-5">
               <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center gap-2 mb-3">
                 <BookOpen size={15} />
                 Cẩm nang & Quy định dành cho sinh viên
@@ -279,7 +279,7 @@ export const Login = () => {
                 <a
                   href="#guide-dang-ky"
                   onClick={(e) => { e.preventDefault(); alert('Cẩm nang hướng dẫn Đăng ký tín chỉ: Mở cổng từ 15/02 đến 28/02. Giới hạn tối đa 24 tín chỉ/học kỳ. Kiểm tra môn tiên quyết trước khi đăng ký.'); }}
-                  className="bg-white p-3 rounded-xl border border-blue-100 font-semibold text-slate-700 hover:text-blue-600 hover:border-blue-300 transition flex items-center justify-between shadow-2xs"
+                  className="bg-white p-3 rounded-xl border border-red-100 font-semibold text-slate-700 hover:text-red-600 hover:border-blue-300 transition flex items-center justify-between shadow-2xs"
                 >
                   <span>1. Hướng dẫn ĐK học phần</span>
                   <ExternalLink size={13} className="text-slate-400" />
@@ -287,7 +287,7 @@ export const Login = () => {
                 <a
                   href="#guide-hoc-phi"
                   onClick={(e) => { e.preventDefault(); alert('Quy định Học phí: Đơn giá 450.000 VNĐ/tín chỉ. Hạn nộp cuối kỳ. Sinh viên có thể nộp qua VietQR hoặc thanh toán trực tiếp.'); }}
-                  className="bg-white p-3 rounded-xl border border-blue-100 font-semibold text-slate-700 hover:text-blue-600 hover:border-blue-300 transition flex items-center justify-between shadow-2xs"
+                  className="bg-white p-3 rounded-xl border border-red-100 font-semibold text-slate-700 hover:text-red-600 hover:border-blue-300 transition flex items-center justify-between shadow-2xs"
                 >
                   <span>2. Quy định đóng học phí</span>
                   <ExternalLink size={13} className="text-slate-400" />
@@ -295,7 +295,7 @@ export const Login = () => {
                 <a
                   href="#guide-quy-che-thi"
                   onClick={(e) => { e.preventDefault(); alert('Quy chế phòng thi: Có mặt trước 15 phút. Bắt buộc mang Thẻ sinh viên hoặc CCCD. Cấm mang điện thoại vào phòng thi.'); }}
-                  className="bg-white p-3 rounded-xl border border-blue-100 font-semibold text-slate-700 hover:text-blue-600 hover:border-blue-300 transition flex items-center justify-between shadow-2xs"
+                  className="bg-white p-3 rounded-xl border border-red-100 font-semibold text-slate-700 hover:text-red-600 hover:border-blue-300 transition flex items-center justify-between shadow-2xs"
                 >
                   <span>3. Quy chế thi kết thúc môn</span>
                   <ExternalLink size={13} className="text-slate-400" />
@@ -308,7 +308,7 @@ export const Login = () => {
           <div className="w-full lg:w-[400px] xl:w-[440px] shrink-0 lg:sticky lg:top-24">
             <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
               {/* Header of Login Card */}
-              <div className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 p-6 text-white text-center">
+              <div className="bg-gradient-to-r from-red-800 via-red-600 to-rose-700 p-6 text-white text-center">
                 <div className="inline-flex p-3 rounded-2xl bg-white/10 backdrop-blur-sm mb-2 shadow-inner">
                   <GraduationCap size={32} className="text-white" />
                 </div>
@@ -341,7 +341,7 @@ export const Login = () => {
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="sv2024001, gv001, admin..."
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white transition"
                     />
                   </div>
                 </div>
@@ -360,20 +360,20 @@ export const Login = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white transition"
                     />
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between text-xs pt-1">
                   <label className="flex items-center gap-2 text-slate-500 cursor-pointer">
-                    <input type="checkbox" defaultChecked className="rounded border-slate-300 text-blue-600" />
+                    <input type="checkbox" defaultChecked className="rounded border-slate-300 text-red-600" />
                     <span>Ghi nhớ đăng nhập</span>
                   </label>
                   <button
                     type="button"
                     onClick={() => alert('Vui lòng liên hệ Phòng Đào tạo (daotao@rikkei.edu.vn) để được cấp lại mật khẩu.')}
-                    className="text-blue-600 hover:text-blue-800 font-semibold"
+                    className="text-red-600 hover:text-blue-800 font-semibold"
                   >
                     Quên mật khẩu?
                   </button>
@@ -382,7 +382,7 @@ export const Login = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50 mt-2"
+                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm shadow-md shadow-red-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50 mt-2"
                 >
                   <span>{loading ? 'Đang xác thực tài khoản...' : 'Đăng Nhập'}</span>
                   <ArrowRight size={17} />
@@ -399,8 +399,8 @@ export const Login = () => {
                       onClick={() => fillQuickAccount('sv2024001', '123456')}
                       className={`px-2.5 py-1.5 text-xs font-bold rounded-lg border transition ${
                         username === 'sv2024001'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                          ? 'bg-red-600 text-white border-blue-600'
+                          : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
                       }`}
                     >
                       Sinh viên

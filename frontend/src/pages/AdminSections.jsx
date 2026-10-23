@@ -475,12 +475,12 @@ export const AdminSections = () => {
               onClick={handleOpenSemesterModal}
               className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold border border-slate-200 transition-all"
             >
-              <CalendarDays size={18} className="text-blue-600" />
+              <CalendarDays size={18} className="text-red-600" />
               <span>Quản lý Học kỳ ({semestersList.length})</span>
             </button>
             <button
               onClick={handleOpenCreateSectionModal}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
+              className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
             >
               <Plus size={18} />
               <span>Mở lớp học phần mới</span>
@@ -494,7 +494,7 @@ export const AdminSections = () => {
         <button
           onClick={() => setActiveTab('sections')}
           className={`pb-3 flex items-center gap-2 transition-colors relative ${
-            activeTab === 'sections' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'
+            activeTab === 'sections' ? 'text-red-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <Layers size={18} />
@@ -503,7 +503,7 @@ export const AdminSections = () => {
         <button
           onClick={() => setActiveTab('pending')}
           className={`pb-3 flex items-center gap-2 transition-colors relative ${
-            activeTab === 'pending' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'
+            activeTab === 'pending' ? 'text-red-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <UserCheck size={18} />
@@ -529,7 +529,7 @@ export const AdminSections = () => {
                     setFilterSemester(e.target.value)
                     setTimeout(() => fetchSections(), 50)
                   }}
-                  className="px-3.5 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3.5 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                 >
                   {semestersList.map((s) => (
                     <option key={s.id || s.semesterCode} value={s.semesterCode}>
@@ -549,7 +549,7 @@ export const AdminSections = () => {
                     setFilterStatus(e.target.value)
                     setTimeout(() => fetchSections(), 50)
                   }}
-                  className="px-3.5 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3.5 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                 >
                   <option value="">Tất cả trạng thái</option>
                   <option value="OPEN">Đang mở (OPEN)</option>
@@ -566,7 +566,7 @@ export const AdminSections = () => {
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && fetchSections()}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500"
                 />
               </div>
             </div>
@@ -583,7 +583,7 @@ export const AdminSections = () => {
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             {sectionsLoading ? (
               <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
-                <Loader2 size={24} className="animate-spin text-blue-600" />
+                <Loader2 size={24} className="animate-spin text-red-600" />
                 <span className="text-xs">Đang tải danh sách lớp học phần...</span>
               </div>
             ) : sections.length === 0 ? (
@@ -609,7 +609,7 @@ export const AdminSections = () => {
                       const percent = Math.min(100, Math.round(((s.currentEnrolled || 0) / (s.maxCapacity || 40)) * 100))
                       return (
                         <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="px-6 py-4 font-mono font-bold text-blue-600 text-xs whitespace-nowrap">
+                          <td className="px-6 py-4 font-mono font-bold text-red-600 text-xs whitespace-nowrap">
                             {s.sectionCode}
                           </td>
                           <td className="px-6 py-4">
@@ -659,7 +659,7 @@ export const AdminSections = () => {
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => handleOpenEditSectionModal(s)}
-                                className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Chỉnh sửa lịch/phòng"
                               >
                                 <Edit2 size={16} />
@@ -706,7 +706,7 @@ export const AdminSections = () => {
 
           {pendingLoading ? (
             <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
-              <Loader2 size={24} className="animate-spin text-blue-600" />
+              <Loader2 size={24} className="animate-spin text-red-600" />
               <span className="text-xs">Đang tải yêu cầu đăng ký...</span>
             </div>
           ) : pendingList.length === 0 ? (
@@ -730,7 +730,7 @@ export const AdminSections = () => {
                     </div>
                     <div className="text-xs text-slate-600">
                       Đăng ký môn:{' '}
-                      <strong className="text-blue-600">{p.courseName}</strong> ({p.courseCode}) - Lớp:{' '}
+                      <strong className="text-red-600">{p.courseName}</strong> ({p.courseCode}) - Lớp:{' '}
                       <span className="font-mono font-semibold text-slate-700">{p.sectionCode}</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
@@ -808,7 +808,7 @@ export const AdminSections = () => {
                     placeholder="VD: CS201-2025-01"
                     value={sectionFormData.sectionCode}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, sectionCode: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white uppercase font-mono"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white uppercase font-mono"
                   />
                 </div>
 
@@ -818,7 +818,7 @@ export const AdminSections = () => {
                     required
                     value={sectionFormData.semesterName}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, semesterName: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white"
                   >
                     {semestersList.map((s) => (
                       <option key={s.id || s.semesterCode} value={s.semesterCode}>
@@ -837,7 +837,7 @@ export const AdminSections = () => {
                     required
                     value={sectionFormData.courseId}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, courseId: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white"
                   >
                     <option value="">-- Chọn môn học --</option>
                     {coursesList.map((c) => (
@@ -854,7 +854,7 @@ export const AdminSections = () => {
                     required
                     value={sectionFormData.lecturerId}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, lecturerId: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white"
                   >
                     <option value="">-- Chọn giảng viên --</option>
                     {lecturersList.map((l) => (
@@ -871,7 +871,7 @@ export const AdminSections = () => {
                     required
                     value={sectionFormData.dayOfWeek}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, dayOfWeek: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white font-medium"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white font-medium"
                   >
                     <option value="MON">Thứ 2 (MON)</option>
                     <option value="TUE">Thứ 3 (TUE)</option>
@@ -891,7 +891,7 @@ export const AdminSections = () => {
                     placeholder="VD: Room A-204, Lab 3..."
                     value={sectionFormData.roomName}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, roomName: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white"
                   />
                 </div>
 
@@ -902,7 +902,7 @@ export const AdminSections = () => {
                     required
                     value={sectionFormData.startTime}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, startTime: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white"
                   />
                 </div>
 
@@ -913,7 +913,7 @@ export const AdminSections = () => {
                     required
                     value={sectionFormData.endTime}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, endTime: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white"
                   />
                 </div>
 
@@ -926,7 +926,7 @@ export const AdminSections = () => {
                     required
                     value={sectionFormData.maxCapacity}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, maxCapacity: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white"
                   />
                 </div>
 
@@ -935,7 +935,7 @@ export const AdminSections = () => {
                   <select
                     value={sectionFormData.status}
                     onChange={(e) => setSectionFormData({ ...sectionFormData, status: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white font-medium"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white font-medium"
                   >
                     <option value="OPEN">Mở đăng ký (OPEN)</option>
                     <option value="CLOSED">Khóa đăng ký (CLOSED)</option>
@@ -955,7 +955,7 @@ export const AdminSections = () => {
                 <button
                   type="submit"
                   disabled={sectionSubmitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm transition-colors"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm transition-colors"
                 >
                   {sectionSubmitting && <Loader2 size={14} className="animate-spin" />}
                   <span>{sectionModalMode === 'create' ? 'Mở lớp' : 'Lưu thay đổi'}</span>
@@ -971,7 +971,7 @@ export const AdminSections = () => {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
-                <CalendarDays className="text-blue-600" size={20} />
+                <CalendarDays className="text-red-600" size={20} />
                 <h3 className="font-bold text-slate-800 text-base">Quản lý Học kỳ & Cổng Đăng ký</h3>
               </div>
               <button
@@ -1002,10 +1002,10 @@ export const AdminSections = () => {
                     <tbody className="divide-y divide-slate-100">
                       {semestersList.map((s) => (
                         <tr key={s.id || s.semesterCode} className="hover:bg-slate-50/50">
-                          <td className="px-3 py-2.5 font-mono font-bold text-blue-600">
+                          <td className="px-3 py-2.5 font-mono font-bold text-red-600">
                             {s.semesterCode}
                             {s.isActive && (
-                              <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 font-semibold">
+                              <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-red-700 font-semibold">
                                 Hiện tại
                               </span>
                             )}
@@ -1049,7 +1049,7 @@ export const AdminSections = () => {
               {/* Form Add Semester */}
               <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <Plus size={16} className="text-blue-600" />
+                  <Plus size={16} className="text-red-600" />
                   <span>Thêm học kỳ mới vào hệ thống</span>
                 </h4>
 
@@ -1069,7 +1069,7 @@ export const AdminSections = () => {
                         placeholder="VD: 2025-26_SEM1"
                         value={semesterFormData.semesterCode}
                         onChange={(e) => setSemesterFormData({ ...semesterFormData, semesterCode: e.target.value.toUpperCase() })}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono focus:ring-2 focus:ring-red-500"
                       />
                     </div>
                     <div>
@@ -1080,7 +1080,7 @@ export const AdminSections = () => {
                         placeholder="VD: Học kỳ 1 (2025-2026)"
                         value={semesterFormData.semesterName}
                         onChange={(e) => setSemesterFormData({ ...semesterFormData, semesterName: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500"
                       />
                     </div>
                   </div>
@@ -1093,7 +1093,7 @@ export const AdminSections = () => {
                         placeholder="VD: 2025-2026"
                         value={semesterFormData.academicYear}
                         onChange={(e) => setSemesterFormData({ ...semesterFormData, academicYear: e.target.value })}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500"
                       />
                     </div>
                     <div>
@@ -1104,7 +1104,7 @@ export const AdminSections = () => {
                         max="4"
                         value={semesterFormData.termNumber}
                         onChange={(e) => setSemesterFormData({ ...semesterFormData, termNumber: Number(e.target.value) })}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500"
                       />
                     </div>
                     <div className="flex items-center gap-2 pt-5">
@@ -1113,7 +1113,7 @@ export const AdminSections = () => {
                           type="checkbox"
                           checked={semesterFormData.registrationOpen}
                           onChange={(e) => setSemesterFormData({ ...semesterFormData, registrationOpen: e.target.checked })}
-                          className="rounded text-blue-600 focus:ring-blue-500"
+                          className="rounded text-red-600 focus:ring-red-500"
                         />
                         <span>Mở cổng ĐK ngay</span>
                       </label>
@@ -1124,7 +1124,7 @@ export const AdminSections = () => {
                     <button
                       type="submit"
                       disabled={semesterSubmitting}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-sm flex items-center gap-2 transition-colors disabled:opacity-50"
                     >
                       {semesterSubmitting && <Loader2 size={14} className="animate-spin" />}
                       <span>Lưu học kỳ</span>

@@ -129,7 +129,7 @@ export function ClassStudentsPage() {
 
           {section && (
             <p className="text-sm text-slate-500 mt-0.5">
-              <span className="font-mono text-xs font-semibold text-blue-600 mr-2">
+              <span className="font-mono text-xs font-semibold text-red-600 mr-2">
                 {section.sectionCode}
               </span>
               {section.semesterName} ·{' '}
@@ -163,7 +163,7 @@ export function ClassStudentsPage() {
               label: 'Sinh viên',
               value: registeredCount,
               icon: <Users size={14} />,
-              color: 'text-blue-600',
+              color: 'text-red-600',
             },
             {
               label: 'Đã có điểm',
@@ -203,7 +203,7 @@ export function ClassStudentsPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white
-                       focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400"
+                       focus:outline-none focus:ring-2 focus:ring-red-400/40 focus:border-blue-400"
           />
         </div>
       )}

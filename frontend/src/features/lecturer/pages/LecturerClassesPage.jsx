@@ -80,7 +80,7 @@ export function LecturerClassesPage() {
               value={semester}
               onChange={(e) => setSemester(e.target.value)}
               className="pl-8 pr-10 py-2 text-sm border border-slate-200 rounded-lg bg-white
-                         text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/40
+                         text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-400/40
                          appearance-none cursor-pointer"
             >
               <option value="">Tất cả học kỳ</option>
@@ -92,8 +92,8 @@ export function LecturerClassesPage() {
 
           <button
             onClick={handleFilter}
-            className="px-3.5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg
-                       hover:bg-blue-700 transition-colors"
+            className="px-3.5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg
+                       hover:bg-red-700 transition-colors"
           >
             Lọc
           </button>
@@ -156,17 +156,17 @@ function ClassCard({ cls, onClick }) {
     <button
       onClick={onClick}
       className="group text-left bg-white rounded-xl border border-slate-100 p-5 space-y-4
-                 hover:border-blue-200 hover:shadow-md hover:shadow-blue-500/5
-                 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
+                 hover:border-red-200 hover:shadow-md hover:shadow-blue-500/5
+                 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-400/40"
     >
       {/* Top row */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <span className="inline-block text-[11px] font-semibold tracking-wide text-blue-700
-                           bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-md mb-2">
+          <span className="inline-block text-[11px] font-semibold tracking-wide text-red-700
+                           bg-red-50 border border-red-100 px-2 py-0.5 rounded-md mb-2">
             {cls.sectionCode}
           </span>
-          <h3 className="text-sm font-bold text-slate-800 leading-snug group-hover:text-blue-700 transition-colors line-clamp-2">
+          <h3 className="text-sm font-bold text-slate-800 leading-snug group-hover:text-red-700 transition-colors line-clamp-2">
             {cls.courseName}
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">{cls.courseCode} · {cls.credits} TC</p>
@@ -217,7 +217,7 @@ function ClassCard({ cls, onClick }) {
       {/* CTA */}
       <div className="flex items-center justify-between pt-1 border-t border-slate-100">
         <span className="text-xs font-medium text-slate-400">{cls.semesterName}</span>
-        <span className="flex items-center gap-1 text-xs font-semibold text-blue-600
+        <span className="flex items-center gap-1 text-xs font-semibold text-red-600
                          group-hover:gap-2 transition-all">
           Xem bảng điểm <ChevronRight size={13} />
         </span>

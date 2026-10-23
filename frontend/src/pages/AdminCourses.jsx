@@ -170,7 +170,7 @@ export const AdminCourses = () => {
         </div>
         <button
           onClick={handleOpenCreateModal}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
+          className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
         >
           <Plus size={18} />
           <span>Thêm môn học mới</span>
@@ -187,7 +187,7 @@ export const AdminCourses = () => {
               placeholder="Tìm theo mã hoặc tên môn học..."
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
-              className="w-full pl-10 pr-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+              className="w-full pl-10 pr-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white transition-all"
             />
           </div>
           <button
@@ -206,7 +206,7 @@ export const AdminCourses = () => {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-2">
-            <Loader2 size={24} className="animate-spin text-blue-600" />
+            <Loader2 size={24} className="animate-spin text-red-600" />
             <span className="text-xs">Đang tải danh mục môn học...</span>
           </div>
         ) : courses.length === 0 ? (
@@ -230,7 +230,7 @@ export const AdminCourses = () => {
               <tbody className="divide-y divide-slate-100">
                 {courses.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-6 py-4 font-mono font-bold text-blue-600 text-xs">
+                    <td className="px-6 py-4 font-mono font-bold text-red-600 text-xs">
                       {c.courseCode}
                     </td>
                     <td className="px-6 py-4 font-medium text-slate-800">
@@ -262,7 +262,7 @@ export const AdminCourses = () => {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleOpenEditModal(c)}
-                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Chỉnh sửa môn học"
                         >
                           <Edit2 size={16} />
@@ -317,7 +317,7 @@ export const AdminCourses = () => {
                     placeholder="VD: CS301, AI101..."
                     value={formData.courseCode}
                     onChange={(e) => setFormData({ ...formData, courseCode: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white uppercase font-mono"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white uppercase font-mono"
                   />
                 </div>
 
@@ -329,7 +329,7 @@ export const AdminCourses = () => {
                     placeholder="VD: Database Systems..."
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white"
                   />
                 </div>
 
@@ -342,7 +342,7 @@ export const AdminCourses = () => {
                     required
                     value={formData.credits}
                     onChange={(e) => setFormData({ ...formData, credits: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white"
                   />
                 </div>
 
@@ -355,7 +355,7 @@ export const AdminCourses = () => {
                     required
                     value={formData.weeklyHours}
                     onChange={(e) => setFormData({ ...formData, weeklyHours: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                    className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white"
                   />
                 </div>
               </div>
@@ -365,7 +365,7 @@ export const AdminCourses = () => {
                 <select
                   value={formData.prerequisiteCourseId}
                   onChange={(e) => setFormData({ ...formData, prerequisiteCourseId: e.target.value })}
-                  className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                  className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white"
                 >
                   <option value="">-- Không có môn tiên quyết --</option>
                   {courses
@@ -387,7 +387,7 @@ export const AdminCourses = () => {
                   placeholder="Nội dung tóm tắt đề cương môn học, chuẩn đầu ra..."
                   value={formData.syllabusDescription}
                   onChange={(e) => setFormData({ ...formData, syllabusDescription: e.target.value })}
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white leading-relaxed font-mono"
+                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:bg-white leading-relaxed font-mono"
                 />
               </div>
 
@@ -402,7 +402,7 @@ export const AdminCourses = () => {
                 <button
                   type="submit"
                   disabled={formSubmitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm transition-colors"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm transition-colors"
                 >
                   {formSubmitting && <Loader2 size={14} className="animate-spin" />}
                   <span>{modalMode === 'create' ? 'Tạo môn học' : 'Lưu thay đổi'}</span>

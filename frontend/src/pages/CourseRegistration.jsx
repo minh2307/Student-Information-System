@@ -236,7 +236,7 @@ export const CourseRegistration = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Đăng ký Học phần</h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            Cổng đăng ký tín chỉ trực tuyến — Học kỳ <span className="font-semibold text-blue-600">{semester}</span>
+            Cổng đăng ký tín chỉ trực tuyến — Học kỳ <span className="font-semibold text-red-600">{semester}</span>
           </p>
         </div>
 
@@ -247,7 +247,7 @@ export const CourseRegistration = () => {
             <select
               value={semester}
               onChange={(e) => setSemester(e.target.value)}
-              className="text-xs font-bold text-blue-700 bg-transparent focus:outline-none cursor-pointer"
+              className="text-xs font-bold text-red-700 bg-transparent focus:outline-none cursor-pointer"
             >
               {semestersList.map((s) => (
                 <option key={s.id || s.semesterCode} value={s.semesterCode}>
@@ -272,7 +272,7 @@ export const CourseRegistration = () => {
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="Tìm theo mã môn, tên môn, mã lớp..."
-              className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-xs"
+              className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 shadow-xs"
             />
           </div>
         </div>
@@ -300,7 +300,7 @@ export const CourseRegistration = () => {
             <div className="w-full bg-slate-700/80 rounded-full h-2.5 mt-2 overflow-hidden">
               <div
                 className={`h-2.5 rounded-full transition-all duration-500 ${
-                  enrolledSummary.credits >= 24 ? 'bg-amber-400' : 'bg-blue-500'
+                  enrolledSummary.credits >= 24 ? 'bg-amber-400' : 'bg-red-500'
                 }`}
                 style={{ width: `${Math.min(100, (enrolledSummary.credits / 24) * 100)}%` }}
               />
@@ -357,7 +357,7 @@ export const CourseRegistration = () => {
           onClick={() => setActiveTab('ALL')}
           className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
             activeTab === 'ALL'
-              ? 'bg-blue-600 text-white shadow-sm'
+              ? 'bg-red-600 text-white shadow-sm'
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
         >
@@ -367,7 +367,7 @@ export const CourseRegistration = () => {
           onClick={() => setActiveTab('ENROLLED')}
           className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
             activeTab === 'ENROLLED'
-              ? 'bg-blue-600 text-white shadow-sm'
+              ? 'bg-red-600 text-white shadow-sm'
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
         >
@@ -377,7 +377,7 @@ export const CourseRegistration = () => {
           onClick={() => setActiveTab('AVAILABLE')}
           className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
             activeTab === 'AVAILABLE'
-              ? 'bg-blue-600 text-white shadow-sm'
+              ? 'bg-red-600 text-white shadow-sm'
               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
         >
@@ -389,7 +389,7 @@ export const CourseRegistration = () => {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
-            <Filter size={16} className="text-blue-600" />
+            <Filter size={16} className="text-red-600" />
             Danh sách Lớp Học phần Khả dụng
           </h2>
           <span className="text-xs text-slate-400">
@@ -414,7 +414,7 @@ export const CourseRegistration = () => {
                     sec.isEnrolled 
                       ? sec.hasConflict 
                         ? 'bg-rose-50/40 border-l-4 border-rose-500' 
-                        : 'bg-blue-50/30 border-l-4 border-blue-600'
+                        : 'bg-red-50/30 border-l-4 border-blue-600'
                       : 'hover:bg-slate-50/60'
                   }`}
                 >
@@ -434,7 +434,7 @@ export const CourseRegistration = () => {
                           <CheckCircle2 size={12} /> Đã hoàn thành (Chốt điểm)
                         </span>
                       ) : sec.isEnrolled ? (
-                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-600 text-white flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-600 text-white flex items-center gap-1">
                           <CheckCircle2 size={12} /> Đang học (Đã đăng ký)
                         </span>
                       ) : null}
@@ -500,7 +500,7 @@ export const CourseRegistration = () => {
                       <button
                         onClick={() => handleEnroll(sec.id)}
                         disabled={isBusy || isFull || !currentSemesterObj.registrationOpen}
-                        className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors shadow-sm"
+                        className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors shadow-sm"
                         title={!currentSemesterObj.registrationOpen ? 'Cổng đăng ký học kỳ này đang đóng' : ''}
                       >
                         {isBusy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}

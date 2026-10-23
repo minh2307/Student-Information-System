@@ -107,7 +107,7 @@ export const AnnouncementsPage = () => {
   const getCategoryBadge = (cat) => {
     switch (cat) {
       case 'HỌC VỤ':
-        return 'bg-blue-50 text-blue-700 border-blue-200'
+        return 'bg-red-50 text-red-700 border-red-200'
       case 'LỊCH THI':
         return 'bg-rose-50 text-rose-700 border-rose-200'
       case 'HỌC BỔNG':
@@ -122,7 +122,7 @@ export const AnnouncementsPage = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
             <Bell size={22} />
           </div>
           <div>
@@ -134,7 +134,7 @@ export const AnnouncementsPage = () => {
         {isAdmin && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
           >
             <Plus size={16} />
             <span>Đăng thông báo mới</span>
@@ -152,7 +152,7 @@ export const AnnouncementsPage = () => {
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
                 selectedCategory === cat
-                  ? 'bg-blue-600 text-white shadow-xs'
+                  ? 'bg-red-600 text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -169,7 +169,7 @@ export const AnnouncementsPage = () => {
             placeholder="Tìm kiếm thông báo..."
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500 focus:bg-white transition"
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-red-500 focus:bg-white transition"
           />
         </div>
       </div>
@@ -177,7 +177,7 @@ export const AnnouncementsPage = () => {
       {/* Content List */}
       {loading ? (
         <div className="bg-white rounded-2xl p-16 border border-slate-200 text-center">
-          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="inline-block w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
           <p className="mt-3 text-sm text-slate-500">Đang tải bảng tin thông báo...</p>
         </div>
       ) : filteredList.length === 0 ? (
@@ -213,7 +213,7 @@ export const AnnouncementsPage = () => {
                   </span>
                 </div>
 
-                <h3 className="font-bold text-slate-900 text-base group-hover:text-blue-600 transition-colors line-clamp-2">
+                <h3 className="font-bold text-slate-900 text-base group-hover:text-red-600 transition-colors line-clamp-2">
                   {item.title}
                 </h3>
 
@@ -241,7 +241,7 @@ export const AnnouncementsPage = () => {
                       <Trash2 size={14} />
                     </button>
                   )}
-                  <span className="font-bold text-blue-600 group-hover:translate-x-1 transition-transform flex items-center gap-0.5">
+                  <span className="font-bold text-red-600 group-hover:translate-x-1 transition-transform flex items-center gap-0.5">
                     Đọc tiếp <ChevronRight size={13} />
                   </span>
                 </div>
@@ -325,7 +325,7 @@ export const AnnouncementsPage = () => {
                   placeholder="Nhập tiêu đề thông báo..."
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-red-500 focus:bg-white"
                 />
               </div>
 
@@ -335,7 +335,7 @@ export const AnnouncementsPage = () => {
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-red-500"
                   >
                     <option value="HỌC VỤ">HỌC VỤ</option>
                     <option value="LỊCH THI">LỊCH THI</option>
@@ -350,7 +350,7 @@ export const AnnouncementsPage = () => {
                     type="text"
                     value={formData.author}
                     onChange={(e) => setFormData({ ...formData, author: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-red-500"
                   />
                 </div>
               </div>
@@ -363,7 +363,7 @@ export const AnnouncementsPage = () => {
                   placeholder="Nhập nội dung đầy đủ của thông báo..."
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:bg-white resize-none"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-red-500 focus:bg-white resize-none"
                 />
               </div>
 
@@ -373,7 +373,7 @@ export const AnnouncementsPage = () => {
                   id="pinCheck"
                   checked={formData.isPinned}
                   onChange={(e) => setFormData({ ...formData, isPinned: e.target.checked })}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-slate-300 text-red-600 focus:ring-red-500"
                 />
                 <label htmlFor="pinCheck" className="font-semibold text-slate-700 cursor-pointer">
                   Ghim thông báo lên đầu trang
@@ -391,7 +391,7 @@ export const AnnouncementsPage = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition shadow-sm"
+                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition shadow-sm"
                 >
                   {submitting ? 'Đang lưu...' : 'Đăng bài'}
                 </button>
