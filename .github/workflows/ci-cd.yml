@@ -496,6 +496,16 @@ jobs:
             echo "Bỏ qua Deploy vì không có SSH key."
             exit 0
           fi
+
+          echo "Tạo thư mục /opt/eduportal trên VPS nếu chưa có..."
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            "${SSH_USER}@${SSH_HOST}" "mkdir -p /opt/eduportal"
+
+          echo "Đồng bộ docker-compose files và init-db lên VPS..."
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -r \
+            docker-compose*.yml init-db \
+            "${SSH_USER}@${SSH_HOST}:/opt/eduportal/"
+
           ssh -i ~/.ssh/deploy_key \
             -o StrictHostKeyChecking=no \
             "${SSH_USER}@${SSH_HOST}" \
