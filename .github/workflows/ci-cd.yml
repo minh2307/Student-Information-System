@@ -525,10 +525,38 @@ jobs:
             docker compose -f ${{ steps.resolve.outputs.compose_file }} pull
             docker compose -f ${{ steps.resolve.outputs.compose_file }} up -d --remove-orphans
 
-            # Health check sau deploy
-            sleep 10
-            curl -sf http://localhost:8085/actuator/health || \
-              (echo 'lecturer-service health check FAILED' && exit 1)
+            # Health check sau deploy với retry loop và diagnostic dump khi lỗi
+            echo "Waiting for services to become healthy..."
+            LECTURER_OK=false
+            for i in $(seq 1 30); do
+              echo "Polling lecturer-service health (attempt $i/30)..."
+              if curl -sf http://localhost:8085/actuator/health > /dev/null 2>&1; then
+                echo "lecturer-service health check PASSED ✓"
+                LECTURER_OK=true
+                break
+              fi
+              sleep 3
+            done
+
+            if [ "$LECTURER_OK" != "true" ]; then
+              echo "❌ lecturer-service health check FAILED after 90 seconds!"
+              echo "=== Docker containers status ==="
+              docker compose -f ${{ steps.resolve.outputs.compose_file }} ps
+              echo "=== Dumping lecturer-service logs (tail 100) ==="
+              docker compose -f ${{ steps.resolve.outputs.compose_file }} logs --tail=100 lecturer-service
+              exit 1
+            fi
+
+            if grep -q "auth-service" "${{ steps.resolve.outputs.compose_file }}"; then
+              echo "Polling auth-service health..."
+              for i in $(seq 1 15); do
+                if curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1 || [ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/api/v1/auth/login)" = "405" ]; then
+                  echo "auth-service health check PASSED ✓"
+                  break
+                fi
+                sleep 2
+              done
+            fi
 
             echo 'Deploy ${{ steps.resolve.outputs.env_name }} succeeded ✓'
           "
