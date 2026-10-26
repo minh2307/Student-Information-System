@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import api from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import { getRealAvatar } from '../utils/avatarUtils'
 import { toast } from '../store/toastStore'
 import { confirmDialog } from '../store/confirmStore'
 import { Plus, Search, UserCheck, Shield, Trash2, Edit2, X, Check, Lock, Unlock, AlertCircle, CheckCircle, Key } from 'lucide-react'
 
 export const AdminUsers = () => {
+  const currentUser = useAuthStore((state) => state.user)
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedRole, setSelectedRole] = useState('')
@@ -143,16 +145,22 @@ export const AdminUsers = () => {
 
   const handleUpdateUser = async (e) => {
     e.preventDefault()
+    if (editForm.role === 'ADMIN' && editForm.status === 'LOCKED') {
+      toast.warning('Tài khoản Quản trị viên (Admin) không thể chuyển sang trạng thái Khóa!')
+      return
+    }
     setSubmitting(true)
     setMessage({ type: '', text: '' })
 
     try {
       await api.put(`/admin/users/${editingUserId}`, editForm)
+      toast.success('Cập nhật tài khoản thành công!')
       setMessage({ type: 'success', text: 'Cập nhật tài khoản thành công!' })
       setShowEditModal(false)
       fetchUsers()
     } catch (err) {
       const errMsg = err.response?.data?.message || 'Lỗi khi cập nhật tài khoản'
+      toast.error(errMsg)
       setMessage({ type: 'error', text: errMsg })
     } finally {
       setSubmitting(false)
@@ -160,6 +168,12 @@ export const AdminUsers = () => {
   }
 
   const handleDeleteUser = async (id, username) => {
+    const targetItem = users.find((it) => it.user.id === id)
+    if (targetItem?.user?.role === 'ADMIN') {
+      toast.warning('Không thể xóa tài khoản Quản trị viên (Admin)!')
+      return
+    }
+
     const confirmed = await confirmDialog({
       title: 'Xác nhận xóa tài khoản',
       message: `Bạn có chắc chắn muốn xóa tài khoản "${username}" không?\nTất cả hồ sơ học vụ, lớp học và thông tin liên quan sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác!`,
@@ -182,6 +196,10 @@ export const AdminUsers = () => {
   }
 
   const handleToggleStatus = async (item) => {
+    if (item.user.role === 'ADMIN') {
+      toast.warning('Tài khoản Quản trị viên (Admin) luôn ở trạng thái hoạt động, không thể khóa!')
+      return
+    }
     const nextStatus = item.user.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE'
     try {
       await api.put(`/admin/users/${item.user.id}`, { status: nextStatus })
@@ -318,6 +336,8 @@ export const AdminUsers = () => {
                 const u = item.user
                 const sp = item.studentProfile
                 const lp = item.lecturerProfile
+                const isAdmin = u.role === 'ADMIN'
+                const isSelf = currentUser && (currentUser.id === u.id || currentUser.username === u.username)
 
                 return (
                   <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
@@ -332,7 +352,14 @@ export const AdminUsers = () => {
                           }}
                         />
                         <div>
-                          <div className="font-bold text-slate-800">{u.fullName}</div>
+                          <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                            <span>{u.fullName}</span>
+                            {isSelf && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+                                Bạn
+                              </span>
+                            )}
+                          </div>
                           <div className="text-xs text-slate-400 font-mono">@{u.username}</div>
                         </div>
                       </div>
@@ -367,18 +394,28 @@ export const AdminUsers = () => {
                     </td>
 
                     <td className="px-4 py-4">
-                      <button
-                        onClick={() => handleToggleStatus(item)}
-                        title="Bấm để đổi trạng thái"
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
-                          u.status === 'ACTIVE'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
-                        }`}
-                      >
-                        {u.status === 'ACTIVE' ? <Unlock size={12} /> : <Lock size={12} />}
-                        <span>{u.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}</span>
-                      </button>
+                      {isAdmin ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default select-none shadow-2xs"
+                          title="Tài khoản Quản trị viên (Admin) luôn duy trì hoạt động và không thể bị khóa"
+                        >
+                          <Shield size={12} className="text-emerald-600" />
+                          <span>Hoạt động</span>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleToggleStatus(item)}
+                          title="Bấm để đổi trạng thái"
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                            u.status === 'ACTIVE'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                          }`}
+                        >
+                          {u.status === 'ACTIVE' ? <Unlock size={12} /> : <Lock size={12} />}
+                          <span>{u.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}</span>
+                        </button>
+                      )}
                     </td>
 
                     <td className="px-6 py-4 text-right">
@@ -397,13 +434,22 @@ export const AdminUsers = () => {
                         >
                           <Edit2 size={16} />
                         </button>
-                        <button
-                          onClick={() => handleDeleteUser(u.id, u.username)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Xóa"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {isAdmin ? (
+                          <span
+                            className="p-1.5 text-slate-300 cursor-not-allowed rounded-lg opacity-40 select-none inline-flex"
+                            title="Không thể xóa tài khoản Quản trị viên (Admin)"
+                          >
+                            <Trash2 size={16} />
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleDeleteUser(u.id, u.username)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Xóa tài khoản"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -610,14 +656,23 @@ export const AdminUsers = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Trạng thái</label>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                  >
-                    <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-                    <option value="LOCKED">Khóa (LOCKED)</option>
-                  </select>
+                  {editForm.role === 'ADMIN' ? (
+                    <div className="px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg text-stone-600 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 font-medium text-emerald-700 text-xs">
+                        <Shield size={14} className="text-emerald-600" /> Hoạt động (Cố định)
+                      </span>
+                      <span className="text-[11px] text-stone-400 font-mono">Bảo vệ quyền Admin</span>
+                    </div>
+                  ) : (
+                    <select
+                      value={editForm.status}
+                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                      className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    >
+                      <option value="ACTIVE">Hoạt động (ACTIVE)</option>
+                      <option value="LOCKED">Khóa (LOCKED)</option>
+                    </select>
+                  )}
                 </div>
               </div>
 

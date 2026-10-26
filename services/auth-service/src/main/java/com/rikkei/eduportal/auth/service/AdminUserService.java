@@ -106,6 +106,16 @@ public class AdminUserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng có ID: " + id));
 
+        // Bảo vệ tài khoản Quản trị viên (Admin): Không được phép khóa hoặc hạ cấp vai trò
+        if (user.getRole() == Role.ADMIN) {
+            if (request.getStatus() != null && request.getStatus() != UserStatus.ACTIVE) {
+                throw new BadRequestException("Không thể khóa tài khoản Quản trị viên (Admin)!");
+            }
+            if (request.getRole() != null && request.getRole() != Role.ADMIN) {
+                throw new BadRequestException("Không thể thay đổi vai trò của tài khoản Quản trị viên (Admin)!");
+            }
+        }
+
         if (StringUtils.hasText(request.getFullName())) {
             user.setFullName(request.getFullName().trim());
         }
@@ -168,6 +178,11 @@ public class AdminUserService {
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng có ID: " + id));
+
+        // Bảo vệ tài khoản Quản trị viên (Admin): Không thể xóa
+        if (user.getRole() == Role.ADMIN) {
+            throw new BadRequestException("Không thể xóa tài khoản Quản trị viên (Admin)!");
+        }
 
         if (user.getRole() == Role.STUDENT) {
             studentProfileRepository.deleteByUserId(user.getId());
