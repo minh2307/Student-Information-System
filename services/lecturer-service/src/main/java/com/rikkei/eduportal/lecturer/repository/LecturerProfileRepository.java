@@ -11,4 +11,8 @@ public interface LecturerProfileRepository extends JpaRepository<LecturerProfile
 
     @Query("SELECT lp FROM LecturerProfile lp JOIN FETCH lp.user u WHERE u.username = :username")
     Optional<LecturerProfile> findByUsername(@Param("username") String username);
+
+    default Optional<LecturerProfile> findByUserUsername(String username) {
+        return findByUsername(username);
+    }
 }
