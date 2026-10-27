@@ -4,7 +4,7 @@ services:
     container_name: eduportal-postgres-prod
     restart: always
     environment:
-      POSTGRES_DB: ${DB_NAME:-academic_db}
+      POSTGRES_DB: academic_db
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     ports:
@@ -13,7 +13,7 @@ services:
       - postgres_prod_data:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-academic_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d academic_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,41 +28,14 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  api-gateway:
-    build:
-      context: .
-      dockerfile: services/api-gateway/Dockerfile
-    container_name: eduportal-gateway-prod
-    restart: always
-    ports:
-      - "8080:8080"
-    environment:
-      AUTH_SERVICE_URL: http://auth-service:8081
-      COURSE_SERVICE_URL: http://course-service:8082
-      ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
-      LECTURER_SERVICE_URL: http://lecturer-service:8085
-      AI_SERVICE_URL: http://ai-service:8084
-    depends_on:
-      - auth-service
-      - course-service
-      - enrollment-service
-      - ai-service
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1024M
-
   auth-service:
-    build:
-      context: .
-      dockerfile: services/auth-service/Dockerfile
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/auth-service:${IMAGE_TAG:-prod}
     container_name: eduportal-auth-prod
     restart: always
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
@@ -76,38 +49,14 @@ services:
           cpus: '1.0'
           memory: 1024M
 
-  course-service:
-    build:
-      context: .
-      dockerfile: services/course-service/Dockerfile
-    container_name: eduportal-course-prod
-    restart: always
-    ports:
-      - "8082:8082"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
-      SPRING_PROFILES_ACTIVE: prod
-    depends_on:
-      postgres:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1024M
-
   enrollment-service:
-    build:
-      context: .
-      dockerfile: services/enrollment-service/Dockerfile
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/enrollment-service:${IMAGE_TAG:-prod}
     container_name: eduportal-enrollment-prod
     restart: always
     ports:
       - "8083:8083"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       SPRING_PROFILES_ACTIVE: prod
@@ -121,15 +70,13 @@ services:
           memory: 1536M
 
   lecturer-service:
-    build:
-      context: .
-      dockerfile: services/lecturer-service/Dockerfile
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/lecturer-service:${IMAGE_TAG:-prod}
     container_name: eduportal-lecturer-prod
     restart: always
     ports:
       - "8085:8085"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
@@ -143,35 +90,17 @@ services:
           cpus: '1.5'
           memory: 1536M
 
-  ai-service:
-    build:
-      context: .
-      dockerfile: services/ai-service/Dockerfile
-    container_name: eduportal-ai-prod
-    restart: always
-    ports:
-      - "8084:8084"
-    environment:
-      SPRING_AI_OPENAI_API_KEY: ${OPENAI_API_KEY:-demo-key}
-      SPRING_PROFILES_ACTIVE: prod
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1024M
-
   frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/frontend:${IMAGE_TAG:-prod}
     container_name: eduportal-frontend-prod
     restart: always
     ports:
       - "80:80"
-    environment:
-      VITE_API_BASE_URL: http://api-gateway:8080/api/v1
+      - "3000:80"
     depends_on:
-      - api-gateway
+      - auth-service
+      - lecturer-service
+      - enrollment-service
     deploy:
       resources:
         limits:
