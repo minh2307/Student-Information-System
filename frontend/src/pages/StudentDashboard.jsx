@@ -59,6 +59,7 @@ export const StudentDashboard = () => {
       academicStanding: 'Xuất sắc',
     },
   })
+  const [academicWarnings, setAcademicWarnings] = useState([])
 
   // Cập nhật đồng hồ mỗi phút
   useEffect(() => {
@@ -94,15 +95,19 @@ export const StudentDashboard = () => {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const [dashRes, semRes] = await Promise.allSettled([
+        const [dashRes, semRes, alertRes] = await Promise.allSettled([
           api.get('/student/dashboard'),
-          api.get('/semesters/active')
+          api.get('/semesters/active'),
+          api.get('/lecturer/early-warnings/my-alerts')
         ])
         if (dashRes.status === 'fulfilled' && dashRes.value.data?.data) {
           setDashboardData(dashRes.value.data.data)
         }
         if (semRes.status === 'fulfilled' && semRes.value.data?.data) {
           setActiveSemester(semRes.value.data.data)
+        }
+        if (alertRes.status === 'fulfilled' && Array.isArray(alertRes.value.data?.data)) {
+          setAcademicWarnings(alertRes.value.data.data.filter(w => w.riskLevel === 'CRITICAL' || w.riskLevel === 'WARNING'))
         }
       } catch (err) {
         console.info('Sử dụng dữ liệu dashboard mặc định:', err.message)
@@ -363,6 +368,49 @@ export const StudentDashboard = () => {
         </div>
 
       </div>
+
+      {/* ── ACADEMIC EARLY WARNING ALERT BANNER ── */}
+      {academicWarnings.length > 0 && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-rose-50 border border-rose-300 shadow-xs text-xs text-rose-950 space-y-3 animate-in fade-in">
+          <div className="flex items-center justify-between font-bold">
+            <span className="flex items-center gap-2.5 text-rose-800 text-sm font-black">
+              <AlertTriangle size={18} className="text-rose-600 animate-bounce shrink-0" />
+              Cảnh Báo Sớm Nguy Cơ Học Vụ: Bạn có {academicWarnings.length} học phần cần chú ý khẩn cấp!
+            </span>
+            <span className="text-[11px] text-rose-700 font-mono font-semibold">Theo quy chế đào tạo tín chỉ</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {academicWarnings.map((w, idx) => (
+              <div key={idx} className="bg-white/95 p-3.5 rounded-xl border border-rose-200 shadow-2xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="font-bold text-slate-900 text-xs">
+                    {w.courseName} <span className="font-mono text-[11px] text-slate-500">({w.sectionCode})</span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase font-mono ${
+                    w.riskLevel === 'CRITICAL' ? 'bg-rose-600 text-white' : 'bg-amber-500 text-white'
+                  }`}>
+                    {w.riskLevel === 'CRITICAL' ? 'NGUY CƠ CẤM THI' : 'CẦN CHÚ Ý'}
+                  </span>
+                </div>
+
+                <ul className="list-disc pl-4 space-y-1 text-[11px] text-rose-800 font-medium">
+                  {w.riskReasons.map((r, rIdx) => (
+                    <li key={rIdx}>{r}</li>
+                  ))}
+                </ul>
+
+                {w.suggestions && w.suggestions.length > 0 && (
+                  <div className="pt-1.5 border-t border-rose-100 text-[11px] text-slate-600">
+                    <strong className="text-slate-800">Khuyến nghị: </strong>
+                    {w.suggestions[0]}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── MIDDLE SECTION: TODAY'S SCHEDULE & REALTIME PERIOD CLOCK ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
