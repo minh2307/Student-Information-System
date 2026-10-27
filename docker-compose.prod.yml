@@ -17,11 +17,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2048M
     logging:
       driver: "json-file"
       options:
@@ -43,11 +38,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1024M
 
   enrollment-service:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/enrollment-service:${IMAGE_TAG:-prod}
@@ -63,11 +53,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 1536M
 
   lecturer-service:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/lecturer-service:${IMAGE_TAG:-prod}
@@ -84,11 +69,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 1536M
 
   frontend:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/frontend:${IMAGE_TAG:-prod}
@@ -101,11 +81,6 @@ services:
       - auth-service
       - lecturer-service
       - enrollment-service
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
 
 volumes:
   postgres_prod_data:
