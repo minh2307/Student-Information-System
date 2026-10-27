@@ -156,8 +156,8 @@ public class GatewayProxyController {
             return enrollmentServiceUrl;
         }
 
-        // Module Lecturer Portal
-        if (path.startsWith("/api/v1/lecturer")) {
+        // Module Lecturer Portal & Attendance
+        if (path.startsWith("/api/v1/lecturer") || path.startsWith("/api/v1/attendance")) {
             return lecturerServiceUrl;
         }
 

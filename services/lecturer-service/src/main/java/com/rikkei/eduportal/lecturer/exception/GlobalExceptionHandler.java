@@ -47,6 +47,20 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(409, ex.getMessage()));
     }
 
+    @ExceptionHandler(AttendanceAlreadyCheckedInException.class)
+    public ResponseEntity<ApiResponse<?>> handleAlreadyCheckedIn(AttendanceAlreadyCheckedInException ex) {
+        log.warn("AttendanceAlreadyCheckedIn: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(409, ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidQrException.class)
+    public ResponseEntity<ApiResponse<?>> handleInvalidQr(InvalidQrException ex) {
+        log.warn("InvalidQr: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(400, ex.getMessage()));
+    }
+
     @ExceptionHandler(MissingGradesException.class)
     public ResponseEntity<ApiResponse<Map<String, Object>>> handleMissingGrades(MissingGradesException ex) {
         log.error("MissingGrades: {}", ex.getMessage());
