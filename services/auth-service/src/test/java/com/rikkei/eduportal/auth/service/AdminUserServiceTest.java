@@ -122,4 +122,43 @@ class AdminUserServiceTest {
         verify(studentProfileRepository, times(1)).deleteByUserId(6L);
         verify(userRepository, times(1)).delete(sampleUser);
     }
+
+    @Test
+    void testDeleteAdminUser_ThrowsBadRequestException() {
+        User adminUser = new User("admin", "admin@rikkei.edu.vn", "hashed", "Administrator", Role.ADMIN);
+        adminUser.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> adminUserService.deleteUser(1L));
+        assertTrue(ex.getMessage().contains("Không thể xóa tài khoản Quản trị viên"));
+        verify(userRepository, never()).delete(any(User.class));
+    }
+
+    @Test
+    void testLockAdminUser_ThrowsBadRequestException() {
+        User adminUser = new User("admin", "admin@rikkei.edu.vn", "hashed", "Administrator", Role.ADMIN);
+        adminUser.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+
+        UpdateUserRequest request = new UpdateUserRequest();
+        request.setStatus(UserStatus.LOCKED);
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> adminUserService.updateUser(1L, request));
+        assertTrue(ex.getMessage().contains("Không thể khóa tài khoản Quản trị viên"));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void testChangeRoleAdminUser_ThrowsBadRequestException() {
+        User adminUser = new User("admin", "admin@rikkei.edu.vn", "hashed", "Administrator", Role.ADMIN);
+        adminUser.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+
+        UpdateUserRequest request = new UpdateUserRequest();
+        request.setRole(Role.STUDENT);
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () -> adminUserService.updateUser(1L, request));
+        assertTrue(ex.getMessage().contains("Không thể thay đổi vai trò của tài khoản Quản trị viên"));
+        verify(userRepository, never()).save(any(User.class));
+    }
 }

@@ -507,9 +507,8 @@ jobs:
             docker-compose*.yml init-db .github/scripts/remote-deploy.sh \
             "${SSH_USER}@${SSH_HOST}:/opt/eduportal/"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            -o SendEnv="COMPOSE_FILE ENV_NAME IMAGE_TAG REGISTRY IMAGE_PREFIX DB_PASSWORD JWT_SECRET AI_API_KEY" \
             "${SSH_USER}@${SSH_HOST}" \
-            "chmod +x /opt/eduportal/remote-deploy.sh && /opt/eduportal/remote-deploy.sh"
+            "COMPOSE_FILE='${COMPOSE_FILE}' ENV_NAME='${ENV_NAME}' IMAGE_TAG='${IMAGE_TAG}' REGISTRY='${REGISTRY}' IMAGE_PREFIX='${IMAGE_PREFIX}' DB_PASSWORD='${DB_PASSWORD}' JWT_SECRET='${JWT_SECRET}' AI_API_KEY='${AI_API_KEY}' bash /opt/eduportal/remote-deploy.sh"
 
       - name: Notify deploy result
         if: always()
