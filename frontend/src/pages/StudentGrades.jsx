@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import api from '../services/api'
+import VerifiableTranscriptModal from '../components/VerifiableTranscriptModal'
 import { 
   GraduationCap, 
   Award, 
@@ -19,6 +20,7 @@ export const StudentGrades = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedSemester, setSelectedSemester] = useState('ALL')
+  const [showCredentialModal, setShowCredentialModal] = useState(false)
 
   useEffect(() => {
     fetchGrades()
@@ -104,6 +106,14 @@ export const StudentGrades = () => {
               </select>
             </div>
           )}
+
+          <button
+            onClick={() => setShowCredentialModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-red-800 to-rose-700 hover:from-red-900 hover:to-rose-800 text-white transition shadow-2xs cursor-pointer"
+          >
+            <ShieldCheck size={14} className="text-emerald-300" />
+            <span>Bảng Điểm Số Xác Thực (QR)</span>
+          </button>
 
           <button
             onClick={() => window.print()}
@@ -295,6 +305,12 @@ export const StudentGrades = () => {
           </div>
         </div>
       </div>
+
+      {/* Verifiable Digital Transcript Modal */}
+      <VerifiableTranscriptModal
+        open={showCredentialModal}
+        onClose={() => setShowCredentialModal(false)}
+      />
     </div>
   )
 }
