@@ -48,6 +48,7 @@ public class EarlyWarningService {
         this.lecturerProfileRepo = lecturerProfileRepo;
     }
 
+    @Transactional(readOnly = true)
     public EarlyWarningSummaryResponse evaluateSectionRisksByUsername(String username, Long sectionId, boolean isAdmin) {
         Long lecturerId = null;
         if (!isAdmin && username != null) {
@@ -58,6 +59,7 @@ public class EarlyWarningService {
         return evaluateSectionRisks(lecturerId, sectionId, isAdmin);
     }
 
+    @Transactional
     public DispatchWarningResponse dispatchWarningsByUsername(String username, DispatchWarningRequest request, boolean isAdmin) {
         Long lecturerId = null;
         if (!isAdmin && username != null) {
@@ -68,6 +70,7 @@ public class EarlyWarningService {
         return dispatchWarnings(lecturerId, request, isAdmin);
     }
 
+    @Transactional(readOnly = true)
     public List<StudentRiskDto> getStudentSelfWarningsByUsername(String username) {
         StudentProfile student = studentProfileRepo.findByUserUsername(username).orElse(null);
         if (student == null) return Collections.emptyList();
