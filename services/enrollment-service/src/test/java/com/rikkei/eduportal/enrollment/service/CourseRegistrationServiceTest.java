@@ -41,6 +41,9 @@ class CourseRegistrationServiceTest {
     @Mock
     private StudentDashboardService dashboardService;
 
+    @Mock
+    private RealtimeSeatService realtimeSeatService;
+
     @InjectMocks
     private CourseRegistrationService registrationService;
 

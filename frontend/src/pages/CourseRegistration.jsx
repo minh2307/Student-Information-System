@@ -19,7 +19,10 @@ import {
   ShieldCheck,
   Info,
   Unlock,
-  Lock
+  Lock,
+  Timer,
+  Bookmark,
+  Radio
 } from 'lucide-react'
 
 export const CourseRegistration = () => {
@@ -34,6 +37,7 @@ export const CourseRegistration = () => {
   const [actionLoadingId, setActionLoadingId] = useState(null)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [togglingPortal, setTogglingPortal] = useState(false)
+  const [activeReservations, setActiveReservations] = useState([])
   const [cancelModal, setCancelModal] = useState({
     open: false,
     enrollmentId: null,
@@ -42,6 +46,98 @@ export const CourseRegistration = () => {
   })
 
   const [availableSections, setAvailableSections] = useState([])
+
+  // Live SSE listener for real-time seat counts
+  useEffect(() => {
+    let eventSource = null
+    try {
+      eventSource = new EventSource('/api/v1/student/class-sections/live-seats')
+      eventSource.addEventListener('SEAT_UPDATE', (event) => {
+        try {
+          const update = JSON.parse(event.data)
+          setAvailableSections(prev => prev.map(s => {
+            if (s.id === update.sectionId) {
+              return {
+                ...s,
+                currentEnrolled: update.currentEnrolled,
+                maxCapacity: update.maxCapacity,
+                availableSeats: update.availableSeats,
+                reservedCount: update.reservedCount,
+                _liveUpdated: true
+              }
+            }
+            return s
+          }))
+        } catch (e) {
+          console.error('Lỗi parse SEAT_UPDATE:', e)
+        }
+      })
+    } catch (e) {
+      console.warn('EventSource không khả dụng:', e)
+    }
+
+    return () => {
+      if (eventSource) eventSource.close()
+    }
+  }, [])
+
+  // Poll / refresh active reservations
+  const fetchActiveReservations = async () => {
+    try {
+      const res = await api.get('/student/class-sections/my-reservations')
+      if (res.data?.data) {
+        setActiveReservations(res.data.data)
+      }
+    } catch (err) {
+      console.debug('Không tải được danh sách giữ chỗ:', err)
+    }
+  }
+
+  useEffect(() => {
+    fetchActiveReservations()
+    const interval = setInterval(fetchActiveReservations, 10000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleReserveSlot = async (sectionId) => {
+    setActionLoadingId(sectionId)
+    setMessage({ type: '', text: '' })
+    try {
+      const res = await api.post(`/student/class-sections/${sectionId}/reserve`)
+      if (res.data?.data) {
+        setMessage({
+          type: 'success',
+          text: `Đã giữ chỗ lớp ${res.data.data.sectionCode} thành công trong 5 phút! Vui lòng bấm "Đăng ký" để hoàn tất.`
+        })
+        fetchActiveReservations()
+        fetchSections()
+      }
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: err.response?.data?.message || 'Không thể giữ chỗ cho lớp học phần này.'
+      })
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const handleCancelReservation = async (sectionId) => {
+    setActionLoadingId(sectionId)
+    try {
+      await api.delete(`/student/class-sections/${sectionId}/reserve`)
+      setMessage({ type: 'success', text: 'Đã hủy giữ chỗ.' })
+      fetchActiveReservations()
+      fetchSections()
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: err.response?.data?.message || 'Không thể hủy giữ chỗ.'
+      })
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
 
   useEffect(() => {
     fetchSemesters()
@@ -356,6 +452,45 @@ export const CourseRegistration = () => {
         </div>
       )}
 
+      {/* Active 5-minute Slot Reservations Banner */}
+      {activeReservations.length > 0 && (
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 shadow-sm text-xs text-amber-950 space-y-2 animate-in fade-in">
+          <div className="flex items-center justify-between font-bold">
+            <span className="flex items-center gap-2 text-amber-800">
+              <Timer size={16} className="animate-spin text-amber-600" />
+              Bạn đang giữ chỗ cho {activeReservations.length} lớp học phần (Hiệu lực 5 phút):
+            </span>
+            <span className="text-[11px] text-amber-700">Tự động hủy nếu không xác nhận</span>
+          </div>
+          <div className="space-y-1.5">
+            {activeReservations.map(res => (
+              <div key={res.reservationId} className="flex items-center justify-between bg-white/80 p-2.5 rounded-lg border border-amber-200">
+                <div>
+                  <span className="font-bold text-slate-900">{res.sectionCode}</span>: {res.courseName}
+                  <span className="ml-2 font-mono text-[11px] text-amber-700 font-bold">
+                    (Còn ~{Math.max(0, res.remainingSeconds)} giây)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleEnroll(res.classSectionId)}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold shadow-xs"
+                  >
+                    Xác nhận Đăng ký
+                  </button>
+                  <button
+                    onClick={() => handleCancelReservation(res.classSectionId)}
+                    className="px-2.5 py-1 text-slate-600 hover:text-red-700 hover:bg-red-50 rounded-md text-xs font-medium"
+                  >
+                    Hủy giữ
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 3. Credit Limit & Enrollment Summary Banner (Anti-Slop, Clean Stone) */}
       <div className="bg-white rounded-2xl p-5 border border-stone-200/90 shadow-2xs">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
@@ -564,6 +699,14 @@ export const CourseRegistration = () => {
                       <span className="flex items-center gap-1 font-mono">
                         <Users size={13} className="text-stone-400" />
                         Sĩ số: <strong className={isFull ? 'text-red-700' : 'text-stone-800'}>{sec.currentEnrolled}/{sec.maxCapacity}</strong>
+                        {sec.reservedCount > 0 && (
+                          <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded font-semibold ml-1">
+                            {sec.reservedCount} giữ chỗ
+                          </span>
+                        )}
+                        {sec._liveUpdated && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping ml-1" title="Vừa cập nhật thời gian thực" />
+                        )}
                       </span>
                       <span>GV: <strong className="text-stone-800">{sec.lecturerName}</strong></span>
                     </div>
@@ -588,33 +731,71 @@ export const CourseRegistration = () => {
                         {isBusy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                         <span>Hủy lớp</span>
                       </button>
-                    ) : (
-                      <button
-                        onClick={() => handleEnroll(sec.id)}
-                        disabled={isBusy || isFull || !currentSemesterObj.registrationOpen || wouldExceedCredits}
-                        className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-red-700 hover:bg-red-800 disabled:bg-stone-200 disabled:text-stone-400 disabled:border-stone-200 disabled:cursor-not-allowed flex items-center gap-1.5 transition shadow-2xs"
-                        title={
-                          !currentSemesterObj.registrationOpen
-                            ? 'Cổng đăng ký đang đóng'
-                            : isFull
-                            ? 'Lớp đã đủ sĩ số'
-                            : wouldExceedCredits
-                            ? `Vượt quá giới hạn 24 tín chỉ (${enrolledSummary.credits} + ${sec.credits} = ${enrolledSummary.credits + sec.credits} TC)`
-                            : ''
-                        }
-                      >
-                        {isBusy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                        <span>
-                          {!currentSemesterObj.registrationOpen
-                            ? 'Đã đóng ĐK'
-                            : isFull
-                            ? 'Hết chỗ'
-                            : wouldExceedCredits
-                            ? 'Vượt quá 24 TC'
-                            : 'Đăng ký'}
-                        </span>
-                      </button>
-                    )}
+                    ) : (() => {
+                      const myRes = activeReservations.find(r => r.classSectionId === sec.id)
+                      if (myRes) {
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2.5 py-1 bg-amber-100 border border-amber-300 text-amber-900 rounded-lg text-[11px] font-bold flex items-center gap-1">
+                              <Timer size={12} className="animate-spin text-amber-700" />
+                              Giữ ({Math.max(0, myRes.remainingSeconds)}s)
+                            </span>
+                            <button
+                              onClick={() => handleEnroll(sec.id)}
+                              disabled={isBusy}
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs"
+                            >
+                              Xác nhận
+                            </button>
+                            <button
+                              onClick={() => handleCancelReservation(sec.id)}
+                              disabled={isBusy}
+                              className="px-2 py-1 text-slate-500 hover:text-red-700 text-xs font-medium"
+                            >
+                              Hủy
+                            </button>
+                          </div>
+                        )
+                      }
+                      return (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleReserveSlot(sec.id)}
+                            disabled={isBusy || isFull || !currentSemesterObj.registrationOpen || wouldExceedCredits}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition"
+                            title="Giữ slot này trong 5 phút"
+                          >
+                            <Bookmark size={12} />
+                            <span>Giữ chỗ 5p</span>
+                          </button>
+                          <button
+                            onClick={() => handleEnroll(sec.id)}
+                            disabled={isBusy || isFull || !currentSemesterObj.registrationOpen || wouldExceedCredits}
+                            className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-red-700 hover:bg-red-800 disabled:bg-stone-200 disabled:text-stone-400 disabled:border-stone-200 disabled:cursor-not-allowed flex items-center gap-1.5 transition shadow-2xs"
+                            title={
+                              !currentSemesterObj.registrationOpen
+                                ? 'Cổng đăng ký đang đóng'
+                                : isFull
+                                ? 'Lớp đã đủ sĩ số'
+                                : wouldExceedCredits
+                                ? `Vượt quá giới hạn 24 tín chỉ (${enrolledSummary.credits} + ${sec.credits} = ${enrolledSummary.credits + sec.credits} TC)`
+                                : ''
+                            }
+                          >
+                            {isBusy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                            <span>
+                              {!currentSemesterObj.registrationOpen
+                                ? 'Đã đóng ĐK'
+                                : isFull
+                                ? 'Hết chỗ'
+                                : wouldExceedCredits
+                                ? 'Vượt 24 TC'
+                                : 'Đăng ký'}
+                            </span>
+                          </button>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )
