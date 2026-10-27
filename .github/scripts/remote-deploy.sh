@@ -38,18 +38,18 @@ docker compose -f "${COMPOSE_FILE}" exec -T postgres sh -c \
    || (psql -U postgres -d academic_db -f /docker-entrypoint-initdb.d/01-schema.sql \
        && psql -U postgres -d academic_db -f /docker-entrypoint-initdb.d/02-seed-data.sql)" || true
 
-# Health check lecturer-service
+# Health check lecturer-service (chờ Spring Boot khởi động hoàn tất lên tới 210s trên VPS)
 echo "=== Health check lecturer-service... ==="
 LECTURER_OK=false
 i=0
-while [ $i -lt 30 ]; do
+while [ $i -lt 70 ]; do
   if curl -sf http://localhost:8085/actuator/health >/dev/null 2>&1; then
     elapsed=$((i * 3))
     echo "Health check PASSED ✓ (sau ${elapsed}s)"
     LECTURER_OK=true
     break
   fi
-  echo "Chua san sang, cho 3s... (lan $((i + 1))/30)"
+  echo "Chua san sang, cho 3s... (lan $((i + 1))/70)"
   sleep 3
   i=$((i + 1))
 done
