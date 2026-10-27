@@ -491,47 +491,25 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          COMPOSE_FILE: ${{ steps.resolve.outputs.compose_file }}
+          ENV_NAME: ${{ steps.resolve.outputs.env_name }}
+          IMAGE_TAG: ${{ steps.resolve.outputs.tag }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
         run: |
           if [ ! -s ~/.ssh/deploy_key ]; then
-            echo "Bỏ qua Deploy vì không có SSH key."
+            echo "Bo qua Deploy vi khong co SSH key."
             exit 0
           fi
-
-          echo "Tạo thư mục /opt/eduportal trên VPS nếu chưa có..."
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             "${SSH_USER}@${SSH_HOST}" "mkdir -p /opt/eduportal"
-
-          echo "Đồng bộ docker-compose files và init-db lên VPS..."
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -r \
-            docker-compose*.yml init-db \
+            docker-compose*.yml init-db .github/scripts/remote-deploy.sh \
             "${SSH_USER}@${SSH_HOST}:/opt/eduportal/"
-
-          ssh -i ~/.ssh/deploy_key \
-            -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            -o SendEnv="COMPOSE_FILE ENV_NAME IMAGE_TAG REGISTRY IMAGE_PREFIX DB_PASSWORD JWT_SECRET AI_API_KEY" \
             "${SSH_USER}@${SSH_HOST}" \
-          "
-            set -e
-            cd /opt/eduportal
-
-            # Ghi biến môi trường runtime
-            echo \"DB_PASSWORD=${DB_PASSWORD}\" > .env
-            echo \"JWT_SECRET=${JWT_SECRET}\" >> .env
-            echo \"REGISTRY=${{ env.REGISTRY }}\" >> .env
-            echo \"IMAGE_TAG=${{ steps.resolve.outputs.tag }}\" >> .env
-            echo \"IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}\" >> .env
-            echo \"AI_API_KEY=${AI_API_KEY}\" >> .env
-
-            # Pull images mới và restart
-            docker compose -f ${{ steps.resolve.outputs.compose_file }} pull
-            docker compose -f ${{ steps.resolve.outputs.compose_file }} up -d --remove-orphans
-
-            # Health check sau deploy
-            sleep 10
-            curl -sf http://localhost:8085/actuator/health || \
-              (echo 'lecturer-service health check FAILED' && exit 1)
-
-            echo 'Deploy ${{ steps.resolve.outputs.env_name }} succeeded ✓'
-          "
+            "chmod +x /opt/eduportal/remote-deploy.sh && /opt/eduportal/remote-deploy.sh"
 
       - name: Notify deploy result
         if: always()
