@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
+import ScheduleOptimizerModal from '../components/ScheduleOptimizerModal'
 import { 
   Search, 
   CheckCircle, 
@@ -22,7 +23,8 @@ import {
   Lock,
   Timer,
   Bookmark,
-  Radio
+  Radio,
+  Sparkles
 } from 'lucide-react'
 
 export const CourseRegistration = () => {
@@ -38,6 +40,7 @@ export const CourseRegistration = () => {
   const [message, setMessage] = useState({ type: '', text: '' })
   const [togglingPortal, setTogglingPortal] = useState(false)
   const [activeReservations, setActiveReservations] = useState([])
+  const [optimizerModalOpen, setOptimizerModalOpen] = useState(false)
   const [cancelModal, setCancelModal] = useState({
     open: false,
     enrollmentId: null,
@@ -408,6 +411,15 @@ export const CourseRegistration = () => {
               className="w-full pl-8 pr-3 py-1.5 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-red-600 focus:bg-white transition"
             />
           </div>
+
+          <button
+            onClick={() => setOptimizerModalOpen(true)}
+            className="px-3.5 py-1.5 bg-gradient-to-r from-red-700 via-rose-700 to-amber-700 hover:from-red-800 hover:to-amber-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition shrink-0 cursor-pointer"
+            title="AI Xếp Thời Khóa Biểu Tự Động (CSP Optimizer)"
+          >
+            <Sparkles size={14} className="text-amber-200 animate-pulse" />
+            <span>AI Xếp Lịch</span>
+          </button>
         </div>
       </div>
 
@@ -849,6 +861,18 @@ export const CourseRegistration = () => {
           </div>
         </div>
       )}
+
+      {/* AI Smart Schedule Optimizer Modal */}
+      <ScheduleOptimizerModal
+        open={optimizerModalOpen}
+        onClose={() => setOptimizerModalOpen(false)}
+        semester={semester}
+        availableSections={availableSections}
+        onReservationSuccess={(reservations) => {
+          fetchActiveReservations()
+          fetchSections()
+        }}
+      />
     </div>
   )
 }
