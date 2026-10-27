@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/authStore'
 import { getRealAvatar } from '../utils/avatarUtils'
 import { toast } from '../store/toastStore'
 import { confirmDialog } from '../store/confirmStore'
-import { Plus, Search, UserCheck, Shield, Trash2, Edit2, X, Check, Lock, Unlock, AlertCircle, CheckCircle, Key } from 'lucide-react'
+import { Plus, Search, UserCheck, Shield, Trash2, Edit2, X, Check, Lock, Unlock, AlertCircle, CheckCircle, Key, History } from 'lucide-react'
 
 export const AdminUsers = () => {
   const currentUser = useAuthStore((state) => state.user)
@@ -18,6 +18,33 @@ export const AdminUsers = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  // Audit Trail State
+  const [showAuditModal, setShowAuditModal] = useState(false)
+  const [auditLogs, setAuditLogs] = useState([])
+  const [loadingAudit, setLoadingAudit] = useState(false)
+  const [auditActionFilter, setAuditActionFilter] = useState('')
+
+  const fetchAuditLogs = async (action = '') => {
+    setLoadingAudit(true)
+    try {
+      const url = action ? `/admin/audit-logs?action=${encodeURIComponent(action)}` : '/admin/audit-logs'
+      const res = await api.get(url)
+      if (res.data?.data) {
+        setAuditLogs(res.data.data)
+      }
+    } catch (err) {
+      console.error('Lỗi khi tải nhật ký kiểm toán:', err)
+      toast.error('Không thể tải nhật ký kiểm toán.')
+    } finally {
+      setLoadingAudit(false)
+    }
+  }
+
+  const openAuditModal = () => {
+    setShowAuditModal(true)
+    fetchAuditLogs(auditActionFilter)
+  }
 
   // Create Form State
   const [createForm, setCreateForm] = useState({
@@ -244,13 +271,22 @@ export const AdminUsers = () => {
             CRUD tài khoản và phân quyền hồ sơ Sinh viên, Giảng viên, Quản trị viên
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm shadow-blue-500/25 transition-colors"
-        >
-          <Plus size={16} />
-          <span>Thêm tài khoản mới</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={openAuditModal}
+            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition-colors"
+          >
+            <History size={16} />
+            <span>Nhật ký Kiểm toán (Audit Trail)</span>
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm shadow-blue-500/25 transition-colors"
+          >
+            <Plus size={16} />
+            <span>Thêm tài khoản mới</span>
+          </button>
+        </div>
       </div>
 
       {/* Alert Message */}
@@ -769,6 +805,143 @@ export const AdminUsers = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Audit Trail Modal */}
+      {showAuditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="relative w-full max-w-4xl bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center">
+                  <History size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Nhật ký Kiểm toán Hệ thống (Audit Trail)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Ghi vết bất biến các hành động nhạy cảm: Tạo tài khoản, Đổi trạng thái, Khóa/Mở khóa, Đổi mật khẩu
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAuditModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Filter bar */}
+            <div className="py-3 flex items-center gap-2 overflow-x-auto text-xs">
+              <span className="font-semibold text-slate-500">Lọc theo hành động:</span>
+              {[
+                { key: '', label: 'Tất cả' },
+                { key: 'USER_CREATED', label: 'Tạo tài khoản' },
+                { key: 'USER_LOCKED', label: 'Khóa tài khoản' },
+                { key: 'USER_STATUS_CHANGED', label: 'Đổi trạng thái' },
+                { key: 'PASSWORD_RESET', label: 'Đặt lại mật khẩu' },
+                { key: 'USER_DELETED', label: 'Xóa tài khoản' }
+              ].map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => {
+                    setAuditActionFilter(f.key)
+                    fetchAuditLogs(f.key)
+                  }}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition ${
+                    auditActionFilter === f.key
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Table */}
+            <div className="flex-1 overflow-y-auto mt-2 border border-slate-100 rounded-xl">
+              {loadingAudit ? (
+                <div className="py-12 text-center text-xs text-slate-500">
+                  Đang tải nhật ký kiểm toán...
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <div className="py-12 text-center text-xs text-slate-500">
+                  Chưa có bản ghi nhật ký kiểm toán nào phù hợp.
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-600 uppercase font-semibold">
+                    <tr>
+                      <th className="py-2.5 px-3">Thời gian</th>
+                      <th className="py-2.5 px-3">Hành động</th>
+                      <th className="py-2.5 px-3">Người thực hiện</th>
+                      <th className="py-2.5 px-3">Đối tượng</th>
+                      <th className="py-2.5 px-3">Mô tả chi tiết</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {auditLogs.map((log) => {
+                      const isCreate = log.action === 'USER_CREATED'
+                      const isLock = log.action === 'USER_LOCKED'
+                      const isPass = log.action === 'PASSWORD_RESET'
+                      const isDel = log.action === 'USER_DELETED'
+
+                      return (
+                        <tr key={log.id} className="hover:bg-slate-50/60 transition">
+                          <td className="py-2.5 px-3 whitespace-nowrap text-slate-500 font-mono">
+                            {log.createdAt ? new Date(log.createdAt).toLocaleString('vi-VN') : '—'}
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                                isCreate
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : isLock
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : isPass
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : isDel
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}
+                            >
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap font-medium text-slate-900">
+                            {log.actorUsername}
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <span className="font-semibold text-slate-800">{log.targetEntity}</span> #{log.targetId}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600">
+                            <div>{log.summary}</div>
+                            {log.newValue && (
+                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                Giá trị: {log.newValue}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex justify-end mt-4">
+              <button
+                onClick={() => setShowAuditModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}
