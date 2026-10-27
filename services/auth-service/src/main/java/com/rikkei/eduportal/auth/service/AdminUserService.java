@@ -11,6 +11,7 @@ import com.rikkei.eduportal.auth.repository.StudentProfileRepository;
 import com.rikkei.eduportal.auth.repository.UserRepository;
 import com.rikkei.eduportal.common.Role;
 import com.rikkei.eduportal.common.UserStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,15 +27,28 @@ public class AdminUserService {
     private final StudentProfileRepository studentProfileRepository;
     private final LecturerProfileRepository lecturerProfileRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     public AdminUserService(UserRepository userRepository,
                             StudentProfileRepository studentProfileRepository,
                             LecturerProfileRepository lecturerProfileRepository,
-                            PasswordEncoder passwordEncoder) {
+                            PasswordEncoder passwordEncoder,
+                            AuditLogService auditLogService) {
         this.userRepository = userRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.lecturerProfileRepository = lecturerProfileRepository;
         this.passwordEncoder = passwordEncoder;
+        this.auditLogService = auditLogService;
+    }
+
+    private String getCurrentActor() {
+        try {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getName() != null && !auth.getName().isBlank()) {
+                return auth.getName();
+            }
+        } catch (Exception ignored) {}
+        return "admin";
     }
 
     @Transactional(readOnly = true)
@@ -98,6 +112,18 @@ public class AdminUserService {
             lecturerProfileRepository.save(profile);
         }
 
+        auditLogService.recordLog(
+                "USER_CREATED",
+                getCurrentActor(),
+                "ROLE_ADMIN",
+                "User",
+                String.valueOf(savedUser.getId()),
+                "Tạo mới tài khoản người dùng: " + savedUser.getUsername() + " (" + savedUser.getRole() + ")",
+                null,
+                "username=" + savedUser.getUsername() + ", email=" + savedUser.getEmail() + ", role=" + savedUser.getRole(),
+                null
+        );
+
         return buildProfileResponse(savedUser);
     }
 
@@ -115,6 +141,10 @@ public class AdminUserService {
                 throw new BadRequestException("Không thể thay đổi vai trò của tài khoản Quản trị viên (Admin)!");
             }
         }
+
+        String oldStatusStr = String.valueOf(user.getStatus());
+        boolean statusChanged = request.getStatus() != null && request.getStatus() != user.getStatus();
+        boolean passwordReset = StringUtils.hasText(request.getPassword());
 
         if (StringUtils.hasText(request.getFullName())) {
             user.setFullName(request.getFullName().trim());
@@ -171,6 +201,47 @@ public class AdminUserService {
         }
 
         userRepository.save(user);
+
+        // Ghi nhận Audit Log
+        if (statusChanged) {
+            String action = (user.getStatus() == UserStatus.LOCKED) ? "USER_LOCKED" : "USER_STATUS_CHANGED";
+            auditLogService.recordLog(
+                    action,
+                    getCurrentActor(),
+                    "ROLE_ADMIN",
+                    "User",
+                    String.valueOf(user.getId()),
+                    "Thay đổi trạng thái tài khoản " + user.getUsername() + ": " + oldStatusStr + " -> " + user.getStatus(),
+                    oldStatusStr,
+                    String.valueOf(user.getStatus()),
+                    null
+            );
+        } else if (passwordReset) {
+            auditLogService.recordLog(
+                    "PASSWORD_RESET",
+                    getCurrentActor(),
+                    "ROLE_ADMIN",
+                    "User",
+                    String.valueOf(user.getId()),
+                    "Đặt lại mật khẩu tài khoản người dùng: " + user.getUsername(),
+                    "***",
+                    "***",
+                    null
+            );
+        } else {
+            auditLogService.recordLog(
+                    "USER_UPDATED",
+                    getCurrentActor(),
+                    "ROLE_ADMIN",
+                    "User",
+                    String.valueOf(user.getId()),
+                    "Cập nhật thông tin tài khoản người dùng: " + user.getUsername(),
+                    null,
+                    "fullName=" + user.getFullName() + ", email=" + user.getEmail(),
+                    null
+            );
+        }
+
         return buildProfileResponse(user);
     }
 
@@ -191,6 +262,18 @@ public class AdminUserService {
         }
 
         userRepository.delete(user);
+
+        auditLogService.recordLog(
+                "USER_DELETED",
+                getCurrentActor(),
+                "ROLE_ADMIN",
+                "User",
+                String.valueOf(id),
+                "Xóa tài khoản người dùng ID: " + id + " (" + user.getUsername() + ", role=" + user.getRole() + ")",
+                "username=" + user.getUsername() + ", role=" + user.getRole(),
+                null,
+                null
+        );
     }
 
     private UserProfileResponse buildProfileResponse(User user) {

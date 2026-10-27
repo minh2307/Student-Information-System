@@ -138,10 +138,11 @@ public class GatewayProxyController {
             return courseServiceUrl;
         }
 
-        // Module Auth & User Profiles
+        // Module Auth & User Profiles & Admin Audit Trail
         if (path.startsWith("/api/v1/auth") ||
             path.startsWith("/api/v1/profile") ||
-            path.startsWith("/api/v1/admin/users")) {
+            path.startsWith("/api/v1/admin/users") ||
+            path.startsWith("/api/v1/admin/audit-logs")) {
             return authServiceUrl;
         }
 
