@@ -19,7 +19,9 @@ import {
   ShieldCheck,
   Info,
   Unlock,
-  Lock
+  Lock,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 
 export const CourseRegistration = () => {
@@ -175,6 +177,27 @@ export const CourseRegistration = () => {
       return true
     })
   }, [availableSections, activeTab])
+
+  // Phân trang danh mục học phần: 5 học phần / trang
+  const ITEMS_PER_PAGE = 5
+  const [currentPage, setCurrentPage] = useState(1)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, keyword, semester])
+
+  const totalPages = Math.max(1, Math.ceil(filteredSections.length / ITEMS_PER_PAGE))
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [totalPages, currentPage])
+
+  const paginatedSections = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredSections.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredSections, currentPage])
 
   const handleEnroll = async (sectionId) => {
     setMessage({ type: '', text: '' })
@@ -477,7 +500,7 @@ export const CourseRegistration = () => {
             Danh Mục Lớp Học Phần Khả Dụng
           </h2>
           <span className="text-[11px] font-mono text-stone-600">
-            {filteredSections.length} lớp học phần
+            {filteredSections.length} lớp học phần {filteredSections.length > ITEMS_PER_PAGE && `(Trang ${currentPage}/${totalPages})`}
           </span>
         </div>
 
@@ -492,7 +515,7 @@ export const CourseRegistration = () => {
               Không tìm thấy lớp học phần nào phù hợp với bộ lọc tìm kiếm.
             </div>
           ) : (
-            filteredSections.map((sec) => {
+            paginatedSections.map((sec) => {
               const isFull = sec.currentEnrolled >= sec.maxCapacity
               const isBusy = actionLoadingId === (sec.isEnrolled ? sec.enrollmentId : sec.id)
               const wouldExceedCredits =
@@ -621,6 +644,67 @@ export const CourseRegistration = () => {
             })
           )}
         </div>
+
+        {/* 6. Phân trang (Pagination) - Mỗi trang 5 học phần */}
+        {filteredSections.length > ITEMS_PER_PAGE && (
+          <div className="px-5 py-3.5 border-t border-stone-200/80 bg-stone-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <span className="text-xs text-stone-600 font-sans">
+              Hiển thị <strong className="text-stone-900 font-mono">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</strong> - <strong className="text-stone-900 font-mono">{Math.min(currentPage * ITEMS_PER_PAGE, filteredSections.length)}</strong> trên tổng số <strong className="text-stone-900 font-mono">{filteredSections.length}</strong> lớp học phần
+            </span>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition"
+              >
+                <ChevronLeft size={14} />
+                <span>Trước</span>
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  if (
+                    totalPages > 7 &&
+                    page !== 1 &&
+                    page !== totalPages &&
+                    Math.abs(page - currentPage) > 1
+                  ) {
+                    if (page === 2 || page === totalPages - 1) {
+                      return <span key={page} className="px-1 text-stone-400 text-xs font-mono">...</span>
+                    }
+                    return null
+                  }
+                  return (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-7 h-7 rounded-lg text-xs font-mono font-medium transition ${
+                        currentPage === page
+                          ? 'bg-red-700 text-white font-bold shadow-2xs'
+                          : 'text-stone-700 hover:bg-stone-100 border border-stone-200/60'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition"
+              >
+                <span>Sau</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Confirmation Modal */}
