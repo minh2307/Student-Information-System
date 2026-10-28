@@ -17,8 +17,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 2048M
+          cpus: '1.0'
+          memory: 1024M
     restart: always
 
   auth-service:
@@ -59,8 +59,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 1536M
+          cpus: '1.0'
+          memory: 1024M
     restart: always
 
   enrollment-service:
@@ -79,8 +79,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 1536M
+          cpus: '1.0'
+          memory: 1024M
     restart: always
 
   frontend:
