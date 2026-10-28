@@ -73,6 +73,7 @@ services:
     depends_on:
       - auth-service
       - lecturer-service
+      - enrollment-service
     restart: unless-stopped
 
 volumes:
