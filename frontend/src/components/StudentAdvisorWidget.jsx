@@ -506,7 +506,7 @@ export const StudentAdvisorWidget = () => {
 
       {/* Floating Chat Window with Draggable Header */}
       {isOpen && (
-        <div className="w-[370px] sm:w-[420px] h-[560px] max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-stone-200/90 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="w-[calc(100vw-2rem)] max-w-[370px] sm:max-w-[420px] h-[540px] max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-stone-200/90 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           {/* Header - Kéo thả cửa sổ */}
           <div
             onMouseDown={handleDragStart}

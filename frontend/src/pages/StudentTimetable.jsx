@@ -78,7 +78,7 @@ export const StudentTimetable = () => {
   const [selectedSemester, setSelectedSemester] = useState('')
   const [timetable, setTimetable] = useState([])
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState('grid') // 'grid' | 'list'
+  const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 768) ? 'list' : 'grid') // Mobile auto 'list', Desktop 'grid'
   const [selectedClassDetail, setSelectedClassDetail] = useState(null)
   const [weekOffset, setWeekOffset] = useState(0)
 
