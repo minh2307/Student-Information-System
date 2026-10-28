@@ -16,6 +16,7 @@ import {
   ChevronRight,
   MessageSquare,
   FastForward,
+  GripVertical,
 } from 'lucide-react'
 
 const SESSION_STORAGE_KEY = 'eduportal_student_advisor_history'
@@ -43,6 +44,84 @@ export const StudentAdvisorWidget = () => {
   const isStudentPortal = user?.role === 'STUDENT'
 
   const [isOpen, setIsOpen] = useState(false)
+  const [isDismissed, setIsDismissed] = useState(false)
+  const [position, setPosition] = useState(() => {
+    try {
+      const saved = localStorage.getItem('eduportal_advisor_pos')
+      if (saved) return JSON.parse(saved)
+    } catch (e) {}
+    return { x: null, y: null }
+  })
+
+  const isDraggingRef = useRef(false)
+  const dragStartRef = useRef({ mouseX: 0, mouseY: 0, elemX: 0, elemY: 0 })
+  const hasMovedRef = useRef(false)
+
+  const handleDragStart = (e) => {
+    if (e.button !== undefined && e.button !== 0 && e.type !== 'touchstart') return
+    const clientX = e.clientX ?? e.touches?.[0]?.clientX
+    const clientY = e.clientY ?? e.touches?.[0]?.clientY
+    if (clientX === undefined || clientY === undefined) return
+
+    isDraggingRef.current = true
+    hasMovedRef.current = false
+
+    const currentX = position.x !== null ? position.x : (window.innerWidth - (isOpen ? 440 : 80))
+    const currentY = position.y !== null ? position.y : (window.innerHeight - (isOpen ? 580 : 80))
+
+    dragStartRef.current = {
+      mouseX: clientX,
+      mouseY: clientY,
+      elemX: currentX,
+      elemY: currentY
+    }
+
+    const handleMouseMove = (moveEvent) => {
+      if (!isDraggingRef.current) return
+      const curX = moveEvent.clientX ?? moveEvent.touches?.[0]?.clientX
+      const curY = moveEvent.clientY ?? moveEvent.touches?.[0]?.clientY
+      if (curX === undefined || curY === undefined) return
+
+      const deltaX = curX - dragStartRef.current.mouseX
+      const deltaY = curY - dragStartRef.current.mouseY
+
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        hasMovedRef.current = true
+      }
+
+      const w = isOpen ? 420 : 60
+      const h = isOpen ? 560 : 60
+      const maxX = window.innerWidth - w - 12
+      const maxY = window.innerHeight - h - 12
+
+      const nextX = Math.max(12, Math.min(maxX, dragStartRef.current.elemX + deltaX))
+      const nextY = Math.max(12, Math.min(maxY, dragStartRef.current.elemY + deltaY))
+
+      const newPos = { x: nextX, y: nextY }
+      setPosition(newPos)
+      try {
+        localStorage.setItem('eduportal_advisor_pos', JSON.stringify(newPos))
+      } catch (err) {}
+    }
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('touchmove', handleMouseMove)
+      window.removeEventListener('touchend', handleMouseUp)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    window.addEventListener('touchmove', handleMouseMove)
+    window.addEventListener('touchend', handleMouseUp)
+  }
+
+  const handleButtonClick = () => {
+    if (hasMovedRef.current) return
+    setIsOpen(prev => !prev)
+  }
   const [messages, setMessages] = useState(() => {
     try {
       const saved = sessionStorage.getItem(SESSION_STORAGE_KEY)
@@ -359,39 +438,86 @@ export const StudentAdvisorWidget = () => {
     return parts.length > 0 ? parts : str
   }
 
+  if (isDismissed) {
+    return (
+      <div
+        onClick={() => setIsDismissed(false)}
+        className="fixed right-0 bottom-24 z-50 bg-red-700 hover:bg-red-800 text-white p-2.5 rounded-l-2xl shadow-xl cursor-pointer hover:pl-3.5 transition-all flex items-center gap-1.5 border-y border-l border-red-500/40 group print:hidden select-none"
+        title="Mở lại Cố vấn AI"
+      >
+        <Bot size={18} className="text-white group-hover:scale-110 transition-transform animate-pulse" />
+        <span className="text-[11px] font-mono font-bold hidden group-hover:inline-block">AI</span>
+      </div>
+    )
+  }
+
+  const containerStyle =
+    position.x !== null && position.y !== null
+      ? { left: `${position.x}px`, top: `${position.y}px` }
+      : { right: '24px', bottom: '24px' }
+
   return (
-    <div className="fixed bottom-6 right-6 z-50 print:hidden font-sans">
-      {/* Floating Action Button */}
+    <div
+      style={containerStyle}
+      className="fixed z-50 print:hidden font-sans select-none"
+    >
+      {/* Floating Action Button (Compact Icon-Only FAB with Drag & Hover-Expansion) */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="group relative flex items-center gap-2.5 px-4 py-3 bg-red-700 hover:bg-red-800 text-white rounded-full shadow-lg shadow-red-700/25 hover:shadow-red-700/40 hover:scale-105 active:scale-95 transition-all duration-200 border border-red-800"
-          title="Mở Cố vấn Học tập AI"
-        >
-          <div className="relative">
-            <Bot size={20} className="animate-pulse" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 border-2 border-white rounded-full"></span>
-          </div>
-          <div className="text-left hidden sm:block">
-            <div className="text-xs font-bold leading-none flex items-center gap-1 font-mono">
-              <span>Cố vấn AI</span>
-              <Sparkles size={11} className="text-amber-300" />
+        <div className="relative group flex items-center">
+          {/* Nút X tắt/ẩn tạm thời */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsDismissed(true)
+            }}
+            className="absolute -top-1 -left-1 w-4.5 h-4.5 bg-stone-800/90 hover:bg-red-700 text-stone-200 hover:text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-sm border border-stone-600 text-[10px]"
+            title="Ẩn Cố vấn AI"
+          >
+            <X size={10} />
+          </button>
+
+          {/* Nút FAB chính có thể kéo thả */}
+          <div
+            onMouseDown={handleDragStart}
+            onTouchStart={handleDragStart}
+            onClick={handleButtonClick}
+            className="flex items-center bg-red-700 hover:bg-red-800 text-white rounded-full shadow-lg shadow-red-900/30 hover:shadow-red-900/50 border border-red-600/50 cursor-grab active:cursor-grabbing hover:scale-105 active:scale-95 transition-all duration-200 overflow-hidden"
+            title="Nhấn để mở • Giữ chuột để kéo di chuyển vị trí"
+          >
+            {/* Icon tròn nhỏ gọn 48px */}
+            <div className="w-12 h-12 flex items-center justify-center shrink-0 relative">
+              <Bot size={22} className="animate-pulse" />
+              <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-red-700 rounded-full"></span>
             </div>
-            <div className="text-[10px] text-red-100 font-medium leading-none mt-1">
-              Tư vấn môn học & quy chế
+
+            {/* Bung chữ nhẹ nhàng khi rê chuột vào */}
+            <div className="max-w-0 group-hover:max-w-xs transition-all duration-300 ease-out overflow-hidden whitespace-nowrap pr-0 group-hover:pr-4">
+              <div className="text-xs font-bold font-mono flex items-center gap-1 leading-none">
+                <span>Cố vấn AI</span>
+                <Sparkles size={11} className="text-amber-300" />
+              </div>
+              <div className="text-[10px] text-red-200 font-medium leading-none mt-1">
+                Kéo thả tùy ý
+              </div>
             </div>
           </div>
-        </button>
+        </div>
       )}
 
-      {/* Floating Chat Window */}
+      {/* Floating Chat Window with Draggable Header */}
       {isOpen && (
-        <div className="w-[370px] sm:w-[420px] h-[560px] max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-stone-200/90 overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
-          {/* Header */}
-          <div className="px-4 py-3 bg-red-800 text-white flex items-center justify-between shrink-0 shadow-sm border-b border-red-900">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/20">
-                <Bot size={18} />
+        <div className="w-[370px] sm:w-[420px] h-[560px] max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-stone-200/90 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          {/* Header - Kéo thả cửa sổ */}
+          <div
+            onMouseDown={handleDragStart}
+            onTouchStart={handleDragStart}
+            className="px-4 py-3 bg-red-800 text-white flex items-center justify-between shrink-0 shadow-sm border-b border-red-900 cursor-grab active:cursor-grabbing select-none"
+            title="Giữ chuột vào thanh này để kéo di chuyển cửa sổ"
+          >
+            <div className="flex items-center gap-2 pointer-events-none">
+              <GripVertical size={16} className="text-red-300/70" />
+              <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/20">
+                <Bot size={17} />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
@@ -402,30 +528,53 @@ export const StudentAdvisorWidget = () => {
                   </span>
                 </div>
                 <p className="text-[10px] text-red-100/90 font-mono">
-                  Rikkei EduPortal • Spring AI Advisor
+                  Kéo thả để đổi vị trí
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-1">
+              {position.x !== null && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setPosition({ x: null, y: null })
+                    localStorage.removeItem('eduportal_advisor_pos')
+                  }}
+                  className="px-1.5 py-1 text-red-100 hover:text-white hover:bg-white/10 rounded text-[10px] font-mono transition-colors"
+                  title="Đặt lại vị trí mặc định"
+                >
+                  Reset
+                </button>
+              )}
               <button
-                onClick={handleClearHistory}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleClearHistory()
+                }}
                 className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 title="Xóa lịch sử hội thoại"
               >
                 <RotateCcw size={14} />
               </button>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsOpen(false)
+                }}
                 className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 title="Thu nhỏ"
               >
                 <Minus size={15} />
               </button>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsOpen(false)
+                  setIsDismissed(true)
+                }}
                 className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                title="Đóng widget"
+                title="Ẩn nút"
               >
                 <X size={15} />
               </button>
