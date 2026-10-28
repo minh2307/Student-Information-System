@@ -27,6 +27,18 @@ public interface ClassSectionRepository extends JpaRepository<ClassSection, Long
            "JOIN FETCH cs.lecturer lp " +
            "JOIN FETCH lp.user u " +
            "WHERE (:semester IS NULL OR cs.semesterName = :semester) " +
+           "AND cs.course.id IN :courseIds " +
+           "AND cs.status = 'OPEN' " +
+           "ORDER BY c.courseCode ASC, cs.sectionCode ASC")
+    List<ClassSection> findBySemesterAndCourseIdIn(
+            @Param("semester") String semester,
+            @Param("courseIds") List<Long> courseIds);
+
+    @Query("SELECT cs FROM ClassSection cs " +
+           "JOIN FETCH cs.course c " +
+           "JOIN FETCH cs.lecturer lp " +
+           "JOIN FETCH lp.user u " +
+           "WHERE (:semester IS NULL OR cs.semesterName = :semester) " +
            "AND (LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "     OR LOWER(c.courseCode) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "     OR LOWER(cs.sectionCode) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +

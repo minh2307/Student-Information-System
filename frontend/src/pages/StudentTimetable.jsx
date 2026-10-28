@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import api from '../services/api'
+import { toast } from '../store/toastStore'
+import StudentQrScannerModal from '../components/StudentQrScannerModal'
 import {
   CalendarDays,
   Clock,
@@ -16,7 +18,14 @@ import {
   Sparkles,
   CheckCircle2,
   ListFilter,
-  Grid
+  Grid,
+  Download,
+  Copy,
+  Check,
+  Share2,
+  X,
+  Smartphone,
+  QrCode
 } from 'lucide-react'
 
 // Mapping ngày trong tuần
@@ -72,6 +81,71 @@ export const StudentTimetable = () => {
   const [viewMode, setViewMode] = useState('grid') // 'grid' | 'list'
   const [selectedClassDetail, setSelectedClassDetail] = useState(null)
   const [weekOffset, setWeekOffset] = useState(0)
+
+  // State đồng bộ Calendar (.ics)
+  const [showSyncModal, setShowSyncModal] = useState(false)
+  const [syncInfo, setSyncInfo] = useState(null)
+  const [copying, setCopying] = useState(false)
+
+  const openSyncModal = async () => {
+    setShowSyncModal(true)
+    try {
+      const res = await api.get('/student/calendar/subscription-info')
+      if (res.data?.data) {
+        setSyncInfo(res.data.data)
+      }
+    } catch (err) {
+      console.warn('Lỗi khi lấy thông tin subscription calendar', err)
+    }
+  }
+
+  const handleDownloadIcs = () => {
+    const url = `/api/v1/student/calendar/export.ics`
+    window.open(url, '_blank')
+    toast.success('Đang bắt đầu tải file lịch (.ics)!')
+  }
+
+  const handleCopyLink = (url) => {
+    if (!url) return
+    navigator.clipboard.writeText(url)
+    setCopying(true)
+    toast.success('Đã sao chép link đăng ký Calendar!')
+    setTimeout(() => setCopying(false), 2000)
+  }
+
+  // Dynamic QR Check-in State
+  const [showCheckInModal, setShowCheckInModal] = useState(false)
+  const [qrTokenInput, setQrTokenInput] = useState('')
+  const [checkingIn, setCheckingIn] = useState(false)
+  const [checkInResult, setCheckInResult] = useState(null)
+  const [checkInError, setCheckInError] = useState(null)
+
+  const handleCheckIn = async (e) => {
+    if (e) e.preventDefault()
+    if (!qrTokenInput.trim()) {
+      setCheckInError('Vui lòng dán hoặc quét mã QR hợp lệ.')
+      return
+    }
+
+    try {
+      setCheckingIn(true)
+      setCheckInError(null)
+      const res = await api.post('/attendance/check-in', {
+        qrToken: qrTokenInput.trim(),
+        deviceInfo: navigator.userAgent
+      })
+      if (res.data?.data) {
+        setCheckInResult(res.data.data)
+        toast.success('Điểm danh thành công!')
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Điểm danh không thành công. Vui lòng thử lại.'
+      setCheckInError(msg)
+      toast.error(msg)
+    } finally {
+      setCheckingIn(false)
+    }
+  }
 
   // Xác định thứ hôm nay
   const todayKey = useMemo(() => {
@@ -217,6 +291,31 @@ export const StudentTimetable = () => {
               <span>Danh sách</span>
             </button>
           </div>
+
+          {/* Calendar Sync Button */}
+          <button
+            onClick={openSyncModal}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-red-700 text-white hover:bg-red-800 transition-all shadow-sm shadow-red-700/20"
+            title="Đồng bộ lịch học và lịch thi ra Google Calendar, Apple Calendar"
+          >
+            <Share2 size={15} />
+            <span>Đồng bộ Lịch (.ics)</span>
+          </button>
+
+          {/* Quick QR Check-in Button */}
+          <button
+            onClick={() => {
+              setCheckInResult(null)
+              setCheckInError(null)
+              setQrTokenInput('')
+              setShowCheckInModal(true)
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-sm shadow-emerald-600/20"
+            title="Quét hoặc nhập mã QR điểm danh động"
+          >
+            <QrCode size={15} />
+            <span>Điểm danh QR</span>
+          </button>
 
           {/* Print Button */}
           <button
@@ -567,6 +666,108 @@ export const StudentTimetable = () => {
           </div>
         </div>
       )}
+
+      {/* Modal Đồng Bộ Calendar */}
+      {showSyncModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-red-50 text-red-700 flex items-center justify-center">
+                  <Share2 size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Đồng Bộ Lịch Học & Lịch Thi</h3>
+                  <p className="text-[11px] text-slate-500">Google Calendar, Apple Calendar, Outlook</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSyncModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {/* Cách 1: Tải file .ics */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Download size={14} className="text-red-700" />
+                    Cách 1: Tải file lịch (.ics)
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Tải file về máy để import vào máy tính hoặc điện thoại
+                  </p>
+                </div>
+                <button
+                  onClick={handleDownloadIcs}
+                  className="px-3.5 py-2 bg-white hover:bg-red-50 text-red-700 border border-red-200 hover:border-red-300 rounded-xl text-xs font-bold transition shadow-2xs shrink-0 flex items-center gap-1.5"
+                >
+                  <Download size={13} />
+                  <span>Tải về .ics</span>
+                </button>
+              </div>
+
+              {/* Cách 2: Link Subscription tự động cập nhật */}
+              <div className="p-4 rounded-xl bg-red-50/50 border border-red-100 space-y-3">
+                <div>
+                  <h4 className="text-xs font-bold text-red-950 flex items-center gap-1.5">
+                    <Smartphone size={14} className="text-red-700" />
+                    Cách 2: Đăng ký Link Tự Động Đồng Bộ (Khuyên Dùng)
+                  </h4>
+                  <p className="text-[11px] text-red-900/80 mt-0.5">
+                    Lịch trên điện thoại sẽ tự động cập nhật khi giảng viên đổi phòng hoặc có lịch thi mới!
+                  </p>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-xl border border-red-200/80 flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-mono text-slate-700 truncate select-all">
+                    {syncInfo?.subscriptionUrl || 'Đang tạo link...'}
+                  </span>
+                  <button
+                    onClick={() => handleCopyLink(syncInfo?.subscriptionUrl)}
+                    className="px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition shadow-2xs shrink-0"
+                  >
+                    {copying ? <Check size={13} /> : <Copy size={13} />}
+                    <span>{copying ? 'Đã chép' : 'Sao chép'}</span>
+                  </button>
+                </div>
+
+                {/* Hướng dẫn ngắn */}
+                <div className="text-[11px] text-slate-600 space-y-1.5 pt-1 border-t border-red-100/60 font-sans">
+                  <p className="flex items-start gap-1.5">
+                    <span className="font-bold text-red-800">• Google Calendar:</span>
+                    <span>Cài đặt &gt; Thêm lịch &gt; Từ URL &gt; Dán link đã chép.</span>
+                  </p>
+                  <p className="flex items-start gap-1.5">
+                    <span className="font-bold text-red-800">• iPhone / Mac:</span>
+                    <span>Mở ứng dụng Lịch &gt; Thêm lịch đăng ký &gt; Dán link.</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setShowSyncModal(false)}
+                className="px-4 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white rounded-xl transition"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* QR Check-in Camera & Manual Modal */}
+      <StudentQrScannerModal
+        isOpen={showCheckInModal}
+        onClose={() => setShowCheckInModal(false)}
+        onSuccess={(result) => {
+          toast.success(`Điểm danh thành công môn ${result.courseName}!`)
+        }}
+      />
     </div>
   )
 }

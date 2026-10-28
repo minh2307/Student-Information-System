@@ -51,4 +51,6 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     List<Enrollment> findRegisteredByStudentId(@Param("studentId") Long studentId);
 
     Optional<Enrollment> findById(Long id);
+
+    Optional<Enrollment> findByClassSectionIdAndStudentId(Long classSectionId, Long studentId);
 }

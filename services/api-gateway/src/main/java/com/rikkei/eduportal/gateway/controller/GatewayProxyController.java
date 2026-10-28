@@ -138,15 +138,16 @@ public class GatewayProxyController {
             return courseServiceUrl;
         }
 
-        // Module Auth & User Profiles
+        // Module Auth & User Profiles & Admin Audit Trail
         if (path.startsWith("/api/v1/auth") ||
             path.startsWith("/api/v1/profile") ||
-            path.startsWith("/api/v1/admin/users")) {
+            path.startsWith("/api/v1/admin/users") ||
+            path.startsWith("/api/v1/admin/audit-logs")) {
             return authServiceUrl;
         }
 
-        // Module Student Enrollment & Portal
-        if (path.startsWith("/api/v1/student")) {
+        // Module Student Enrollment, Portal, Calendar & Public Verification
+        if (path.startsWith("/api/v1/student") || path.startsWith("/api/v1/calendar") || path.startsWith("/api/v1/public")) {
             return enrollmentServiceUrl;
         }
 
@@ -156,8 +157,8 @@ public class GatewayProxyController {
             return enrollmentServiceUrl;
         }
 
-        // Module Lecturer Portal
-        if (path.startsWith("/api/v1/lecturer")) {
+        // Module Lecturer Portal & Attendance
+        if (path.startsWith("/api/v1/lecturer") || path.startsWith("/api/v1/attendance")) {
             return lecturerServiceUrl;
         }
 
