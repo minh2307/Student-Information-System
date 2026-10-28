@@ -24,7 +24,9 @@ import {
   Timer,
   Bookmark,
   Radio,
-  Sparkles
+  Sparkles,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 
 export const CourseRegistration = () => {

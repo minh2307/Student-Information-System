@@ -1,13 +1,16 @@
 package com.rikkei.eduportal.gateway.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
@@ -49,6 +52,35 @@ public class GatewayProxyController {
         this.restTemplate = new RestTemplate(factory);
     }
 
+    /**
+     * Non-blocking SSE stream proxy for live seats counter to prevent RestTemplate thread pool starvation.
+     */
+    @GetMapping(value = "/api/v1/student/class-sections/live-seats", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public StreamingResponseBody proxyLiveSeatsStream(HttpServletResponse response) {
+        response.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
+        return outputStream -> {
+            try {
+                java.net.URI uri = java.net.URI.create(enrollmentServiceUrl + "/api/v1/student/class-sections/live-seats");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) uri.toURL().openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Accept", "text/event-stream");
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(0); // Stream indefinitely
+                try (java.io.InputStream in = conn.getInputStream()) {
+                    byte[] buffer = new byte[1024];
+                    int len;
+                    while ((len = in.read(buffer)) != -1) {
+                        outputStream.write(buffer, 0, len);
+                        outputStream.flush();
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("SSE client disconnected from gateway: {}", e.getMessage());
+            }
+        };
+    }
 
     @RequestMapping("/api/v1/**")
     public ResponseEntity<?> proxyRequest(HttpServletRequest request, HttpEntity<byte[]> requestEntity) {
