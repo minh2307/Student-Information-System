@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import api from '../services/api'
 import { toast } from '../store/toastStore'
+import StudentQrScannerModal from '../components/StudentQrScannerModal'
 import {
   CalendarDays,
   Clock,
@@ -77,7 +78,7 @@ export const StudentTimetable = () => {
   const [selectedSemester, setSelectedSemester] = useState('')
   const [timetable, setTimetable] = useState([])
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState('grid') // 'grid' | 'list'
+  const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 768) ? 'list' : 'grid') // Mobile auto 'list', Desktop 'grid'
   const [selectedClassDetail, setSelectedClassDetail] = useState(null)
   const [weekOffset, setWeekOffset] = useState(0)
 
@@ -759,98 +760,14 @@ export const StudentTimetable = () => {
           </div>
         </div>
       )}
-      {/* QR Check-in Modal */}
-      {showCheckInModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-slate-200">
-            <button
-              onClick={() => setShowCheckInModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-            >
-              <X size={18} />
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                <QrCode size={20} />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Điểm Danh Bằng Mã QR</h3>
-                <p className="text-xs text-slate-500">Nhập hoặc quét mã điểm danh hiển thị trên màn chiếu</p>
-              </div>
-            </div>
-
-            {checkInResult ? (
-              <div className="py-6 text-center space-y-3">
-                <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
-                  <CheckCircle2 size={32} />
-                </div>
-                <div>
-                  <h4 className="text-base font-bold text-emerald-800">Điểm danh thành công!</h4>
-                  <p className="text-xs text-slate-600 mt-1">
-                    {checkInResult.courseName} ({checkInResult.sectionCode})
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Sinh viên: <span className="font-semibold">{checkInResult.studentName}</span> ({checkInResult.studentCode})
-                  </p>
-                  <p className="text-xs text-emerald-600 font-semibold mt-1">
-                    {checkInResult.message}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowCheckInModal(false)}
-                  className="w-full mt-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition"
-                >
-                  Xác nhận & Đóng
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleCheckIn} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Mã Token Điểm Danh (Quét hoặc Dán từ giảng viên):
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={qrTokenInput}
-                    onChange={(e) => setQrTokenInput(e.target.value)}
-                    placeholder="Dán mã token QR hiển thị trên màn chiếu (VD: 1.12.119284712.ab3f890...)"
-                    className="w-full text-xs font-mono p-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    required
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Mã xoay vòng 15 giây/lần. Vui lòng gửi ngay khi lấy mã trên màn hình.
-                  </p>
-                </div>
-
-                {checkInError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
-                    {checkInError}
-                  </div>
-                )}
-
-                <div className="flex gap-2 justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowCheckInModal(false)}
-                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={checkingIn}
-                    className="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
-                  >
-                    {checkingIn && <Clock size={14} className="animate-spin" />}
-                    {checkingIn ? 'Đang xác thực...' : 'Điểm danh ngay'}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      {/* QR Check-in Camera & Manual Modal */}
+      <StudentQrScannerModal
+        isOpen={showCheckInModal}
+        onClose={() => setShowCheckInModal(false)}
+        onSuccess={(result) => {
+          toast.success(`Điểm danh thành công môn ${result.courseName}!`)
+        }}
+      />
     </div>
   )
 }

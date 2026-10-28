@@ -12,5 +12,8 @@ public interface StudentProfileRepository extends JpaRepository<StudentProfile, 
     @Query("SELECT s FROM StudentProfile s JOIN FETCH s.user u WHERE u.username = :username")
     Optional<StudentProfile> findByUserUsername(@Param("username") String username);
 
+    @Query("SELECT s FROM StudentProfile s JOIN FETCH s.user u WHERE u.id = :userId")
+    Optional<StudentProfile> findByUserId(@Param("userId") Long userId);
+
     Optional<StudentProfile> findByStudentCode(String studentCode);
 }

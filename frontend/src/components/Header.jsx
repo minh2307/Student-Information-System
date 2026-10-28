@@ -17,10 +17,11 @@ import {
   CheckCheck,
   ExternalLink,
   Calendar,
-  Building
+  Building,
+  Menu
 } from 'lucide-react'
 
-export const Header = () => {
+export const Header = ({ onToggleMobileMenu }) => {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -130,9 +131,17 @@ export const Header = () => {
   })
 
   return (
-    <header className="h-16 bg-white border-b border-stone-200/90 px-6 flex items-center justify-between sticky top-0 z-30">
-      {/* Left: Academic dispatch date & semester context */}
-      <div className="flex items-center gap-4">
+    <header className="h-16 bg-white border-b border-stone-200/90 px-3 sm:px-6 flex items-center justify-between sticky top-0 z-30">
+      {/* Left: Mobile menu button & Academic dispatch date */}
+      <div className="flex items-center gap-2 sm:gap-4">
+        <button
+          onClick={onToggleMobileMenu}
+          className="p-2 -ml-1 rounded-lg text-stone-600 hover:text-stone-900 hover:bg-stone-100 md:hidden transition"
+          aria-label="Mở Menu Điều Hướng"
+        >
+          <Menu size={20} />
+        </button>
+
         <div className="hidden lg:flex items-center gap-2.5 text-xs text-stone-600 font-medium">
           <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
           <span className="capitalize">{currentDateStr}</span>

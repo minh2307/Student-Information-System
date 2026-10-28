@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import { Login } from './pages/Login'
+import { TranscriptVerifyPage } from './pages/TranscriptVerifyPage'
 import { MainLayout } from './components/MainLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Profile } from './pages/Profile'
@@ -19,6 +20,7 @@ import { AdminSections } from './pages/AdminSections'
 import { AiAdvisor } from './pages/AiAdvisor'
 import { ToastContainer } from './components/ui/ToastContainer'
 import { GlobalConfirmModal } from './components/ui/GlobalConfirmModal'
+import { PwaInstallPrompt } from './components/PwaInstallPrompt'
 
 // ── Lecturer Portal ─────────────────────────────────────
 import { LecturerClassesPage, ClassStudentsPage } from './features/lecturer'
@@ -38,9 +40,11 @@ export default function App() {
     <BrowserRouter>
       <ToastContainer />
       <GlobalConfirmModal />
+      <PwaInstallPrompt />
       <Routes>
-        {/* Public Login */}
+        {/* Public Login & Verifiable Credentials Verification */}
         <Route path="/login" element={<Login />} />
+        <Route path="/verify/transcript" element={<TranscriptVerifyPage />} />
 
         {/* Protected App Shell */}
         <Route element={<ProtectedRoute />}>

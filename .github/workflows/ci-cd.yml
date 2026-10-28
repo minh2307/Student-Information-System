@@ -223,8 +223,10 @@ jobs:
               --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
               > /tmp/enrollment-service.log 2>&1 &
             echo "ENROLLMENT_PID=$!" >> $GITHUB_ENV
+            echo "HAS_ENROLLMENT=true" >> $GITHUB_ENV
           else
             echo "enrollment-service jar not found, skipping."
+            echo "HAS_ENROLLMENT=false" >> $GITHUB_ENV
           fi
 
       # Chờ services sẵn sàng (polling /actuator/health)
@@ -256,6 +258,22 @@ jobs:
             echo "❌ lecturer-service failed to start! Dumping log:"
             cat /tmp/lecturer-service.log || true
             exit 1
+          fi
+
+          if [ "$HAS_ENROLLMENT" = "true" ]; then
+            echo "Waiting for enrollment-service:8083..."
+            ENROLL_READY=false
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost:8083/actuator/health > /dev/null 2>&1 || [ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8083/api/v1/student/dashboard)" = "200" ]; then
+                echo "enrollment-service ready ✓"; ENROLL_READY=true; break
+              fi
+              sleep 3
+            done
+            if [ "$ENROLL_READY" != "true" ]; then
+              echo "❌ enrollment-service failed to start! Dumping log:"
+              cat /tmp/enrollment-service.log || true
+              exit 1
+            fi
           fi
 
       - name: Setup Node.js (Newman)
@@ -304,6 +322,7 @@ jobs:
         run: |
           echo "=== auth-service.log ===" && tail -50 /tmp/auth-service.log || true
           echo "=== lecturer-service.log ===" && tail -50 /tmp/lecturer-service.log || true
+          echo "=== enrollment-service.log ===" && tail -50 /tmp/enrollment-service.log || true
 
   # ============================================================
   # JOB 4: Docker Build & Push to GHCR

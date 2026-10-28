@@ -30,19 +30,22 @@ public class CourseRegistrationService {
     private final GradeRepository gradeRepository;
     private final CourseRepository courseRepository;
     private final StudentDashboardService dashboardService;
+    private final RealtimeSeatService realtimeSeatService;
 
     public CourseRegistrationService(StudentProfileRepository studentProfileRepository,
                                    ClassSectionRepository classSectionRepository,
                                    EnrollmentRepository enrollmentRepository,
                                    GradeRepository gradeRepository,
                                    CourseRepository courseRepository,
-                                   StudentDashboardService dashboardService) {
+                                   StudentDashboardService dashboardService,
+                                   RealtimeSeatService realtimeSeatService) {
         this.studentProfileRepository = studentProfileRepository;
         this.classSectionRepository = classSectionRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.gradeRepository = gradeRepository;
         this.courseRepository = courseRepository;
         this.dashboardService = dashboardService;
+        this.realtimeSeatService = realtimeSeatService;
     }
 
     /**
@@ -229,6 +232,9 @@ public class CourseRegistrationService {
         log.info("Student {} registered successfully for section {}. Conflict status: {}",
                 student.getStudentCode(), section.getSectionCode(), hasConflict);
 
+        realtimeSeatService.markCommitted(student.getId(), section.getId());
+        realtimeSeatService.broadcastSeatUpdate(section.getId());
+
         return new EnrollmentResponse(
                 saved.getId(),
                 section.getId(),
@@ -272,6 +278,10 @@ public class CourseRegistrationService {
         enrollment.setStatus("CANCELLED");
         enrollment.setHasConflict(false);
         enrollmentRepository.save(enrollment);
+
+        if (section != null) {
+            realtimeSeatService.broadcastSeatUpdate(section.getId());
+        }
 
         log.info("Student {} cancelled enrollment ID: {}", student.getStudentCode(), enrollmentId);
     }

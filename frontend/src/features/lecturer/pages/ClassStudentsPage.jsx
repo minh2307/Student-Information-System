@@ -2,13 +2,14 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Lock, Search, Users,
-  AlertTriangle, BookOpen, QrCode
+  AlertTriangle, BookOpen, QrCode, ShieldAlert
 } from 'lucide-react'
 import { useLecturerStore } from '../store/lecturerStore'
 import { GradeRow, GradeCard } from '../components/GradeRow'
 import { TableRowSkeleton, EmptyState } from '../components/Skeletons'
 import { LockConfirmModal, MissingGradesModal } from '../components/LockModals'
 import { QrAttendanceModal } from '../components/QrAttendanceModal'
+import { EarlyWarningModal } from '../components/EarlyWarningModal'
 import { ToastContainer, useToast } from '../components/Toast'
 
 export function ClassStudentsPage() {
@@ -51,6 +52,7 @@ export function ClassStudentsPage() {
   const [showMissingModal, setShowMissingModal] = useState(false)
   const [missingStudents,  setMissingStudents]  = useState([])
   const [showQrModal,      setShowQrModal]      = useState(false)
+  const [showEarlyWarningModal, setShowEarlyWarningModal] = useState(false)
 
   const isAllLocked = studentList.length > 0 && studentList.every((s) => s.isLocked)
 
@@ -150,6 +152,18 @@ export function ClassStudentsPage() {
         >
           <QrCode size={16} />
           Điểm danh QR Động
+        </button>
+
+        {/* Early Warning Button */}
+        <button
+          id="btn-early-warning"
+          onClick={() => setShowEarlyWarningModal(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
+                     bg-amber-600 text-white hover:bg-amber-700 transition-colors shrink-0 shadow-sm"
+          title="Hệ thống cảnh báo sớm nguy cơ học vụ"
+        >
+          <ShieldAlert size={16} />
+          Cảnh Báo Sớm
         </button>
 
         {/* Lock button */}
@@ -339,6 +353,16 @@ export function ClassStudentsPage() {
           sectionCode={section?.sectionCode ?? `#${sid}`}
           courseName={section?.courseName ?? 'Môn học'}
           onClose={() => setShowQrModal(false)}
+        />
+      )}
+
+      {showEarlyWarningModal && (
+        <EarlyWarningModal
+          open={showEarlyWarningModal}
+          sectionId={sid}
+          sectionCode={section?.sectionCode ?? `#${sid}`}
+          courseName={section?.courseName ?? 'Môn học'}
+          onClose={() => setShowEarlyWarningModal(false)}
         />
       )}
 
