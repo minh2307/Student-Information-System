@@ -1,46 +1,159 @@
-# Gradle & Java
+# ====================================================================
+# Java & Gradle
+# ====================================================================
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 out/
 target/
+bin/
 *.class
 *.jar
 *.war
+*.ear
+*.nar
 
-# Node & Frontend
+# Java Crash Logs
+hs_err_pid*
+replay_pid*
+
+# ====================================================================
+# Node.js & Frontend (Vite / React)
+# ====================================================================
 node_modules/
-frontend/node_modules/
-frontend/dist/
 dist/
+dist-ssr/
 .npm
+.vite/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
 
-# IDE & OS
+# Test Coverage
+coverage/
+*.lcov
+.nyc_output
+
+# ====================================================================
+# Environment & Secrets
+# ====================================================================
+.env
+.env.*
+!.env.example
+!.env.template
+*.local
+
+# SSL & Security Keys
+*.pem
+*.key
+*.keystore
+*.jks
+*.p12
+
+# ====================================================================
+# IDE & Code Editors
+# ====================================================================
+# IntelliJ IDEA
 .idea/
 *.iml
 *.iws
 *.ipr
+
+# Visual Studio Code
 .vscode/
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# NetBeans
+nbproject/private/
+nbbuild/
+nbdist/
+
+# Editor temporary/backup files
 *.swp
+*.swo
 *~
-.DS_Store
-Thumbs.db
+*.bak
+*.tmp
 
-# Environment & Secrets
-.env
-*.local
-
-# Logs and runtime pids
+# ====================================================================
+# Logs & Process IDs
+# ====================================================================
 logs/
+*.log
 .pids
+*.pid
+*.seed
+*.pid.lock
 
-# Project Proposals & Reports (Internal / Non-git)
+# ====================================================================
+# Test Reports & Automation (Postman / Newman / Reports)
+# ====================================================================
+newman/
+reports/
+.scannerwork/
+
+# ====================================================================
+# Python (Scripts & Utilities)
+# ====================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+
+# ====================================================================
+# Docker & Database Local Storage
+# ====================================================================
+docker-compose.override.yml
+*.sqlite
+*.sqlite3
+*.db
+postgres_data*/
+
+# ====================================================================
+# Operating System Files
+# ====================================================================
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ====================================================================
+# Antigravity & Agent Customizations / Skills
+# ====================================================================
+.agents/
+skills-lock.json
+
+# ====================================================================
+# GitHub Workflows & Actions
+# ====================================================================
+.github/
+
+# ====================================================================
+# Office & Reports (Internal / Non-git)
+# ====================================================================
+*.docx
 *Project_Proposal*
 *Bao_Cao_De_Cuong*
-*.docx
 BAO_CAO_DE_CUONG_DU_AN*
-
+*REPORT*
+REPORT*
+SRS_Specification*
 

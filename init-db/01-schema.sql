@@ -167,3 +167,54 @@ CREATE TABLE IF NOT EXISTS exam_schedules (
     notes VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 12. Table audit_logs (Nhật ký kiểm toán hệ thống - auth-service)
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    action VARCHAR(50) NOT NULL,
+    actor_username VARCHAR(50) NOT NULL,
+    actor_role VARCHAR(30),
+    target_entity VARCHAR(50) NOT NULL,
+    target_id VARCHAR(50),
+    summary VARCHAR(255) NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    ip_address VARCHAR(50),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_logs(actor_username);
+CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_logs(created_at);
+
+-- 13. Table attendance_sessions (Phiên điểm danh QR động - lecturer-service)
+CREATE TABLE IF NOT EXISTS attendance_sessions (
+    id BIGSERIAL PRIMARY KEY,
+    class_section_id BIGINT NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
+    lecturer_id BIGINT NOT NULL REFERENCES lecturer_profiles(id) ON DELETE RESTRICT,
+    session_name VARCHAR(150),
+    session_secret VARCHAR(100) NOT NULL,
+    step_seconds INT NOT NULL DEFAULT 15,
+    status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+    total_attendees INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    closed_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_sessions_section ON attendance_sessions(class_section_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_sessions_lecturer ON attendance_sessions(lecturer_id);
+
+-- 14. Table attendance_records (Bản ghi điểm danh của sinh viên - lecturer-service)
+CREATE TABLE IF NOT EXISTS attendance_records (
+    id BIGSERIAL PRIMARY KEY,
+    session_id BIGINT NOT NULL REFERENCES attendance_sessions(id) ON DELETE CASCADE,
+    enrollment_id BIGINT NOT NULL REFERENCES enrollments(id) ON DELETE CASCADE,
+    student_id BIGINT NOT NULL REFERENCES student_profiles(id) ON DELETE CASCADE,
+    check_in_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    device_info VARCHAR(255),
+    CONSTRAINT uq_session_student UNIQUE (session_id, student_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_records_session ON attendance_records(session_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_student ON attendance_records(student_id);
+
