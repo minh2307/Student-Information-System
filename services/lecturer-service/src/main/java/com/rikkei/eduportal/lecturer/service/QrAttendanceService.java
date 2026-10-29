@@ -12,14 +12,26 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
+import com.google.zxing.WriterException;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.EnumMap;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import javax.imageio.ImageIO;
 
 @Service
 @Transactional(readOnly = true)
@@ -105,10 +117,13 @@ public class QrAttendanceService {
 
         String qrToken = session.getId() + "." + classSection.getId() + "." + currentWindow + "." + signature;
 
+        String qrImageBase64 = generateQrImageBase64(qrToken);
+
         return new DynamicQrResponse(
                 session.getId(),
                 classSection.getId(),
                 qrToken,
+                qrImageBase64,
                 stepSeconds,
                 remainingSeconds,
                 expiresAtEpochMs
@@ -308,6 +323,25 @@ public class QrAttendanceService {
                 session.getClosedAt(),
                 records
         );
+    }
+
+    private String generateQrImageBase64(String content) {
+        try {
+            Map<EncodeHintType, Object> hints = new EnumMap<>(EncodeHintType.class);
+            hints.put(EncodeHintType.MARGIN, 2);
+            hints.put(EncodeHintType.ERROR_CORRECTION, com.google.zxing.qrcode.decoder.ErrorCorrectionLevel.M);
+
+            QRCodeWriter qrWriter = new QRCodeWriter();
+            BitMatrix matrix = qrWriter.encode(content, BarcodeFormat.QR_CODE, 350, 350, hints);
+            BufferedImage image = MatrixToImageWriter.toBufferedImage(matrix);
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(image, "PNG", baos);
+            return "data:image/png;base64," + Base64.getEncoder().encodeToString(baos.toByteArray());
+        } catch (WriterException | java.io.IOException e) {
+            log.error("Failed to generate QR code image", e);
+            return null;
+        }
     }
 
     private String computeHmacSha256(String data, String secret) {

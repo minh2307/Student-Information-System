@@ -311,4 +311,71 @@ class QrAttendanceServiceTest {
         assertThatThrownBy(() -> qrAttendanceService.studentCheckIn("sv20210001", new AttendanceCheckInRequest("invalid.token", "dev")))
                 .isInstanceOf(InvalidQrException.class);
     }
+
+    @Test
+    @DisplayName("TC-QR-10: Mã QR sinh ra phải có đủ 4 phần cách nhau bằng dấu chấm")
+    void testGetRotatingQrCode_tokenFormat() {
+        when(lecturerProfileRepo.findByUserUsername("lecturer1")).thenReturn(Optional.of(mockLecturer));
+        when(classSectionRepo.findByIdAndLecturerId(50L, 10L)).thenReturn(Optional.of(mockSection));
+        when(sessionRepo.findFirstByClassSectionIdAndStatusOrderByCreatedAtDesc(50L, "OPEN"))
+                .thenReturn(Optional.of(mockSession));
+
+        DynamicQrResponse qr = qrAttendanceService.getRotatingQrCode("lecturer1", 50L);
+
+        assertThat(qr.qrToken()).isNotBlank();
+        assertThat(qr.stepSeconds()).isEqualTo(15);
+        assertThat(qr.remainingSeconds()).isGreaterThan(0).isLessThanOrEqualTo(15);
+        assertThat(qr.sessionId()).isEqualTo(1L);
+        assertThat(qr.sectionId()).isEqualTo(50L);
+
+        String[] parts = qr.qrToken().split("\\.");
+        assertThat(parts).hasSize(4);
+        assertThat(parts[0]).isEqualTo("1");   // sessionId
+        assertThat(parts[1]).isEqualTo("50");  // sectionId
+        assertThat(parts[3]).hasSize(64);       // HMAC-SHA256 hex = 64 chars
+    }
+
+    @Test
+    @DisplayName("TC-QR-11: Xác thực cửa sổ trước (previous window) vẫn được chấp nhận để điểm danh")
+    void testStudentCheckIn_previousWindow_accepted() {
+        // Use the previous window (currentWindow - 1) — should be accepted
+        long previousWindow = (System.currentTimeMillis() / 15000L) - 1;
+        String payload = "1:50:" + previousWindow;
+        String sig = computeHmac(payload, sessionSecret);
+        String prevWindowToken = "1.50." + previousWindow + "." + sig;
+
+        when(sessionRepo.findById(1L)).thenReturn(Optional.of(mockSession));
+        when(studentProfileRepo.findByUserUsername("sv20210001")).thenReturn(Optional.of(mockStudent));
+        when(enrollmentRepo.findByClassSectionIdAndStudentId(50L, 20L)).thenReturn(Optional.of(mockEnrollment));
+        when(recordRepo.existsBySessionIdAndStudentId(1L, 20L)).thenReturn(false);
+        when(recordRepo.save(any(AttendanceRecord.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(sessionRepo.save(any(AttendanceSession.class))).thenReturn(mockSession);
+
+        AttendanceCheckInRequest request = new AttendanceCheckInRequest(prevWindowToken, "Android");
+        AttendanceCheckInResponse response = qrAttendanceService.studentCheckIn("sv20210001", request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.studentCode()).isEqualTo("20210001");
+        verify(recordRepo).save(any(AttendanceRecord.class));
+    }
+
+    @Test
+    @DisplayName("TC-QR-12: Từ chối cửa sổ thời gian quá cũ (> 1 window trước) — chống Anti-Proxy chụp màn hình")
+    void testStudentCheckIn_expiredWindow_throwsInvalidQr() {
+        // Use window that is 2 intervals old — should be REJECTED (anti-proxy)
+        long expiredWindow = (System.currentTimeMillis() / 15000L) - 2;
+        String payload = "1:50:" + expiredWindow;
+        String sig = computeHmac(payload, sessionSecret);
+        String expiredToken = "1.50." + expiredWindow + "." + sig;
+
+        when(sessionRepo.findById(1L)).thenReturn(Optional.of(mockSession));
+
+        AttendanceCheckInRequest request = new AttendanceCheckInRequest(expiredToken, "Device");
+
+        assertThatThrownBy(() -> qrAttendanceService.studentCheckIn("sv20210001", request))
+                .isInstanceOf(InvalidQrException.class)
+                .hasMessageContaining("hết hạn");
+
+        verify(recordRepo, never()).save(any());
+    }
 }
