@@ -42,7 +42,10 @@ public class ScheduleOptimizerController {
                 studentCode, request.getCourseIds() != null ? request.getCourseIds().size() : 0);
 
         ScheduleOptimizerResponse response = scheduleOptimizerService.optimizeSchedule(studentCode, request);
-        return ResponseEntity.ok(ApiResponse.success("AI đã tối ưu hóa thời khóa biểu thành công", response));
+        String message = (response.getStatus() == OptimizationStatus.SUCCESS || response.getStatus() == null)
+                ? "AI đã tối ưu hóa thời khóa biểu thành công"
+                : response.getStatusMessage();
+        return ResponseEntity.ok(ApiResponse.success(message, response));
     }
 
     /**

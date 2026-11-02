@@ -31,3 +31,9 @@ management:
     health:
       show-details: always
 
+schedule:
+  optimizer:
+    max-search-nodes: 50000
+    max-execution-time-ms: 3000
+    max-solutions: 100
+

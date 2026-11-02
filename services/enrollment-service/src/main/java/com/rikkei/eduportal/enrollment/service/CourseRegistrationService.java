@@ -81,6 +81,7 @@ public class CourseRegistrationService {
             dto.setStatus(sec.getStatus());
 
             if (sec.getCourse() != null) {
+                dto.setCourseId(sec.getCourse().getId());
                 dto.setCourseCode(sec.getCourse().getCourseCode());
                 dto.setCourseName(sec.getCourse().getName());
                 dto.setCredits(sec.getCourse().getCredits());
