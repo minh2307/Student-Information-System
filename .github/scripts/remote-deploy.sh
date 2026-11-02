@@ -35,7 +35,7 @@ while [ $i -lt 30 ]; do
     echo "PostgreSQL ready ✓"
     break
   fi
-  sleep 2
+  sleep 1
   i=$((i + 1))
 done
 
