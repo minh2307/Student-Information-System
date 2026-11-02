@@ -1,5 +1,6 @@
 package com.rikkei.eduportal.lecturer.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rikkei.eduportal.common.EnrollmentStatus;
 import com.rikkei.eduportal.lecturer.dto.request.GradeUpdateRequest;
 import com.rikkei.eduportal.lecturer.entity.*;
@@ -32,9 +33,11 @@ class LecturerServiceTest {
     @Mock private EnrollmentRepository enrollmentRepo;
     @Mock private GradeRepository gradeRepo;
     @Mock private StudentProfileRepository studentProfileRepo;
+    @Mock private AuditLogRepository auditLogRepo;
 
     // Dùng instance thật để tránh mock logic nghiệp vụ
     private final GradeCalculator gradeCalculator = new GradeCalculator();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
     private LecturerService lecturerService;
@@ -49,7 +52,9 @@ class LecturerServiceTest {
                 enrollmentRepo,
                 gradeRepo,
                 studentProfileRepo,
-                gradeCalculator
+                gradeCalculator,
+                auditLogRepo,
+                objectMapper
         );
     }
 
@@ -185,6 +190,40 @@ class LecturerServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.lockedCount()).isEqualTo(1);
         assertThat(response.locked()).isTrue();
+        verify(auditLogRepo, times(1)).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("updateGrade: cập nhật điểm thành công và ghi nhận audit log với JSON delta")
+    void updateGrade_success_savesAuditLog() {
+        LecturerProfile lecturer = buildLecturerProfile(1L, "gv001");
+        when(lecturerProfileRepo.findByUsername("gv001")).thenReturn(Optional.of(lecturer));
+
+        Enrollment enrollment = buildEnrollment(10L, 1L);
+        when(enrollmentRepo.findById(10L)).thenReturn(Optional.of(enrollment));
+
+        ClassSection section = buildSection(1L, 1L);
+        when(classSectionRepo.findByIdAndLecturerId(1L, 1L)).thenReturn(Optional.of(section));
+
+        Grade grade = new Grade();
+        grade.setIsLocked(false);
+        grade.setMidtermScore(new BigDecimal("6.00"));
+        grade.setFinalScore(new BigDecimal("7.00"));
+        when(gradeRepo.findByEnrollmentId(10L)).thenReturn(Optional.of(grade));
+        when(gradeRepo.save(any(Grade.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        GradeUpdateRequest req = new GradeUpdateRequest(
+                new BigDecimal("9.00"),
+                new BigDecimal("8.50"),
+                new BigDecimal("9.50")
+        );
+
+        var response = lecturerService.updateGrade("gv001", 10L, req);
+
+        assertThat(response).isNotNull();
+        assertThat(response.midtermScore()).isEqualByComparingTo(new BigDecimal("8.50"));
+        assertThat(response.finalScore()).isEqualByComparingTo(new BigDecimal("9.50"));
+        verify(auditLogRepo, times(1)).save(any(AuditLog.class));
     }
 
     // =========================================================================

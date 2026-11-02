@@ -886,7 +886,9 @@ export const AdminUsers = () => {
                 { key: 'USER_LOCKED', label: 'Khóa tài khoản' },
                 { key: 'USER_STATUS_CHANGED', label: 'Đổi trạng thái' },
                 { key: 'PASSWORD_RESET', label: 'Đặt lại mật khẩu' },
-                { key: 'USER_DELETED', label: 'Xóa tài khoản' }
+                { key: 'USER_DELETED', label: 'Xóa tài khoản' },
+                { key: 'GRADE_UPDATED', label: 'Chấm điểm' },
+                { key: 'GRADE_LOCKED', label: 'Chốt điểm' }
               ].map(f => (
                 <button
                   key={f.key}
@@ -932,6 +934,8 @@ export const AdminUsers = () => {
                       const isLock = log.action === 'USER_LOCKED'
                       const isPass = log.action === 'PASSWORD_RESET'
                       const isDel = log.action === 'USER_DELETED'
+                      const isGrade = log.action === 'GRADE_UPDATED' || log.action === 'GRADE_ADJUSTMENT'
+                      const isGradeLock = log.action === 'GRADE_LOCKED'
 
                       return (
                         <tr key={log.id} className="hover:bg-slate-50/60 transition">
@@ -949,6 +953,10 @@ export const AdminUsers = () => {
                                   ? 'bg-amber-100 text-amber-800'
                                   : isDel
                                   ? 'bg-red-100 text-red-800'
+                                  : isGrade
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : isGradeLock
+                                  ? 'bg-indigo-100 text-indigo-800'
                                   : 'bg-blue-100 text-blue-800'
                               }`}
                             >
