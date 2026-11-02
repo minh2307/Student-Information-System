@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 @RestController
+@CrossOrigin(origins = "*")
 public class DigitalCredentialController {
 
     private static final Logger log = LoggerFactory.getLogger(DigitalCredentialController.class);
@@ -43,15 +44,19 @@ public class DigitalCredentialController {
 
     /**
      * GET /api/v1/public/credentials/verify?serial=...&sig=...
-     * Cổng đối soát công khai bảng điểm số chống giả mạo (Không yêu cầu đăng nhập)
+     * Cổng đối soát công khai bảng điểm số chống giả mạo (Không yêu cầu đăng nhập).
+     * Hỗ trợ đồng thời cả alias: /api/v1/public/verify/transcript và query param signature/sig.
      */
-    @GetMapping("/api/v1/public/credentials/verify")
+    @GetMapping({"/api/v1/public/credentials/verify", "/api/v1/public/verify/transcript"})
     public ResponseEntity<ApiResponse<CredentialVerificationResult>> verifyCredential(
-            @RequestParam String serial,
-            @RequestParam String sig) {
+            @RequestParam(name = "serial", required = false) String serial,
+            @RequestParam(name = "sig", required = false) String sig,
+            @RequestParam(name = "signature", required = false) String signatureParam) {
 
-        log.info("Public verification requested for serial: {}", serial);
-        CredentialVerificationResult result = credentialService.verifyTranscriptCredential(serial, sig);
+        String effectiveSig = (sig != null && !sig.isBlank()) ? sig : signatureParam;
+        log.info("Public verification requested for serial: {}, hasSignature: {}", serial, effectiveSig != null);
+
+        CredentialVerificationResult result = credentialService.verifyTranscriptCredential(serial, effectiveSig);
         return ResponseEntity.ok(ApiResponse.success("Kết quả xác thực bảng điểm số", result));
     }
 

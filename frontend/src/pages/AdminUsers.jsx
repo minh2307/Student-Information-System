@@ -25,6 +25,49 @@ export const AdminUsers = () => {
   const [loadingAudit, setLoadingAudit] = useState(false)
   const [auditActionFilter, setAuditActionFilter] = useState('')
 
+  const renderAuditDelta = (valueStr) => {
+    if (!valueStr) return null
+    try {
+      const parsed = typeof valueStr === 'string' ? JSON.parse(valueStr) : valueStr
+      if (parsed && parsed.diff && typeof parsed.diff === 'object') {
+        const diffEntries = Object.entries(parsed.diff)
+        return (
+          <div className="mt-1 space-y-1">
+            <div className="flex flex-wrap gap-1">
+              {diffEntries.map(([field, change]) => (
+                <span
+                  key={field}
+                  className="inline-flex items-center gap-1 text-[10px] font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200"
+                >
+                  <span className="font-semibold text-slate-800">{field}:</span>
+                  <span className="text-rose-600 line-through">
+                    {change?.from !== undefined && change?.from !== null ? String(change.from) : 'null'}
+                  </span>
+                  <span>→</span>
+                  <span className="text-emerald-600 font-bold">
+                    {change?.to !== undefined && change?.to !== null ? String(change.to) : 'null'}
+                  </span>
+                </span>
+              ))}
+            </div>
+            {parsed.metadata?.reason && (
+              <div className="text-[10px] text-slate-500 italic">
+                Lý do: {parsed.metadata.reason}
+              </div>
+            )}
+          </div>
+        )
+      }
+    } catch (e) {
+      // ignore
+    }
+    return (
+      <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-xs" title={valueStr}>
+        Giá trị: {valueStr}
+      </div>
+    )
+  }
+
   const fetchAuditLogs = async (action = '') => {
     setLoadingAudit(true)
     try {
@@ -920,11 +963,7 @@ export const AdminUsers = () => {
                           </td>
                           <td className="py-2.5 px-3 text-slate-600">
                             <div>{log.summary}</div>
-                            {log.newValue && (
-                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                Giá trị: {log.newValue}
-                              </div>
-                            )}
+                            {renderAuditDelta(log.newValue)}
                           </td>
                         </tr>
                       )

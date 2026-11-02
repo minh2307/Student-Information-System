@@ -188,4 +188,90 @@ class AuditLogServiceTest {
         assertThat(history.get(0).targetId()).isEqualTo("10");
         verify(auditLogRepository, times(1)).findByTargetEntityAndTargetIdOrderByCreatedAtDesc("User", "10");
     }
+
+    @Test
+    @DisplayName("TC-AUDIT-09: Ghi nhận kiểm toán dạng JSON Delta cấu trúc chuẩn thành công")
+    void testRecordDeltaLog_success() {
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.rikkei.eduportal.common.AuditDeltaPayload delta = new com.rikkei.eduportal.common.AuditDeltaPayload("StudentGrade", "1029");
+        delta.addDiff("midtermScore", 5.0, 8.5);
+        delta.addDiff("letterGrade", "C", "A");
+        delta.addMetadata("reason", "Phúc khảo bài thi");
+
+        AuditLog saved = auditLogService.recordDeltaLog(
+                "GRADE_UPDATED",
+                "gv001",
+                "ROLE_LECTURER",
+                "StudentGrade",
+                "1029",
+                "Cập nhật điểm phúc khảo môn CS201",
+                delta,
+                "127.0.0.1"
+        );
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getAction()).isEqualTo("GRADE_UPDATED");
+        assertThat(saved.getNewValue()).contains("\"entity\":\"StudentGrade\"");
+        assertThat(saved.getNewValue()).contains("\"midtermScore\"");
+        assertThat(saved.getNewValue()).contains("\"from\":5.0");
+        assertThat(saved.getNewValue()).contains("\"to\":8.5");
+        assertThat(saved.getNewValue()).contains("\"reason\":\"Phúc khảo bài thi\"");
+
+        verify(auditLogRepository, times(1)).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("TC-AUDIT-10: Tự động so sánh hai trạng thái đối tượng và sinh JSON Delta")
+    void testRecordDiffLog_autoCalculatesDifferences() {
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        java.util.Map<String, Object> oldState = java.util.Map.of(
+                "credits", 3,
+                "maxCapacity", 40,
+                "status", "OPEN"
+        );
+        java.util.Map<String, Object> newState = java.util.Map.of(
+                "credits", 3,
+                "maxCapacity", 50,
+                "status", "OPEN"
+        );
+
+        AuditLog saved = auditLogService.recordDiffLog(
+                "SECTION_CAPACITY_EXPANDED",
+                "admin",
+                "ROLE_ADMIN",
+                "ClassSection",
+                "205",
+                "Mở rộng sĩ số lớp CS201",
+                oldState,
+                newState,
+                java.util.Map.of("approvedBy", "Dean"),
+                "192.168.1.100"
+        );
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getNewValue()).contains("maxCapacity");
+        assertThat(saved.getNewValue()).doesNotContain("credits"); // Không thay đổi thì không có trong diff
+        assertThat(saved.getNewValue()).contains("\"from\":40");
+        assertThat(saved.getNewValue()).contains("\"to\":50");
+    }
+
+    @Test
+    @DisplayName("TC-AUDIT-11: Bóc tách chuỗi JSON Delta thành công")
+    void testParseDelta_validAndInvalidJson() {
+        String json = "{\"entity\":\"StudentGrade\",\"entityId\":\"10\",\"changedFields\":[\"score\"],\"diff\":{\"score\":{\"from\":5,\"to\":9}}}";
+        Optional<com.rikkei.eduportal.common.AuditDeltaPayload> parsed = auditLogService.parseDelta(json);
+
+        assertThat(parsed).isPresent();
+        assertThat(parsed.get().getEntity()).isEqualTo("StudentGrade");
+        assertThat(parsed.get().getChangedFields()).contains("score");
+        assertThat(parsed.get().getDiff().get("score").getFrom()).isEqualTo(5);
+        assertThat(parsed.get().getDiff().get("score").getTo()).isEqualTo(9);
+
+        // Invalid JSON returns empty Optional
+        assertThat(auditLogService.parseDelta("invalid-json")).isEmpty();
+        assertThat(auditLogService.parseDelta("")).isEmpty();
+        assertThat(auditLogService.parseDelta(null)).isEmpty();
+    }
 }
