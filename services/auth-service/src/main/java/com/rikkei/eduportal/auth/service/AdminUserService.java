@@ -11,6 +11,7 @@ import com.rikkei.eduportal.auth.repository.StudentProfileRepository;
 import com.rikkei.eduportal.auth.repository.UserRepository;
 import com.rikkei.eduportal.common.Role;
 import com.rikkei.eduportal.common.UserStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,17 +29,29 @@ public class AdminUserService {
     private final LecturerProfileRepository lecturerProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
+    private final RefreshTokenService refreshTokenService;
+
+    @Autowired
+    public AdminUserService(UserRepository userRepository,
+                            StudentProfileRepository studentProfileRepository,
+                            LecturerProfileRepository lecturerProfileRepository,
+                            PasswordEncoder passwordEncoder,
+                            AuditLogService auditLogService,
+                            RefreshTokenService refreshTokenService) {
+        this.userRepository = userRepository;
+        this.studentProfileRepository = studentProfileRepository;
+        this.lecturerProfileRepository = lecturerProfileRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.auditLogService = auditLogService;
+        this.refreshTokenService = refreshTokenService;
+    }
 
     public AdminUserService(UserRepository userRepository,
                             StudentProfileRepository studentProfileRepository,
                             LecturerProfileRepository lecturerProfileRepository,
                             PasswordEncoder passwordEncoder,
                             AuditLogService auditLogService) {
-        this.userRepository = userRepository;
-        this.studentProfileRepository = studentProfileRepository;
-        this.lecturerProfileRepository = lecturerProfileRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.auditLogService = auditLogService;
+        this(userRepository, studentProfileRepository, lecturerProfileRepository, passwordEncoder, auditLogService, null);
     }
 
     private String getCurrentActor() {
@@ -204,6 +217,9 @@ public class AdminUserService {
 
         // Ghi nhận Audit Log
         if (statusChanged) {
+            if (user.getStatus() == UserStatus.LOCKED && refreshTokenService != null) {
+                refreshTokenService.revokeAllUserTokens(user);
+            }
             String action = (user.getStatus() == UserStatus.LOCKED) ? "USER_LOCKED" : "USER_STATUS_CHANGED";
             auditLogService.recordLog(
                     action,
@@ -253,6 +269,10 @@ public class AdminUserService {
         // Bảo vệ tài khoản Quản trị viên (Admin): Không thể xóa
         if (user.getRole() == Role.ADMIN) {
             throw new BadRequestException("Không thể xóa tài khoản Quản trị viên (Admin)!");
+        }
+
+        if (refreshTokenService != null) {
+            refreshTokenService.revokeAllUserTokens(user);
         }
 
         if (user.getRole() == Role.STUDENT) {

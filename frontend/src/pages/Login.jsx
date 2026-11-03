@@ -65,8 +65,8 @@ export const Login = () => {
 
     try {
       const res = await api.post('/auth/login', { username, password })
-      const { user, accessToken } = res.data.data
-      login(user, accessToken)
+      const { user, accessToken, refreshToken } = res.data.data
+      login(user, accessToken, refreshToken)
 
       if (user.role === 'ADMIN') navigate('/admin/users')
       else if (user.role === 'LECTURER') navigate('/lecturer/classes')
