@@ -9,9 +9,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Cấu trúc JSON Delta tiêu chuẩn cho bảng audit_logs.
- * Ghi nhận chi tiết thay đổi dữ liệu theo từng trường (Field-level diff)
- * phục vụ kiểm toán học vụ và hiển thị giao diện đối soát Visual Diff trên ReactJS.
+ * Standard JSON Delta payload structure for audit_logs table.
+ * Field-level diff tracking for academic audit trail and ReactJS Visual Diff reconciliation.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class AuditDeltaPayload implements Serializable {
@@ -29,40 +28,15 @@ public class AuditDeltaPayload implements Serializable {
         this.entityId = entityId;
     }
 
-    public static class FieldDiff implements Serializable {
-        private Object from;
-        private Object to;
-
-        public FieldDiff() {}
-
-        public FieldDiff(Object from, Object to) {
-            this.from = from;
-            this.to = to;
+    public void addFieldDiff(String fieldName, Object oldValue, Object newValue) {
+        if (!changedFields.contains(fieldName)) {
+            changedFields.add(fieldName);
         }
-
-        public Object getFrom() { return from; }
-        public void setFrom(Object from) { this.from = from; }
-
-        public Object getTo() { return to; }
-        public void setTo(Object to) { this.to = to; }
+        diff.put(fieldName, new FieldDiff(oldValue, newValue));
     }
 
-    public AuditDeltaPayload addDiff(String field, Object fromValue, Object toValue) {
-        if (field != null && !field.isBlank()) {
-            String trimmed = field.trim();
-            if (!this.changedFields.contains(trimmed)) {
-                this.changedFields.add(trimmed);
-            }
-            this.diff.put(trimmed, new FieldDiff(fromValue, toValue));
-        }
-        return this;
-    }
-
-    public AuditDeltaPayload addMetadata(String key, Object value) {
-        if (key != null && !key.isBlank()) {
-            this.metadata.put(key.trim(), value);
-        }
-        return this;
+    public void addMetadata(String key, Object value) {
+        this.metadata.put(key, value);
     }
 
     public String getEntity() { return entity; }
@@ -79,4 +53,22 @@ public class AuditDeltaPayload implements Serializable {
 
     public Map<String, Object> getMetadata() { return metadata; }
     public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
+
+    public static class FieldDiff implements Serializable {
+        private Object before;
+        private Object after;
+
+        public FieldDiff() {}
+
+        public FieldDiff(Object before, Object after) {
+            this.before = before;
+            this.after = after;
+        }
+
+        public Object getBefore() { return before; }
+        public void setBefore(Object before) { this.before = before; }
+
+        public Object getAfter() { return after; }
+        public void setAfter(Object after) { this.after = after; }
+    }
 }

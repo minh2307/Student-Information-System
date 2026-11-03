@@ -8,8 +8,12 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      // SSE Live seats stream directly to enrollment-service (bypass blocking proxy)
+      // Direct SSE Stream for Real-time Live Seats (EDUP-204, bypass blocking gateway proxy)
       '/api/v1/student/class-sections/live-seats': {
+        target: 'http://localhost:8083',
+        changeOrigin: true,
+      },
+      '/api/v1/student/live-seats': {
         target: 'http://localhost:8083',
         changeOrigin: true,
       },
@@ -26,4 +30,3 @@ export default defineConfig({
     }
   }
 })
-

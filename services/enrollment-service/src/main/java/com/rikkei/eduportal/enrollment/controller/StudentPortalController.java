@@ -97,16 +97,17 @@ public class StudentPortalController {
 
     /**
      * GET /api/v1/student/class-sections/live-seats
-     * Luồng SSE nhận cập nhật sĩ số thời gian thực (Real-time Live Seat Counter).
+     * GET /api/v1/student/live-seats
+     * Luồng SSE nhận cập nhật sĩ số thời gian thực (Real-time Live Seat Counter - EDUP-204, F-05).
      */
-    @GetMapping(value = "/class-sections/live-seats", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = {"/class-sections/live-seats", "/live-seats"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamLiveSeats() {
         return realtimeSeatService.subscribeLiveSeats();
     }
 
     /**
      * POST /api/v1/student/class-sections/{sectionId}/reserve
-     * Cơ chế Giữ chỗ 5 phút (5-Minute Slot Reservation).
+     * Cơ chế Giữ chỗ 5 phút (5-Minute Slot Reservation - EDUP-203, F-06).
      */
     @PostMapping("/class-sections/{sectionId}/reserve")
     public ResponseEntity<ApiResponse<SlotReservationResponse>> reserveSlot(
@@ -119,7 +120,7 @@ public class StudentPortalController {
 
     /**
      * DELETE /api/v1/student/class-sections/{sectionId}/reserve
-     * Hủy giữ chỗ.
+     * Hủy giữ chỗ theo mã lớp học phần.
      */
     @DeleteMapping("/class-sections/{sectionId}/reserve")
     public ResponseEntity<ApiResponse<Void>> cancelReservation(
@@ -140,6 +141,29 @@ public class StudentPortalController {
         String studentIdentifier = extractStudentIdentifier(request);
         List<SlotReservationResponse> reservations = realtimeSeatService.getMyActiveReservations(studentIdentifier);
         return ResponseEntity.ok(ApiResponse.success("Danh sách các lớp đang giữ chỗ", reservations));
+    }
+
+    /**
+     * DELETE /api/v1/student/class-sections/my-reservations
+     * Hủy toàn bộ các phiên giữ chỗ đang có của sinh viên (1-Chạm).
+     */
+    @DeleteMapping("/class-sections/my-reservations")
+    public ResponseEntity<ApiResponse<Void>> cancelAllMyReservations(HttpServletRequest request) {
+        String studentIdentifier = extractStudentIdentifier(request);
+        int count = realtimeSeatService.cancelAllMyReservations(studentIdentifier);
+        return ResponseEntity.ok(ApiResponse.success("Đã hủy toàn bộ " + count + " phiên giữ chỗ", null));
+    }
+
+    /**
+     * POST /api/v1/student/class-sections/batch-enroll-reservations
+     * POST /api/v1/student/enrollments/batch-held
+     * 1-Chạm xác nhận toàn bộ các lớp đang giữ chỗ thành đăng ký chính thức.
+     */
+    @PostMapping({"/class-sections/batch-enroll-reservations", "/enrollments/batch-held"})
+    public ResponseEntity<ApiResponse<List<EnrollmentResponse>>> batchEnrollHeldReservations(HttpServletRequest request) {
+        String studentIdentifier = extractStudentIdentifier(request);
+        List<EnrollmentResponse> responses = registrationService.batchEnrollHeldReservations(studentIdentifier);
+        return ResponseEntity.ok(ApiResponse.success("Đã xác nhận đăng ký thành công các môn đang giữ chỗ", responses));
     }
 
     /**
@@ -214,7 +238,8 @@ public class StudentPortalController {
             }
         }
 
-        // 3. Fallback mặc định cho môi trường dev/demo theo seed data
-        return "sv2024001";
+        // 3. Không có thông tin xác thực hợp lệ -> Từ chối truy cập (401)
+        throw new com.rikkei.eduportal.enrollment.exception.UnauthorizedException(
+                "Yêu cầu xác thực: Vui lòng đăng nhập để truy cập cổng thông tin sinh viên.");
     }
 }

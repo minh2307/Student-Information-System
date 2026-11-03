@@ -15,7 +15,14 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:[*]",
+                "http://127.0.0.1:[*]",
+                "https://*.rikkei.edu.vn",
+                "http://*.rikkei.edu.vn",
+                "http://localhost:5173",
+                "http://localhost:3000"
+        ));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
 

@@ -70,6 +70,27 @@ public class RealtimeSeatService {
     }
 
     /**
+     * Heartbeat 25s gửi ping/keep-alive chống time-out kết nối SSE (EDUP-204-1).
+     */
+    @Scheduled(fixedRate = 25000)
+    public void sendHeartbeat() {
+        if (emitters.isEmpty()) return;
+        List<SseEmitter> deadEmitters = new ArrayList<>();
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("HEARTBEAT")
+                        .comment("keep-alive"));
+            } catch (Exception ex) {
+                deadEmitters.add(emitter);
+            }
+        }
+        if (!deadEmitters.isEmpty()) {
+            emitters.removeAll(deadEmitters);
+        }
+    }
+
+    /**
      * Phát sóng (Broadcast) biến động sĩ số của một lớp học phần tới tất cả người dùng đang mở trang.
      */
     public void broadcastSeatUpdate(Long sectionId) {
@@ -161,7 +182,7 @@ public class RealtimeSeatService {
     }
 
     /**
-     * Hủy giữ chỗ.
+     * Hủy giữ chỗ theo mã lớp học phần.
      */
     @Transactional
     public void cancelReservation(String studentIdentifier, Long sectionId) {
@@ -173,6 +194,23 @@ public class RealtimeSeatService {
                     log.info("SLOT_RESERVATION_CANCELLED studentId={} sectionId={}", student.getId(), sectionId);
                     broadcastSeatUpdate(sectionId);
                 });
+    }
+
+    /**
+     * Hủy toàn bộ các phiên giữ chỗ đang ACTIVE của sinh viên hiện tại (1-Chạm).
+     */
+    @Transactional
+    public int cancelAllMyReservations(String studentIdentifier) {
+        StudentProfile student = dashboardService.resolveStudent(studentIdentifier);
+        LocalDateTime now = LocalDateTime.now();
+        List<SlotReservation> active = reservationRepo.findActiveByStudentId(student.getId(), now);
+        for (SlotReservation r : active) {
+            r.setStatus("CANCELLED");
+            reservationRepo.save(r);
+            broadcastSeatUpdate(r.getClassSection().getId());
+        }
+        log.info("CANCELLED_ALL_RESERVATIONS studentId={} count={}", student.getId(), active.size());
+        return active.size();
     }
 
     /**

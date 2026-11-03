@@ -1,5 +1,7 @@
 package com.rikkei.eduportal.gateway.controller;
 
+import com.rikkei.eduportal.gateway.security.JwtGatewayValidator;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -42,14 +44,17 @@ public class GatewayProxyController {
     private String aiServiceUrl;
 
     private final RestTemplate restTemplate;
+    private final JwtGatewayValidator jwtValidator;
 
     public GatewayProxyController(
             @Value("${gateway.timeout.connect:5000}") int connectTimeout,
-            @Value("${gateway.timeout.read:30000}") int readTimeout) {
+            @Value("${gateway.timeout.read:30000}") int readTimeout,
+            JwtGatewayValidator jwtValidator) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(connectTimeout);
         factory.setReadTimeout(readTimeout);
         this.restTemplate = new RestTemplate(factory);
+        this.jwtValidator = jwtValidator;
     }
 
     /**
@@ -85,9 +90,36 @@ public class GatewayProxyController {
     @RequestMapping("/api/v1/**")
     public ResponseEntity<?> proxyRequest(HttpServletRequest request, HttpEntity<byte[]> requestEntity) {
         String path = request.getRequestURI();
+        String method = request.getMethod();
         String queryString = request.getQueryString();
-        String targetBaseUrl = determineTargetService(path);
 
+        // 1. Gateway Security & Access Control
+        boolean isPublic = jwtValidator.isPublicPath(path, method);
+        Claims claims = null;
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7).trim();
+            claims = jwtValidator.validateAndGetClaims(token);
+        }
+
+        if (!isPublic) {
+            if (claims == null) {
+                log.warn("Unauthorized request blocked at Gateway: {} {}", method, path);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"status\":401,\"message\":\"Yêu cầu xác thực: Phiên đăng nhập không hợp lệ hoặc đã hết hạn.\"}".getBytes(StandardCharsets.UTF_8));
+            }
+
+            String role = claims.get("role", String.class);
+            if (!jwtValidator.hasRequiredRole(path, role)) {
+                log.warn("Forbidden request blocked at Gateway: {} {} by user {} (role={})", method, path, claims.getSubject(), role);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"status\":403,\"message\":\"Từ chối truy cập: Bạn không có quyền thực hiện thao tác này.\"}".getBytes(StandardCharsets.UTF_8));
+            }
+        }
+
+        String targetBaseUrl = determineTargetService(path);
         if (targetBaseUrl == null) {
             log.warn("No target service found for path: {}", path);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -95,24 +127,41 @@ public class GatewayProxyController {
         }
 
         String targetUrl = targetBaseUrl + path + (queryString != null ? "?" + queryString : "");
-        log.info("Proxying {} {} -> {}", request.getMethod(), path, targetUrl);
+        log.info("Proxying {} {} -> {}", method, path, targetUrl);
 
+        // 2. Strip untrusted client headers and inject verified user credentials
         HttpHeaders headers = new HttpHeaders();
         Enumeration<String> headerNames = request.getHeaderNames();
         while (headerNames.hasMoreElements()) {
             String headerName = headerNames.nextElement();
-            if ("host".equalsIgnoreCase(headerName) || "content-length".equalsIgnoreCase(headerName)) {
+            String lower = headerName.toLowerCase();
+            // Discard client-spoofed headers & connection hop headers
+            if ("host".equalsIgnoreCase(headerName) ||
+                "content-length".equalsIgnoreCase(headerName) ||
+                lower.startsWith("x-user-") ||
+                lower.startsWith("x-student-")) {
                 continue;
             }
             List<String> values = Collections.list(request.getHeaders(headerName));
             headers.put(headerName, values);
         }
 
+        // Inject verified identity headers from signed JWT claims
+        if (claims != null) {
+            headers.set("X-User-Username", claims.getSubject());
+            if (claims.get("role") != null) {
+                headers.set("X-User-Role", claims.get("role", String.class));
+            }
+            if (claims.get("userId") != null) {
+                headers.set("X-User-Id", String.valueOf(claims.get("userId")));
+            }
+        }
+
         HttpEntity<byte[]> entity = new HttpEntity<>(requestEntity.getBody(), headers);
 
         try {
-            HttpMethod method = HttpMethod.valueOf(request.getMethod());
-            ResponseEntity<byte[]> response = restTemplate.exchange(URI.create(targetUrl), method, entity, byte[].class);
+            HttpMethod httpMethod = HttpMethod.valueOf(method);
+            ResponseEntity<byte[]> response = restTemplate.exchange(URI.create(targetUrl), httpMethod, entity, byte[].class);
             return ResponseEntity.status(response.getStatusCode())
                     .headers(cleanResponseHeaders(response.getHeaders()))
                     .body(response.getBody());

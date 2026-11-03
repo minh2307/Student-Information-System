@@ -2,6 +2,7 @@ package com.rikkei.eduportal.auth.dto;
 
 public class AuthResponse {
     private String accessToken;
+    private String refreshToken;
     private String tokenType = "Bearer";
     private UserDto user;
     private StudentProfileDto studentProfile;
@@ -15,8 +16,18 @@ public class AuthResponse {
         this.user = user;
     }
 
+    public AuthResponse(String accessToken, String refreshToken, UserDto user) {
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
+        this.tokenType = "Bearer";
+        this.user = user;
+    }
+
     public String getAccessToken() { return accessToken; }
     public void setAccessToken(String accessToken) { this.accessToken = accessToken; }
+
+    public String getRefreshToken() { return refreshToken; }
+    public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
 
     public String getTokenType() { return tokenType; }
     public void setTokenType(String tokenType) { this.tokenType = tokenType; }

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
@@ -31,6 +32,7 @@ public class CourseRegistrationService {
     private final CourseRepository courseRepository;
     private final StudentDashboardService dashboardService;
     private final RealtimeSeatService realtimeSeatService;
+    private final SlotReservationRepository reservationRepository;
 
     public CourseRegistrationService(StudentProfileRepository studentProfileRepository,
                                    ClassSectionRepository classSectionRepository,
@@ -38,7 +40,8 @@ public class CourseRegistrationService {
                                    GradeRepository gradeRepository,
                                    CourseRepository courseRepository,
                                    StudentDashboardService dashboardService,
-                                   RealtimeSeatService realtimeSeatService) {
+                                   RealtimeSeatService realtimeSeatService,
+                                   SlotReservationRepository reservationRepository) {
         this.studentProfileRepository = studentProfileRepository;
         this.classSectionRepository = classSectionRepository;
         this.enrollmentRepository = enrollmentRepository;
@@ -46,10 +49,12 @@ public class CourseRegistrationService {
         this.courseRepository = courseRepository;
         this.dashboardService = dashboardService;
         this.realtimeSeatService = realtimeSeatService;
+        this.reservationRepository = reservationRepository;
     }
 
     /**
      * Tra cứu danh sách các lớp học phần đang mở (GET /api/v1/student/class-sections)
+     * Thống nhất Contract với số chỗ khả dụng, số slot giữ chỗ và trạng thái giữ chỗ của sinh viên.
      */
     @Transactional(readOnly = true)
     public List<ClassSectionDto> getAvailableSections(String studentIdentifier, String semester, String keyword) {
@@ -59,12 +64,31 @@ public class CourseRegistrationService {
                 (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null
         );
 
+        LocalDateTime now = LocalDateTime.now();
+
+        // 1. Lấy danh sách lớp sinh viên đã đăng ký
         List<Enrollment> allStudentEnrollments = enrollmentRepository.findAllByStudentId(student.getId());
         Map<Long, Enrollment> enrolledSectionMap = new HashMap<>();
         for (Enrollment e : allStudentEnrollments) {
             if (e.getClassSection() != null && !"CANCELLED".equalsIgnoreCase(e.getStatus()) && !"REJECTED".equalsIgnoreCase(e.getStatus())) {
                 enrolledSectionMap.put(e.getClassSection().getId(), e);
             }
+        }
+
+        // 2. Lấy danh sách các slot đang giữ chỗ của riêng sinh viên này
+        List<SlotReservation> myReservations = reservationRepository.findActiveByStudentId(student.getId(), now);
+        Map<Long, SlotReservation> myResMap = new HashMap<>();
+        for (SlotReservation r : myReservations) {
+            myResMap.put(r.getClassSection().getId(), r);
+        }
+
+        // 3. Đếm số lượng giữ chỗ ACTIVE theo từng lớp học phần (1 query tối ưu)
+        List<Object[]> groupedCounts = reservationRepository.countActiveReservationsGrouped(now);
+        Map<Long, Integer> resCountMap = new HashMap<>();
+        for (Object[] row : groupedCounts) {
+            Long secId = (Long) row[0];
+            Long cnt = (Long) row[1];
+            resCountMap.put(secId, cnt != null ? cnt.intValue() : 0);
         }
 
         List<ClassSectionDto> result = new ArrayList<>();
@@ -79,6 +103,25 @@ public class CourseRegistrationService {
             dto.setMaxCapacity(sec.getMaxCapacity());
             dto.setCurrentEnrolled(sec.getCurrentEnrolled());
             dto.setStatus(sec.getStatus());
+
+            // Contract chỗ trống thời gian thực thống nhất với SSE:
+            int reservedCount = resCountMap.getOrDefault(sec.getId(), 0);
+            int availableSeats = Math.max(0, sec.getMaxCapacity() - sec.getCurrentEnrolled() - reservedCount);
+            dto.setReservedCount(reservedCount);
+            dto.setAvailableSeats(availableSeats);
+
+            // Kiểm tra xem sinh viên này có đang giữ chỗ lớp này không:
+            SlotReservation myRes = myResMap.get(sec.getId());
+            if (myRes != null) {
+                dto.setIsReservedByMe(true);
+                dto.setMyReservationId(myRes.getId());
+                long remaining = Duration.between(now, myRes.getExpiresAt()).getSeconds();
+                dto.setMyReservationRemainingSeconds(Math.max(0, remaining));
+            } else {
+                dto.setIsReservedByMe(false);
+                dto.setMyReservationRemainingSeconds(null);
+                dto.setMyReservationId(null);
+            }
 
             if (sec.getCourse() != null) {
                 dto.setCourseId(sec.getCourse().getId());
@@ -120,6 +163,9 @@ public class CourseRegistrationService {
     /**
      * Engine Đăng ký học phần (POST /api/v1/student/enrollments)
      * Áp dụng Transaction & Database Row Locking để chống Race Condition (NFR-03).
+     * Tích hợp bảo vệ phiên giữ chỗ 5 phút (EDUP-203, F-06):
+     * Nếu sinh viên có giữ chỗ -> vị trí được bảo đảm 100%.
+     * Nếu sinh viên không có giữ chỗ -> không được chiếm vị trí đang được người khác giữ.
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public EnrollmentResponse enroll(String studentIdentifier, Long classSectionId) {
@@ -137,9 +183,29 @@ public class CourseRegistrationService {
             throw new BusinessException("Lớp học phần hiện không mở cho đăng ký (Trạng thái: " + section.getStatus() + ")");
         }
 
-        // Rule 1: Kiểm tra sĩ số lớp
-        if (section.getCurrentEnrolled() >= section.getMaxCapacity()) {
-            throw new BusinessException("Lớp học phần đã đầy sĩ số (" + section.getMaxCapacity() + "/" + section.getMaxCapacity() + "). Vui lòng chọn lớp khác.");
+        LocalDateTime now = LocalDateTime.now();
+
+        // Kiểm tra xem sinh viên có đang giữ chỗ hợp lệ cho lớp này không
+        Optional<SlotReservation> myActiveHold = reservationRepository
+                .findFirstByStudentIdAndClassSectionIdAndStatus(student.getId(), section.getId(), "ACTIVE")
+                .filter(r -> r.getExpiresAt().isAfter(now));
+
+        // Rule 1: Kiểm tra sĩ số & chống cướp suất giữ chỗ
+        if (myActiveHold.isEmpty()) {
+            // Sinh viên KHÔNG có phiên giữ chỗ:
+            // Sĩ số khả dụng = maxCapacity - currentEnrolled - activeReservationsCount
+            long activeHolds = reservationRepository.countActiveReservations(section.getId(), now);
+            if (section.getCurrentEnrolled() + (int) activeHolds >= section.getMaxCapacity()) {
+                throw new BusinessException(String.format(
+                        "Lớp học phần đã hết chỗ khả dụng! (Hiện có %d chỗ đã chốt và %d chỗ đang được sinh viên khác tạm giữ trong 5 phút).",
+                        section.getCurrentEnrolled(), activeHolds
+                ));
+            }
+        } else {
+            // Sinh viên CÓ phiên giữ chỗ hợp lệ:
+            if (section.getCurrentEnrolled() >= section.getMaxCapacity()) {
+                throw new BusinessException("Lớp học phần đã đầy sĩ số (" + section.getMaxCapacity() + "/" + section.getMaxCapacity() + "). Vui lòng chọn lớp khác.");
+            }
         }
 
         // Rule 1b: Kiểm tra điều kiện môn học tiên quyết (Prerequisite Check - FR-01, FR-06)
@@ -233,6 +299,7 @@ public class CourseRegistrationService {
         log.info("Student {} registered successfully for section {}. Conflict status: {}",
                 student.getStudentCode(), section.getSectionCode(), hasConflict);
 
+        // Chuyển trạng thái giữ chỗ sang COMMITTED và broadcast cập nhật sĩ số
         realtimeSeatService.markCommitted(student.getId(), section.getId());
         realtimeSeatService.broadcastSeatUpdate(section.getId());
 
@@ -247,6 +314,26 @@ public class CourseRegistrationService {
                 saved.getHasConflict(),
                 saved.getRegisteredAt()
         );
+    }
+
+    /**
+     * Xác nhận toàn bộ các lớp đang giữ chỗ trong 1 lần bấm (Batch Enroll All Held Slots).
+     */
+    @Transactional
+    public List<EnrollmentResponse> batchEnrollHeldReservations(String studentIdentifier) {
+        StudentProfile student = dashboardService.resolveStudent(studentIdentifier);
+        LocalDateTime now = LocalDateTime.now();
+        List<SlotReservation> activeHolds = reservationRepository.findActiveByStudentId(student.getId(), now);
+        if (activeHolds.isEmpty()) {
+            throw new BusinessException("Bạn hiện không có lớp học phần nào đang trong phiên giữ chỗ.");
+        }
+
+        List<EnrollmentResponse> enrolledList = new ArrayList<>();
+        for (SlotReservation hold : activeHolds) {
+            EnrollmentResponse response = enroll(studentIdentifier, hold.getClassSection().getId());
+            enrolledList.add(response);
+        }
+        return enrolledList;
     }
 
     /**
@@ -301,7 +388,7 @@ public class CourseRegistrationService {
             dto.setEnrollmentId(g.getEnrollment().getId());
             dto.setAttendanceScore(g.getAttendanceScore());
             dto.setMidtermScore(g.getMidtermScore());
-            dto.setFinalScore(g.getFinalScore());
+            dto.setFinalScore(g.getTotalScore());
             dto.setTotalScore(g.getTotalScore());
             dto.setLetterGrade(g.getLetterGrade());
             dto.setIsLocked(g.getIsLocked());
