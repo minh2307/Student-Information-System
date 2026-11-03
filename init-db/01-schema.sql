@@ -218,3 +218,17 @@ CREATE TABLE IF NOT EXISTS attendance_records (
 CREATE INDEX IF NOT EXISTS idx_attendance_records_session ON attendance_records(session_id);
 CREATE INDEX IF NOT EXISTS idx_attendance_records_student ON attendance_records(student_id);
 
+-- 15. Table slot_reservations (Giữ chỗ đăng ký môn học tạm thời 5 phút - enrollment-service)
+CREATE TABLE IF NOT EXISTS slot_reservations (
+    id BIGSERIAL PRIMARY KEY,
+    student_id BIGINT NOT NULL REFERENCES student_profiles(id) ON DELETE CASCADE,
+    class_section_id BIGINT NOT NULL REFERENCES class_sections(id) ON DELETE CASCADE,
+    reserved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+);
+
+CREATE INDEX IF NOT EXISTS idx_slot_section_status ON slot_reservations(class_section_id, status);
+CREATE INDEX IF NOT EXISTS idx_slot_student_status ON slot_reservations(student_id, status);
+CREATE INDEX IF NOT EXISTS idx_slot_expires_at ON slot_reservations(expires_at);
+

@@ -1,5 +1,7 @@
 package com.rikkei.eduportal.lecturer.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rikkei.eduportal.common.AuditDeltaPayload;
 import com.rikkei.eduportal.common.EnrollmentStatus;
 import com.rikkei.eduportal.lecturer.dto.request.AttendanceUpdateRequest;
 import com.rikkei.eduportal.lecturer.dto.request.GradeUpdateRequest;
@@ -12,14 +14,12 @@ import com.rikkei.eduportal.lecturer.grade.GradeCalculator;
 import com.rikkei.eduportal.lecturer.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -35,6 +35,27 @@ public class LecturerService {
     private final GradeRepository gradeRepo;
     private final StudentProfileRepository studentProfileRepo;
     private final GradeCalculator gradeCalculator;
+    private final AuditLogRepository auditLogRepo;
+    private final ObjectMapper objectMapper;
+
+    @Autowired
+    public LecturerService(LecturerProfileRepository lecturerProfileRepo,
+                           ClassSectionRepository classSectionRepo,
+                           EnrollmentRepository enrollmentRepo,
+                           GradeRepository gradeRepo,
+                           StudentProfileRepository studentProfileRepo,
+                           GradeCalculator gradeCalculator,
+                           AuditLogRepository auditLogRepo,
+                           ObjectMapper objectMapper) {
+        this.lecturerProfileRepo = lecturerProfileRepo;
+        this.classSectionRepo = classSectionRepo;
+        this.enrollmentRepo = enrollmentRepo;
+        this.gradeRepo = gradeRepo;
+        this.studentProfileRepo = studentProfileRepo;
+        this.gradeCalculator = gradeCalculator;
+        this.auditLogRepo = auditLogRepo;
+        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
+    }
 
     public LecturerService(LecturerProfileRepository lecturerProfileRepo,
                            ClassSectionRepository classSectionRepo,
@@ -42,12 +63,7 @@ public class LecturerService {
                            GradeRepository gradeRepo,
                            StudentProfileRepository studentProfileRepo,
                            GradeCalculator gradeCalculator) {
-        this.lecturerProfileRepo = lecturerProfileRepo;
-        this.classSectionRepo = classSectionRepo;
-        this.enrollmentRepo = enrollmentRepo;
-        this.gradeRepo = gradeRepo;
-        this.studentProfileRepo = studentProfileRepo;
-        this.gradeCalculator = gradeCalculator;
+        this(lecturerProfileRepo, classSectionRepo, enrollmentRepo, gradeRepo, studentProfileRepo, gradeCalculator, null, new ObjectMapper());
     }
 
     // =========================================================================
@@ -106,6 +122,12 @@ public class LecturerService {
                     "Điểm của enrollment " + enrollmentId + " đã bị khóa, không thể sửa chuyên cần.");
         }
 
+        BigDecimal oldAtt = grade.getAttendanceScore();
+        BigDecimal oldMid = grade.getMidtermScore();
+        BigDecimal oldFinal = grade.getFinalScore();
+        BigDecimal oldTotal = grade.getTotalScore();
+        String oldLetter = grade.getLetterGrade();
+
         BigDecimal oldRate = enrollment.getAttendanceRate();
         enrollment.setAttendanceRate(request.attendanceRate());
 
@@ -124,6 +146,9 @@ public class LecturerService {
         if (newTotal != null) {
             recalculateCgpa(enrollment.getStudent());
         }
+
+        // Ghi Audit Log biến động điểm
+        recordGradeAuditLog(username, enrollment, oldAtt, oldMid, oldFinal, oldTotal, oldLetter, saved, "chuyên cần");
 
         log.info("UPDATE_ATTENDANCE lecturerId={} enrollmentId={} oldRate={} newRate={}",
                 lecturer.getId(), enrollmentId, oldRate, request.attendanceRate());
@@ -154,6 +179,13 @@ public class LecturerService {
             throw new GradeLockedConflictException(
                     "Điểm của enrollment " + enrollmentId + " đã bị khóa, không thể sửa.");
         }
+
+        // Lưu lại trạng thái cũ
+        BigDecimal oldAtt = grade.getAttendanceScore();
+        BigDecimal oldMid = grade.getMidtermScore();
+        BigDecimal oldFinal = grade.getFinalScore();
+        BigDecimal oldTotal = grade.getTotalScore();
+        String oldLetter = grade.getLetterGrade();
 
         // Log giá trị cũ
         log.info("UPDATE_GRADE lecturerId={} enrollmentId={} " +
@@ -186,6 +218,9 @@ public class LecturerService {
         if (newTotal != null) {
             recalculateCgpa(enrollment.getStudent());
         }
+
+        // Ghi nhận Audit Log biến động điểm
+        recordGradeAuditLog(username, enrollment, oldAtt, oldMid, oldFinal, oldTotal, oldLetter, saved, "điểm số");
 
         return toStudentGradeResponse(enrollment, saved);
     }
@@ -236,6 +271,9 @@ public class LecturerService {
                 enrollmentRepo.save(e);
             }
         }
+
+        // Ghi nhận Audit Log cho hành động chốt điểm lớp
+        recordLockGradesAuditLog(username, sectionId, locked);
 
         log.info("LOCK_GRADES lecturerId={} sectionId={} lockedCount={}",
                 lecturer.getId(), sectionId, locked);
@@ -330,5 +368,106 @@ public class LecturerService {
                 grade != null ? grade.getLetterGrade() : null,
                 grade != null && Boolean.TRUE.equals(grade.getIsLocked())
         );
+    }
+
+    private void recordGradeAuditLog(String username,
+                                     Enrollment enrollment,
+                                     BigDecimal oldAtt,
+                                     BigDecimal oldMid,
+                                     BigDecimal oldFinal,
+                                     BigDecimal oldTotal,
+                                     String oldLetter,
+                                     Grade saved,
+                                     String note) {
+        if (auditLogRepo == null) return;
+        try {
+            AuditDeltaPayload delta = new AuditDeltaPayload("StudentGrade", String.valueOf(enrollment.getId()));
+
+            if (saved.getAttendanceScore() != null && !Objects.equals(oldAtt, saved.getAttendanceScore())) {
+                delta.addDiff("attendanceScore", oldAtt, saved.getAttendanceScore());
+            }
+            if (saved.getMidtermScore() != null && !Objects.equals(oldMid, saved.getMidtermScore())) {
+                delta.addDiff("midtermScore", oldMid, saved.getMidtermScore());
+            }
+            if (saved.getFinalScore() != null && !Objects.equals(oldFinal, saved.getFinalScore())) {
+                delta.addDiff("finalScore", oldFinal, saved.getFinalScore());
+            }
+            if (saved.getTotalScore() != null && !Objects.equals(oldTotal, saved.getTotalScore())) {
+                delta.addDiff("totalScore", oldTotal, saved.getTotalScore());
+            }
+            if (saved.getLetterGrade() != null && !Objects.equals(oldLetter, saved.getLetterGrade())) {
+                delta.addDiff("letterGrade", oldLetter, saved.getLetterGrade());
+            }
+
+            if (!delta.getChangedFields().isEmpty()) {
+                String studentCode = (enrollment.getStudent() != null) ? enrollment.getStudent().getStudentCode() : "N/A";
+                String studentName = (enrollment.getStudent() != null && enrollment.getStudent().getUser() != null)
+                        ? enrollment.getStudent().getUser().getFullName() : studentCode;
+                String sectionCode = (enrollment.getClassSection() != null) ? enrollment.getClassSection().getSectionCode() : "N/A";
+                String courseName = (enrollment.getClassSection() != null && enrollment.getClassSection().getCourse() != null)
+                        ? enrollment.getClassSection().getCourse().getName() : "N/A";
+
+                delta.addMetadata("studentCode", studentCode);
+                delta.addMetadata("studentName", studentName);
+                delta.addMetadata("sectionCode", sectionCode);
+                delta.addMetadata("courseName", courseName);
+                delta.addMetadata("type", note);
+
+                String deltaJson = objectMapper != null ? objectMapper.writeValueAsString(delta) : "";
+                String summary = "Giảng viên " + username + " cập nhật " + note + " môn " + courseName + " cho SV " + studentName + " (" + studentCode + ")";
+
+                AuditLog auditLog = new AuditLog(
+                        "GRADE_UPDATED",
+                        username,
+                        "ROLE_LECTURER",
+                        "StudentGrade",
+                        String.valueOf(enrollment.getId()),
+                        summary,
+                        null,
+                        deltaJson,
+                        "127.0.0.1"
+                );
+                auditLogRepo.save(auditLog);
+                log.info("Recorded audit log for grade update on enrollment {}: {}", enrollment.getId(), delta.getChangedFields());
+            }
+        } catch (Exception ex) {
+            log.error("Failed to record grade audit log for enrollment {}", enrollment.getId(), ex);
+        }
+    }
+
+    private void recordLockGradesAuditLog(String username, Long sectionId, int lockedCount) {
+        if (auditLogRepo == null) return;
+        try {
+            ClassSection section = classSectionRepo.findById(sectionId).orElse(null);
+            String sectionCode = section != null ? section.getSectionCode() : String.valueOf(sectionId);
+            String courseName = (section != null && section.getCourse() != null)
+                    ? section.getCourse().getName() : "N/A";
+
+            AuditDeltaPayload delta = new AuditDeltaPayload("ClassSection", String.valueOf(sectionId));
+            delta.addDiff("isLocked", false, true);
+            delta.addMetadata("sectionId", sectionId);
+            delta.addMetadata("sectionCode", sectionCode);
+            delta.addMetadata("courseName", courseName);
+            delta.addMetadata("lockedCount", lockedCount);
+
+            String deltaJson = objectMapper != null ? objectMapper.writeValueAsString(delta) : "";
+            String summary = "Giảng viên " + username + " chốt sổ điểm lớp học phần " + sectionCode + " (" + courseName + ") cho " + lockedCount + " sinh viên";
+
+            AuditLog auditLog = new AuditLog(
+                    "GRADE_LOCKED",
+                    username,
+                    "ROLE_LECTURER",
+                    "ClassSection",
+                    String.valueOf(sectionId),
+                    summary,
+                    null,
+                    deltaJson,
+                    "127.0.0.1"
+            );
+            auditLogRepo.save(auditLog);
+            log.info("Recorded audit log for lock grades on section {}: {} students locked", sectionId, lockedCount);
+        } catch (Exception ex) {
+            log.error("Failed to record lock grades audit log for section {}", sectionId, ex);
+        }
     }
 }

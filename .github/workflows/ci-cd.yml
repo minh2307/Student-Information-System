@@ -90,6 +90,15 @@ jobs:
           path: '**/build/reports/tests/'
           retention-days: 7
 
+      - name: Upload backend jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jars
+          path: |
+            services/*/build/libs/*.jar
+            !services/*/build/libs/*-plain.jar
+          retention-days: 1
+
   # ============================================================
   # JOB 2: Build Frontend
   # ============================================================
@@ -127,12 +136,12 @@ jobs:
 
   # ============================================================
   # JOB 3: API Tests (Postman/Newman)
-  # needs: cả 2 job build pass
+  # needs: backend build pass (frontend chạy song song không block)
   # ============================================================
   api-test:
     name: 🧪 API Integration Tests (Newman)
     runs-on: ubuntu-latest
-    needs: [build-backend, build-frontend]
+    needs: [build-backend]
     permissions:
       contents: read
       checks: write
@@ -164,10 +173,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
-
-      - name: Make gradlew executable
-        run: chmod +x gradlew
 
       - name: Init DB
         run: |
@@ -177,14 +182,24 @@ jobs:
           PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db \
             -f init-db/02-seed-data.sql
 
-      # Build fat jars trước
-      - name: Build jars
-        run: ./gradlew bootJar --no-daemon -x test --parallel
+      # Tái sử dụng fat jars đã compile từ job build-backend
+      - name: Download backend jars
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jars
+          path: services
 
       # Khởi động auth-service (JWT issuance)
       - name: Start auth-service (port 8081)
         run: |
-          AUTH_JAR=$(ls services/auth-service/build/libs/*.jar | grep -v 'plain' | head -n 1)
+          AUTH_JAR=$(find services/auth-service/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          [ -z "$AUTH_JAR" ] && AUTH_JAR=$(find . -name "auth-service*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          if [ -z "$AUTH_JAR" ] || [ ! -f "$AUTH_JAR" ]; then
+            echo "❌ Cannot find auth-service JAR! Workspace jars:"
+            find . -name "*.jar"
+            exit 1
+          fi
+          echo "Starting auth-service with jar: $AUTH_JAR"
           nohup java -jar "$AUTH_JAR" \
             --server.port=8081 \
             --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
@@ -198,7 +213,14 @@ jobs:
       # Khởi động lecturer-service (chủ thể test chính)
       - name: Start lecturer-service (port 8085)
         run: |
-          LECTURER_JAR=$(ls services/lecturer-service/build/libs/*.jar | grep -v 'plain' | head -n 1)
+          LECTURER_JAR=$(find services/lecturer-service/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          [ -z "$LECTURER_JAR" ] && LECTURER_JAR=$(find . -name "lecturer-service*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          if [ -z "$LECTURER_JAR" ] || [ ! -f "$LECTURER_JAR" ]; then
+            echo "❌ Cannot find lecturer-service JAR! Workspace jars:"
+            find . -name "*.jar"
+            exit 1
+          fi
+          echo "Starting lecturer-service with jar: $LECTURER_JAR"
           nohup java -jar "$LECTURER_JAR" \
             --server.port=8085 \
             --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
@@ -212,8 +234,10 @@ jobs:
       # Khởi động enrollment-service (nếu jar tồn tại — merge với Quân)
       - name: Start enrollment-service (port 8083) — optional
         run: |
-          ENROLL_JAR=$(ls services/enrollment-service/build/libs/*.jar 2>/dev/null | grep -v 'plain' | head -n 1 || true)
-          if [ -n "$ENROLL_JAR" ]; then
+          ENROLL_JAR=$(find services/enrollment-service/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          [ -z "$ENROLL_JAR" ] && ENROLL_JAR=$(find . -name "enrollment-service*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          if [ -n "$ENROLL_JAR" ] && [ -f "$ENROLL_JAR" ]; then
+            echo "Starting enrollment-service with jar: $ENROLL_JAR"
             nohup java -jar "$ENROLL_JAR" \
               --server.port=8083 \
               --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
@@ -223,8 +247,10 @@ jobs:
               --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
               > /tmp/enrollment-service.log 2>&1 &
             echo "ENROLLMENT_PID=$!" >> $GITHUB_ENV
+            echo "HAS_ENROLLMENT=true" >> $GITHUB_ENV
           else
             echo "enrollment-service jar not found, skipping."
+            echo "HAS_ENROLLMENT=false" >> $GITHUB_ENV
           fi
 
       # Chờ services sẵn sàng (polling /actuator/health)
@@ -258,13 +284,37 @@ jobs:
             exit 1
           fi
 
+          if [ "$HAS_ENROLLMENT" = "true" ]; then
+            echo "Waiting for enrollment-service:8083..."
+            ENROLL_READY=false
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost:8083/actuator/health > /dev/null 2>&1 || [ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8083/api/v1/student/dashboard)" = "200" ]; then
+                echo "enrollment-service ready ✓"; ENROLL_READY=true; break
+              fi
+              sleep 3
+            done
+            if [ "$ENROLL_READY" != "true" ]; then
+              echo "❌ enrollment-service failed to start! Dumping log:"
+              cat /tmp/enrollment-service.log || true
+              exit 1
+            fi
+          fi
+
       - name: Setup Node.js (Newman)
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      - name: Cache npm packages (Newman)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-newman-cache-v1
+          restore-keys: |
+            ${{ runner.os }}-newman-cache-
+
       - name: Install Newman + reporters
-        run: npm install -g newman newman-reporter-htmlextra
+        run: npm install -g --prefer-offline newman newman-reporter-htmlextra
 
       # Chạy test collection
       - name: Run Postman/Newman API tests
@@ -304,36 +354,52 @@ jobs:
         run: |
           echo "=== auth-service.log ===" && tail -50 /tmp/auth-service.log || true
           echo "=== lecturer-service.log ===" && tail -50 /tmp/lecturer-service.log || true
+          echo "=== enrollment-service.log ===" && tail -50 /tmp/enrollment-service.log || true
 
   # ============================================================
-  # JOB 4: Docker Build & Push to GHCR
+  # JOB 4: Docker Build & Push to GHCR (Song song hóa qua Matrix)
   # Chỉ chạy khi push (không chạy cho PR)
   # ============================================================
   docker-publish:
-    name: 🐳 Docker Build & Push (GHCR)
+    name: 🐳 Build & Push ${{ matrix.service.name }}
     runs-on: ubuntu-latest
-    needs: [api-test]
+    needs: [api-test, build-frontend]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
       packages: write
 
+    strategy:
+      fail-fast: true
+      matrix:
+        service:
+          - name: auth-service
+            context: .
+            file: services/auth-service/Dockerfile
+            artifact: backend-jars
+            build_args: JAR_FILE=services/auth-service/build/libs/auth-service-0.0.1-SNAPSHOT.jar
+          - name: lecturer-service
+            context: .
+            file: services/lecturer-service/Dockerfile
+            artifact: backend-jars
+            build_args: JAR_FILE=services/lecturer-service/build/libs/lecturer-service-0.0.1-SNAPSHOT.jar
+          - name: enrollment-service
+            context: .
+            file: services/enrollment-service/Dockerfile
+            artifact: backend-jars
+            build_args: JAR_FILE=services/enrollment-service/build/libs/enrollment-service-0.0.1-SNAPSHOT.jar
+          - name: frontend
+            context: ./frontend
+            file: frontend/Dockerfile
+            artifact: frontend-dist
+            build_args: ""
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: gradle
-
-      - name: Make gradlew executable
-        run: chmod +x gradlew
-
-      - name: Build fat jars
-        run: ./gradlew bootJar --no-daemon -x test --parallel
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -351,62 +417,32 @@ jobs:
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
           echo "tag=${BRANCH}-${SHA}" >> $GITHUB_OUTPUT
 
-      # Build & push auth-service
-      - name: Build & push auth-service
+      - name: Download backend jars
+        if: matrix.service.artifact == 'backend-jars'
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jars
+          path: services
+
+      - name: Download frontend dist
+        if: matrix.service.artifact == 'frontend-dist'
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Build & push ${{ matrix.service.name }}
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: services/auth-service/Dockerfile
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.file }}
           push: true
+          build-args: ${{ matrix.service.build_args }}
           tags: |
-            ${{ env.IMAGE_PREFIX }}/auth-service:${{ steps.tags.outputs.tag }}
-            ${{ env.IMAGE_PREFIX }}/auth-service:${{ steps.tags.outputs.branch }}
-
-      # Build & push lecturer-service (Hoàng Văn Lương)
-      - name: Build & push lecturer-service
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: services/lecturer-service/Dockerfile
-          push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/lecturer-service:${{ steps.tags.outputs.tag }}
-            ${{ env.IMAGE_PREFIX }}/lecturer-service:${{ steps.tags.outputs.branch }}
-
-      # Build & push enrollment-service
-      - name: Build & push enrollment-service
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: services/enrollment-service/Dockerfile
-          push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/enrollment-service:${{ steps.tags.outputs.tag }}
-            ${{ env.IMAGE_PREFIX }}/enrollment-service:${{ steps.tags.outputs.branch }}
-
-      # Build & push frontend
-      - name: Setup Node for frontend build
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Build frontend
-        working-directory: frontend
-        run: npm ci && npm run build
-        env:
-          VITE_API_BASE_URL: /api/v1
-
-      - name: Build & push frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          file: frontend/Dockerfile
-          push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tags.outputs.tag }}
-            ${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tags.outputs.branch }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}:${{ steps.tags.outputs.tag }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}:${{ steps.tags.outputs.branch }}
+          cache-from: type=gha,scope=${{ matrix.service.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
 
   # ============================================================
   # JOB 5: Deploy — map nhánh → môi trường

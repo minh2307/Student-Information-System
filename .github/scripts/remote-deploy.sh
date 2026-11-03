@@ -17,6 +17,13 @@ cd /opt/eduportal
 echo "=== Pulling images... ==="
 docker compose -f "${COMPOSE_FILE}" pull
 
+# Nếu container cũ được tạo với cấu hình CPU quota cũ (ví dụ cpus: 2.0 trên VPS 1 core),
+# lệnh Recreate của Docker Compose sẽ kế thừa HostConfig cũ và bị daemon từ chối:
+# "range of CPUs is from 0.01 to 1.00, as there are only 1 CPUs available".
+# Thực hiện down container cũ trước để xóa triệt để HostConfig lỗi (dữ liệu DB trong volumes vẫn an toàn).
+echo "=== Removing stale containers if any... ==="
+docker compose -f "${COMPOSE_FILE}" down --remove-orphans || true
+
 echo "=== Starting containers... ==="
 docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
 
@@ -28,7 +35,7 @@ while [ $i -lt 30 ]; do
     echo "PostgreSQL ready ✓"
     break
   fi
-  sleep 2
+  sleep 1
   i=$((i + 1))
 done
 
