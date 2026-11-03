@@ -27,8 +27,8 @@ import {
 const CATEGORIES = ['Tất cả', 'HỌC VỤ', 'LỊCH THI', 'HỌC BỔNG', 'HOẠT ĐỘNG']
 
 export const Login = () => {
-  const [username, setUsername] = useState('sv2024001')
-  const [password, setPassword] = useState('123456')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const login = useAuthStore((state) => state.login)
@@ -78,11 +78,6 @@ export const Login = () => {
     } finally {
       setLoading(false)
     }
-  }
-
-  const fillQuickAccount = (u, p) => {
-    setUsername(u)
-    setPassword(p)
   }
 
   // Lọc thông báo
@@ -442,47 +437,6 @@ export const Login = () => {
                   <ArrowRight size={15} />
                 </button>
 
-                {/* Quick Account Switcher for Testers */}
-                <div className="pt-4 border-t border-stone-100">
-                  <p className="text-[10px] font-mono font-bold text-stone-500 mb-2 text-center uppercase tracking-wider">
-                    Chọn nhanh tài khoản kiểm thử (MK: 123456)
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => fillQuickAccount('sv2024001', '123456')}
-                      className={`px-2 py-1.5 text-xs font-semibold rounded-lg border transition ${
-                        username === 'sv2024001'
-                          ? 'bg-red-700 text-white border-red-700'
-                          : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-                      }`}
-                    >
-                      Sinh viên
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fillQuickAccount('gv001', '123456')}
-                      className={`px-2 py-1.5 text-xs font-semibold rounded-lg border transition ${
-                        username === 'gv001'
-                          ? 'bg-stone-900 text-white border-stone-900'
-                          : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-                      }`}
-                    >
-                      Giảng viên
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fillQuickAccount('admin', '123456')}
-                      className={`px-2 py-1.5 text-xs font-semibold rounded-lg border transition ${
-                        username === 'admin'
-                          ? 'bg-stone-900 text-white border-stone-900'
-                          : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-                      }`}
-                    >
-                      Quản trị
-                    </button>
-                  </div>
-                </div>
 
                 <div className="pt-2 text-center">
                   <p className="text-[10px] font-mono text-stone-500 flex items-center justify-center gap-1 font-medium">
