@@ -8,6 +8,15 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
+      // Direct SSE Stream for Real-time Live Seats (EDUP-204)
+      '/api/v1/student/class-sections/live-seats': {
+        target: 'http://localhost:8083',
+        changeOrigin: true,
+      },
+      '/api/v1/student/live-seats': {
+        target: 'http://localhost:8083',
+        changeOrigin: true,
+      },
       // Lecturer Portal → lecturer-service:8085  (⚠️ phải đứng trước /api catch-all)
       '/api/v1/lecturer': {
         target: 'http://localhost:8085',
@@ -21,4 +30,3 @@ export default defineConfig({
     }
   }
 })
-
