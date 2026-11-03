@@ -21,6 +21,13 @@ public class ClassSectionDto {
     private Long enrollmentId;
     private Boolean hasConflict = false;
 
+    // Real-time slot reservation fields (EDUP-203, EDUP-204)
+    private Integer reservedCount = 0;
+    private Integer availableSeats;
+    private Boolean isReservedByMe = false;
+    private Long myReservationRemainingSeconds;
+    private Long myReservationId;
+
     public ClassSectionDto() {}
 
     public Long getId() { return id; }
@@ -79,4 +86,19 @@ public class ClassSectionDto {
 
     public Boolean getHasConflict() { return hasConflict; }
     public void setHasConflict(Boolean hasConflict) { this.hasConflict = hasConflict; }
+
+    public Integer getReservedCount() { return reservedCount; }
+    public void setReservedCount(Integer reservedCount) { this.reservedCount = reservedCount; }
+
+    public Integer getAvailableSeats() { return availableSeats; }
+    public void setAvailableSeats(Integer availableSeats) { this.availableSeats = availableSeats; }
+
+    public Boolean getIsReservedByMe() { return isReservedByMe; }
+    public void setIsReservedByMe(Boolean isReservedByMe) { this.isReservedByMe = isReservedByMe; }
+
+    public Long getMyReservationRemainingSeconds() { return myReservationRemainingSeconds; }
+    public void setMyReservationRemainingSeconds(Long myReservationRemainingSeconds) { this.myReservationRemainingSeconds = myReservationRemainingSeconds; }
+
+    public Long getMyReservationId() { return myReservationId; }
+    public void setMyReservationId(Long myReservationId) { this.myReservationId = myReservationId; }
 }
