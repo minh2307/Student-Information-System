@@ -7,6 +7,13 @@ cd "$DIR"
 # Stop any old running instances first
 bash "$DIR/stop-all.sh" >/dev/null 2>&1 || true
 
+# Load environment variables from .env if present
+if [ -f "$DIR/.env" ]; then
+    set -a
+    source "$DIR/.env"
+    set +a
+fi
+
 JAVA_BIN="/usr/lib/jvm/java-21-openjdk-amd64/bin/java"
 if [ ! -f "$JAVA_BIN" ]; then
     JAVA_BIN="$(which java)"

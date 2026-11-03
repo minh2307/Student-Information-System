@@ -1,14 +1,17 @@
 package com.rikkei.eduportal.ai.service;
 
+import com.rikkei.eduportal.ai.client.EnrollmentServiceClient;
 import com.rikkei.eduportal.ai.config.AiConfig;
-import com.rikkei.eduportal.ai.dto.AcademicAdvisorRequest;
-import com.rikkei.eduportal.ai.dto.AcademicAdvisorResponse;
+import com.rikkei.eduportal.ai.dto.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.*;
 
 @Service
@@ -21,41 +24,71 @@ public class AcademicAdvisorServiceImpl implements AcademicAdvisorService {
     private final AdvisorPromptBuilder promptBuilder;
     private final AdvisorFallbackService fallbackService;
     private final AcademicKnowledgeBase knowledgeBase;
+    private final EnrollmentServiceClient enrollmentClient;
     private final ExecutorService executorService;
 
     public AcademicAdvisorServiceImpl(ChatClient chatClient,
                                       AiConfig aiConfig,
                                       AdvisorPromptBuilder promptBuilder,
                                       AdvisorFallbackService fallbackService,
-                                      AcademicKnowledgeBase knowledgeBase) {
+                                      AcademicKnowledgeBase knowledgeBase,
+                                      EnrollmentServiceClient enrollmentClient) {
         this.chatClient = chatClient;
         this.aiConfig = aiConfig;
         this.promptBuilder = promptBuilder;
         this.fallbackService = fallbackService;
         this.knowledgeBase = knowledgeBase;
+        this.enrollmentClient = enrollmentClient;
         this.executorService = Executors.newVirtualThreadPerTaskExecutor();
     }
 
     @Override
     public AcademicAdvisorResponse advise(AcademicAdvisorRequest request) {
-        log.info("Received Academic Advisor question from student={}: '{}'",
-                request.getStudentCode(), request.getMessage());
+        return advise(request, request.getStudentCode(), null);
+    }
 
-        // Step 1: Check live AI credentials
-        if (!aiConfig.isConfiguredWithRealKey()) {
-            log.warn("AI API key is set to demo/unconfigured. Activating rule-based advisor fallback.");
-            return fallbackService.generateFallback(request, "Chế độ dev/mock (Chưa cấu hình API Key thực)");
+    @Override
+    public AcademicAdvisorResponse advise(AcademicAdvisorRequest request, String authenticatedStudent, String authToken) {
+        long startTime = System.currentTimeMillis();
+
+        // 1. Resolve student identity from security context
+        String studentIdentifier = (authenticatedStudent != null && !authenticatedStudent.isBlank())
+                ? authenticatedStudent.trim()
+                : (request.getStudentCode() != null && !request.getStudentCode().isBlank()
+                    ? request.getStudentCode().trim() : "sv2024001");
+
+        // Force request studentCode to match authenticated identity to prevent spoofing
+        request.setStudentCode(studentIdentifier);
+
+        log.info("Received Academic Advisor request for student='{}': '{}'",
+                studentIdentifier, request.getMessage());
+
+        // 2. Fetch real academic records from enrollment-service
+        Optional<StudentAcademicContextDto> contextOpt = enrollmentClient.fetchAcademicContext(authToken, studentIdentifier);
+        StudentAcademicContextDto context = contextOpt.orElse(null);
+
+        boolean enrollmentAvailable = (context != null);
+        boolean geminiConfigured = aiConfig.isConfiguredWithRealKey();
+
+        log.info("Advisor diagnostic: student='{}', enrollmentAvailable={}, geminiConfigured={}",
+                studentIdentifier, enrollmentAvailable, geminiConfigured);
+
+        // 3. Check live Gemini credentials
+        if (!geminiConfigured) {
+            log.warn("GEMINI_FALLBACK: Gemini API key not configured or set to demo-key. Activating deterministic advisor fallback.");
+            return fallbackService.generateFallback(request, context, "Chế độ dev/mock: Chưa cấu hình GEMINI_API_KEY thực");
         }
 
-        // Step 2: Build prompts
+        // 4. Build Prompts with Real Student Academic Data
         String systemPrompt = promptBuilder.buildSystemPrompt();
-        String userPrompt = promptBuilder.buildUserPrompt(request);
+        String userPrompt = promptBuilder.buildUserPrompt(request, context);
 
-        // Step 3: Execute AI Call with Timeout & Fallback
+        // 5. Execute Gemini AI Call with Timeout & Bounded Fallback
         int timeout = aiConfig.getTimeoutSeconds();
         try {
             Future<String> future = executorService.submit(() -> {
-                log.debug("Dispatching question to Spring AI ChatClient (model={})...", aiConfig.getEffectiveModel());
+                log.debug("Dispatching academic question to Gemini (model={}, baseUrl={})...",
+                        aiConfig.getEffectiveModel(), aiConfig.getEffectiveBaseUrl());
                 return chatClient.prompt()
                         .system(systemPrompt)
                         .user(userPrompt)
@@ -66,28 +99,78 @@ public class AcademicAdvisorServiceImpl implements AcademicAdvisorService {
             String reply = future.get(timeout, TimeUnit.SECONDS);
 
             if (reply == null || reply.isBlank()) {
-                log.warn("Received empty response from AI model. Triggering fallback.");
-                return fallbackService.generateFallback(request, "Mô hình AI phản hồi rỗng");
+                log.warn("GEMINI_FALLBACK: Received empty response from Gemini model. Triggering fallback.");
+                return fallbackService.generateFallback(request, context, "Gemini phản hồi nội dung rỗng");
             }
 
             AcademicAdvisorResponse response = new AcademicAdvisorResponse();
             response.setReply(reply.trim());
-            response.setCategory("AI_ADVISOR");
+            response.setCategory(fallbackService.detectCategory(request.getMessage()));
+            response.setMode(enrollmentAvailable ? "GEMINI" : "LIMITED");
             response.setSuggestions(knowledgeBase.getDefaultSuggestions());
             response.setProvider(aiConfig.getProvider());
             response.setModel(aiConfig.getEffectiveModel());
             response.setFallbackUsed(false);
             response.setTimestamp(LocalDateTime.now());
 
-            log.info("Successfully generated academic advice via {}", aiConfig.getEffectiveModel());
+            if (context != null) {
+                response.setAcademicSummary(context.toSummary());
+                response.setRecommendations(buildCourseRecommendations(context));
+            } else {
+                response.setLimitations(List.of("Không thể kết nối đến Enrollment Service để truy xuất hồ sơ học tập cá nhân."));
+            }
+
+            long latencyMs = System.currentTimeMillis() - startTime;
+            log.info("GEMINI_SUCCESS: Successfully generated academic advice for student='{}' via {} in {}ms",
+                    studentIdentifier, aiConfig.getEffectiveModel(), latencyMs);
             return response;
 
         } catch (TimeoutException te) {
-            log.error("Academic Advisor call timed out after {}s. Invoking fallback.", timeout);
-            return fallbackService.generateFallback(request, "AI timeout sau " + timeout + " giây");
+            long latencyMs = System.currentTimeMillis() - startTime;
+            log.error("GEMINI_FALLBACK: Academic Advisor call timed out after {}ms (limit: {}s). Invoking fallback.",
+                    latencyMs, timeout);
+            return fallbackService.generateFallback(request, context, "Gemini timeout sau " + timeout + " giây");
         } catch (Exception ex) {
-            log.error("Academic Advisor call encountered error: {}. Invoking fallback.", ex.getMessage(), ex);
-            return fallbackService.generateFallback(request, "AI error: " + ex.getMessage());
+            long latencyMs = System.currentTimeMillis() - startTime;
+            log.error("GEMINI_FALLBACK: Gemini call encountered error after {}ms: {}. Invoking fallback.",
+                    latencyMs, ex.getMessage());
+            return fallbackService.generateFallback(request, context, "Gemini error: " + ex.getMessage());
         }
+    }
+
+    private List<CourseRecommendationDto> buildCourseRecommendations(StudentAcademicContextDto context) {
+        List<CourseRecommendationDto> recommendations = new ArrayList<>();
+        if (context.getAvailableCourses() == null) return recommendations;
+
+        for (AvailableCourseDto av : context.getAvailableCourses()) {
+            if (Boolean.TRUE.equals(av.getPrerequisiteSatisfied())
+                    && !Boolean.TRUE.equals(av.getAlreadyCompleted())
+                    && !Boolean.TRUE.equals(av.getCurrentlyEnrolled())) {
+
+                String priority = Boolean.TRUE.equals(av.getHasScheduleConflict()) ? "MEDIUM" : "HIGH";
+                String reason;
+                if (av.getPrerequisiteCourseCode() != null) {
+                    reason = "Đã hoàn thành môn tiên quyết " + av.getPrerequisiteCourseCode()
+                            + " (" + (av.getPrerequisiteCourseName() != null ? av.getPrerequisiteCourseName() : "") + "). Môn mở lớp trong kỳ và phù hợp lộ trình ngành " + context.getMajor() + ".";
+                } else {
+                    reason = "Môn học nền tảng không yêu cầu tiên quyết, phù hợp tích lũy trong học kỳ tiếp theo.";
+                }
+
+                if (Boolean.TRUE.equals(av.getHasScheduleConflict())) {
+                    reason += " [Lưu ý: Có lịch học trùng ca, hãy chọn Section phù hợp].";
+                }
+
+                recommendations.add(new CourseRecommendationDto(
+                        av.getCourseCode(),
+                        av.getCourseName(),
+                        av.getCredits(),
+                        reason,
+                        true,
+                        true,
+                        priority
+                ));
+            }
+        }
+        return recommendations;
     }
 }

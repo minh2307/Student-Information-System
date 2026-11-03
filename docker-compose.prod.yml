@@ -90,6 +90,28 @@ services:
           cpus: '1.0'
           memory: 1024M
 
+  ai-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/ai-service:${IMAGE_TAG:-prod}
+    container_name: eduportal-ai-prod
+    restart: always
+    ports:
+      - "8084:8084"
+    environment:
+      AI_API_KEY: ${AI_API_KEY:-demo-key}
+      AI_BASE_URL: ${AI_BASE_URL:-https://openrouter.ai/api}
+      AI_MODEL: ${AI_MODEL:-google/gemini-2.5-flash}
+      AI_PROVIDER: ${AI_PROVIDER:-openrouter}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-1500}
+      ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
+      SPRING_PROFILES_ACTIVE: prod
+    depends_on:
+      - enrollment-service
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
   frontend:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/frontend:${IMAGE_TAG:-prod}
     container_name: eduportal-frontend-prod
@@ -100,6 +122,7 @@ services:
       - auth-service
       - lecturer-service
       - enrollment-service
+      - ai-service
     deploy:
       resources:
         limits:

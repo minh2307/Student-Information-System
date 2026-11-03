@@ -30,17 +30,31 @@ public class StudentPortalController {
     private final CourseRegistrationService registrationService;
     private final com.rikkei.eduportal.enrollment.service.ExamScheduleService examScheduleService;
     private final RealtimeSeatService realtimeSeatService;
+    private final com.rikkei.eduportal.enrollment.service.AcademicContextService academicContextService;
     private final ObjectMapper objectMapper;
 
     public StudentPortalController(StudentDashboardService dashboardService,
                                    CourseRegistrationService registrationService,
                                    com.rikkei.eduportal.enrollment.service.ExamScheduleService examScheduleService,
-                                   RealtimeSeatService realtimeSeatService) {
+                                   RealtimeSeatService realtimeSeatService,
+                                   com.rikkei.eduportal.enrollment.service.AcademicContextService academicContextService) {
         this.dashboardService = dashboardService;
         this.registrationService = registrationService;
         this.examScheduleService = examScheduleService;
         this.realtimeSeatService = realtimeSeatService;
+        this.academicContextService = academicContextService;
         this.objectMapper = new ObjectMapper();
+    }
+
+    /**
+     * GET /api/v1/student/academic-context
+     * Tổng hợp hồ sơ học vụ toàn diện phục vụ AI Academic Advisor và tra cứu cá nhân
+     */
+    @GetMapping("/academic-context")
+    public ResponseEntity<ApiResponse<StudentAcademicContextDto>> getAcademicContext(HttpServletRequest request) {
+        String studentIdentifier = extractStudentIdentifier(request);
+        StudentAcademicContextDto context = academicContextService.getStudentAcademicContext(studentIdentifier);
+        return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu học vụ tổng hợp thành công", context));
     }
 
     /**
