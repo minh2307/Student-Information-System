@@ -232,3 +232,17 @@ CREATE INDEX IF NOT EXISTS idx_slot_section_status ON slot_reservations(class_se
 CREATE INDEX IF NOT EXISTS idx_slot_student_status ON slot_reservations(student_id, status);
 CREATE INDEX IF NOT EXISTS idx_slot_expires_at ON slot_reservations(expires_at);
 
+-- 16. Table refresh_tokens (Refresh Token cho xác thực OAuth2 & Rotation - auth-service)
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expiry_date TIMESTAMP NOT NULL,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_token ON refresh_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_refresh_user_id ON refresh_tokens(user_id);
+
+

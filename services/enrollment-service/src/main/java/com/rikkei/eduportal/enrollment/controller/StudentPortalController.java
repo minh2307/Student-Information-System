@@ -214,7 +214,8 @@ public class StudentPortalController {
             }
         }
 
-        // 3. Fallback mặc định cho môi trường dev/demo theo seed data
-        return "sv2024001";
+        // 3. Không có thông tin xác thực hợp lệ -> Từ chối truy cập (401)
+        throw new com.rikkei.eduportal.enrollment.exception.UnauthorizedException(
+                "Yêu cầu xác thực: Vui lòng đăng nhập để truy cập cổng thông tin sinh viên.");
     }
 }

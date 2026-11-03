@@ -2,6 +2,7 @@ package com.rikkei.eduportal.auth.controller;
 
 import com.rikkei.eduportal.auth.dto.AuthResponse;
 import com.rikkei.eduportal.auth.dto.LoginRequest;
+import com.rikkei.eduportal.auth.dto.RefreshTokenRequest;
 import com.rikkei.eduportal.auth.service.AuthService;
 import com.rikkei.eduportal.common.ApiResponse;
 import jakarta.validation.Valid;
@@ -22,5 +23,19 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("Đăng nhập thành công", response));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        AuthResponse response = authService.refreshToken(request);
+        return ResponseEntity.ok(ApiResponse.success("Làm mới token thành công", response));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody(required = false) RefreshTokenRequest request) {
+        if (request != null && request.getRefreshToken() != null) {
+            authService.logout(request.getRefreshToken());
+        }
+        return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công", null));
     }
 }
