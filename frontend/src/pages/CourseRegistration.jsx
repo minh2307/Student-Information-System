@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
 import ScheduleOptimizerModal from '../components/ScheduleOptimizerModal'
@@ -11,7 +12,8 @@ import {
   Calendar, 
   Clock, 
   MapPin, 
-  Users, 
+  Users,
+  CreditCard, 
   AlertTriangle,
   BookOpen,
   Filter,
@@ -71,7 +73,11 @@ export const CourseRegistration = () => {
   useEffect(() => {
     let eventSource = null
     try {
-      eventSource = new EventSource('/api/v1/student/class-sections/live-seats')
+      const studentCode = user?.studentCode || user?.username || ''
+      const sseUrl = studentCode
+        ? `/api/v1/student/class-sections/live-seats?studentCode=${encodeURIComponent(studentCode)}`
+        : '/api/v1/student/class-sections/live-seats'
+      eventSource = new EventSource(sseUrl)
 
       eventSource.addEventListener('SEAT_UPDATE', (event) => {
         try {
@@ -113,6 +119,34 @@ export const CourseRegistration = () => {
 
       eventSource.addEventListener('HEARTBEAT', () => {
         // Heartbeat keep-alive từ server (EDUP-204-1)
+      })
+
+      // Cảnh báo giữ chỗ sắp hết hạn (<= 60s) từ server push (EDUP-203)
+      eventSource.addEventListener('RESERVATION_EXPIRING', (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          setMessage({
+            type: 'warning',
+            text: `Lớp ${data.sectionCode} (${data.courseName}) chỉ còn ${data.remainingSeconds}s giữ chỗ! Hãy bấm Đăng ký ngay.`
+          })
+        } catch (e) {
+          console.debug('Lỗi parse RESERVATION_EXPIRING:', e)
+        }
+      })
+
+      // Thông báo thu hồi giữ chỗ đã hết hạn 300s từ server push (EDUP-203)
+      eventSource.addEventListener('RESERVATION_EXPIRED', (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          setMessage({
+            type: 'warning',
+            text: `Phiên giữ chỗ lớp ${data.sectionCode} (${data.courseName}) đã hết hạn 300s. Chỗ đã được giải phóng.`
+          })
+          fetchActiveReservations()
+          fetchSections()
+        } catch (e) {
+          console.debug('Lỗi parse RESERVATION_EXPIRED:', e)
+        }
       })
     } catch (e) {
       console.warn('EventSource không khả dụng:', e)
@@ -863,6 +897,24 @@ export const CourseRegistration = () => {
             </span>
           </div>
         </div>
+
+        {enrolledSummary.credits > 0 && (
+          <div className="mt-4 pt-3 border-t border-stone-100 flex flex-wrap items-center justify-between gap-3 text-xs bg-stone-50/80 -mx-5 -mb-5 px-5 py-3 rounded-b-2xl">
+            <div className="flex items-center gap-2 text-stone-700">
+              <CreditCard size={15} className="text-red-700 shrink-0" />
+              <span>
+                Học phí tạm tính: <strong className="font-mono text-red-800 font-bold">{(enrolledSummary.credits * 450000 + 300000).toLocaleString('vi-VN')} đ</strong> ({enrolledSummary.credits} TC × 450.000đ + 300.000đ CSVC)
+              </span>
+            </div>
+            <Link
+              to="/student/tuition"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-lg shadow-2xs transition"
+            >
+              <span>Nộp học phí VietQR Napas247</span>
+              <ChevronRight size={14} />
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Notifications Message Banner */}

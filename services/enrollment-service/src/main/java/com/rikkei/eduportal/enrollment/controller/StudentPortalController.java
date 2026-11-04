@@ -115,7 +115,27 @@ public class StudentPortalController {
      * Luồng SSE nhận cập nhật sĩ số thời gian thực (Real-time Live Seat Counter - EDUP-204, F-05).
      */
     @GetMapping(value = {"/class-sections/live-seats", "/live-seats"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamLiveSeats() {
+    public SseEmitter streamLiveSeats(
+            HttpServletRequest request,
+            @RequestParam(value = "studentCode", required = false) String studentCodeParam) {
+        String identifier = null;
+        if (studentCodeParam != null && !studentCodeParam.trim().isEmpty()) {
+            identifier = studentCodeParam.trim();
+        } else {
+            try {
+                identifier = extractStudentIdentifier(request);
+            } catch (Exception ignored) {
+                // Anonymous connection
+            }
+        }
+
+        if (identifier != null) {
+            try {
+                return realtimeSeatService.subscribeLiveSeatsAuthenticated(identifier);
+            } catch (Exception ex) {
+                log.debug("Fallback to anonymous SSE subscription: {}", ex.getMessage());
+            }
+        }
         return realtimeSeatService.subscribeLiveSeats();
     }
 
