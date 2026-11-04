@@ -187,11 +187,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: backend-jars
+          path: services
 
       # Khởi động auth-service (JWT issuance)
       - name: Start auth-service (port 8081)
         run: |
-          AUTH_JAR=$(ls services/auth-service/build/libs/*.jar | grep -v 'plain' | head -n 1)
+          AUTH_JAR=$(find services/auth-service/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          [ -z "$AUTH_JAR" ] && AUTH_JAR=$(find . -name "auth-service*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          if [ -z "$AUTH_JAR" ] || [ ! -f "$AUTH_JAR" ]; then
+            echo "❌ Cannot find auth-service JAR! Workspace jars:"
+            find . -name "*.jar"
+            exit 1
+          fi
+          echo "Starting auth-service with jar: $AUTH_JAR"
           nohup java -jar "$AUTH_JAR" \
             --server.port=8081 \
             --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
@@ -205,7 +213,14 @@ jobs:
       # Khởi động lecturer-service (chủ thể test chính)
       - name: Start lecturer-service (port 8085)
         run: |
-          LECTURER_JAR=$(ls services/lecturer-service/build/libs/*.jar | grep -v 'plain' | head -n 1)
+          LECTURER_JAR=$(find services/lecturer-service/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          [ -z "$LECTURER_JAR" ] && LECTURER_JAR=$(find . -name "lecturer-service*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          if [ -z "$LECTURER_JAR" ] || [ ! -f "$LECTURER_JAR" ]; then
+            echo "❌ Cannot find lecturer-service JAR! Workspace jars:"
+            find . -name "*.jar"
+            exit 1
+          fi
+          echo "Starting lecturer-service with jar: $LECTURER_JAR"
           nohup java -jar "$LECTURER_JAR" \
             --server.port=8085 \
             --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
@@ -219,8 +234,10 @@ jobs:
       # Khởi động enrollment-service (nếu jar tồn tại — merge với Quân)
       - name: Start enrollment-service (port 8083) — optional
         run: |
-          ENROLL_JAR=$(ls services/enrollment-service/build/libs/*.jar 2>/dev/null | grep -v 'plain' | head -n 1 || true)
-          if [ -n "$ENROLL_JAR" ]; then
+          ENROLL_JAR=$(find services/enrollment-service/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          [ -z "$ENROLL_JAR" ] && ENROLL_JAR=$(find . -name "enrollment-service*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          if [ -n "$ENROLL_JAR" ] && [ -f "$ENROLL_JAR" ]; then
+            echo "Starting enrollment-service with jar: $ENROLL_JAR"
             nohup java -jar "$ENROLL_JAR" \
               --server.port=8083 \
               --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
@@ -405,6 +422,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: backend-jars
+          path: services
 
       - name: Download frontend dist
         if: matrix.service.artifact == 'frontend-dist'

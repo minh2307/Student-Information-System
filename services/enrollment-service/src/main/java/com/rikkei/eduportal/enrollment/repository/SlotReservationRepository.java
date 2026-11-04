@@ -22,6 +22,14 @@ public interface SlotReservationRepository extends JpaRepository<SlotReservation
     long countActiveReservations(@Param("sectionId") Long sectionId, @Param("now") LocalDateTime now);
 
     @Query("""
+        SELECT r.classSection.id, COUNT(r) FROM SlotReservation r
+        WHERE r.status = 'ACTIVE'
+          AND r.expiresAt > :now
+        GROUP BY r.classSection.id
+        """)
+    List<Object[]> countActiveReservationsGrouped(@Param("now") LocalDateTime now);
+
+    @Query("""
         SELECT r FROM SlotReservation r
         JOIN FETCH r.classSection cs
         JOIN FETCH cs.course c
