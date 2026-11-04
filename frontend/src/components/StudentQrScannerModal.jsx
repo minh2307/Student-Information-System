@@ -113,7 +113,8 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
     try {
       const res = await api.post('/attendance/check-in', {
         qrToken: token.trim(),
-        deviceInfo: navigator.userAgent
+        deviceInfo: navigator.userAgent,
+        clientTimestampMs: Date.now()
       })
 
       if (res.data?.data) {
@@ -136,8 +137,12 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
         }
       }
     } catch (err) {
-      const msg = err.response?.data?.message || 'Điểm danh không thành công. Mã QR có thể đã hết hạn (sau 15s).'
+      const status = err.response?.status
+      const msg = err.response?.data?.message || 'Điểm danh không thành công. Mã QR có thể đã hết hạn hoặc phiên học đã đóng.'
       setErrorMessage(msg)
+      if (status === 409) {
+        toast.warning(msg, 'Đã Điểm Danh')
+      }
     } finally {
       setSubmitting(false)
     }

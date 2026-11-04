@@ -89,3 +89,4 @@ class GradeLockImmutableIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Điểm của enrollment 100 đã bị khóa, không thể sửa chuyên cần."));
     }
 }
+

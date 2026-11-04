@@ -236,12 +236,12 @@ class QrAttendanceE2EIntegrationTest {
     }
 
     @Test
-    @DisplayName("E2E-02: Anti-Proxy — Chụp màn hình gửi nhóm quá 15 giây (> 1 window) bị từ chối")
+    @DisplayName("E2E-02: Anti-Proxy — Chụp màn hình gửi nhóm quá 30 giây (> 2 windows) bị từ chối")
     void testE2E_AntiProxy_ScreenShotSharing_After15Seconds_Rejected() {
         when(sessionRepo.findById(999L)).thenReturn(Optional.of(liveSession));
 
-        // Token sinh ra từ 2 chu kỳ trước (cũ hơn 30 giây)
-        long expiredWindow = (System.currentTimeMillis() / 15000L) - 2;
+        // Token sinh ra từ 3 chu kỳ trước (cũ hơn 45 giây, vượt ngoài dung sai time drift 30s)
+        long expiredWindow = (System.currentTimeMillis() / 15000L) - 3;
         String payload = "999:88:" + expiredWindow;
         String signature = computeHmacSha256(payload, sessionSecret);
         String staleToken = "999.88." + expiredWindow + "." + signature;
@@ -258,6 +258,35 @@ class QrAttendanceE2EIntegrationTest {
         // Đảm bảo không có bản ghi nào bị ghi nhận sai
         verify(recordRepo, never()).save(any());
         assertThat(liveSession.getTotalAttendees()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("E2E-05: Nới lỏng Time Drift Window ±30s — Quét trễ 2 chu kỳ do delay mạng 4G hoặc Clock Mobile lệch vẫn điểm danh thành công")
+    void testE2E_TimeDriftTolerance_Within30Seconds_Accepted() {
+        when(sessionRepo.findById(999L)).thenReturn(Optional.of(liveSession));
+        when(studentProfileRepo.findByUserUsername("sv20210088")).thenReturn(Optional.of(mockStudent1));
+        when(enrollmentRepo.findByClassSectionIdAndStudentId(88L, 301L)).thenReturn(Optional.of(mockEnrollment1));
+        when(recordRepo.existsBySessionIdAndStudentId(999L, 301L)).thenReturn(false);
+        when(recordRepo.save(any(AttendanceRecord.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Token sinh ra cách 2 chu kỳ (cũ hơn 25-30s)
+        long driftWindow = (System.currentTimeMillis() / 15000L) - 2;
+        String payload = "999:88:" + driftWindow;
+        String signature = computeHmacSha256(payload, sessionSecret);
+        String driftToken = "999.88." + driftWindow + "." + signature;
+
+        AttendanceCheckInRequest driftRequest = new AttendanceCheckInRequest(
+                driftToken,
+                "iPhone 14 Pro - iOS 17.5 Safari",
+                System.currentTimeMillis() - 28000L // mobile client timestamp
+        );
+
+        AttendanceCheckInResponse response = qrAttendanceService.studentCheckIn("sv20210088", driftRequest);
+
+        assertThat(response).isNotNull();
+        assertThat(response.studentCode()).isEqualTo("20210088");
+        assertThat(response.message()).contains("Điểm danh thành công");
+        verify(recordRepo, times(1)).save(any(AttendanceRecord.class));
     }
 
     @Test
