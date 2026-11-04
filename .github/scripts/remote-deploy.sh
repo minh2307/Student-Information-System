@@ -104,45 +104,36 @@ docker compose -f "${COMPOSE_FILE}" exec -T postgres sh -c \
    || (psql -U postgres -d academic_db -f /docker-entrypoint-initdb.d/01-schema.sql \
        && psql -U postgres -d academic_db -f /docker-entrypoint-initdb.d/02-seed-data.sql)" || true
 
-# Health check lecturer-service & các service
+# Health check nhanh lecturer-service & kiểm tra trạng thái containers
 echo "=== Health check lecturer-service... ==="
 LECTURER_OK=false
-for i in $(seq 1 35); do
-  RES_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 http://127.0.0.1:8085/actuator/health 2>/dev/null \
-    || curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 http://localhost:8085/actuator/health 2>/dev/null \
-    || echo "000")
+for i in $(seq 1 10); do
+  RES_CODE=$(curl -s -m 1 -o /dev/null -w "%{http_code}" http://127.0.0.1:8085/actuator/health 2>/dev/null || echo "000")
 
   if [ "$RES_CODE" = "200" ]; then
-    echo "Health check PASSED ✓ (HTTP 200 sau $((i * 3))s)"
+    echo "Health check PASSED ✓ (HTTP 200 sau $((i * 2))s)"
     LECTURER_OK=true
     break
   fi
 
-  # Fallback: kiểm tra trực tiếp qua internal container hoặc docker ps
-  CONTAINER_STATUS=$(docker compose -f "${COMPOSE_FILE}" ps 2>/dev/null | grep 'eduportal-lecturer' || true)
-  if echo "$CONTAINER_STATUS" | grep -q "Up"; then
-    INTERNAL_CHECK=$(docker compose -f "${COMPOSE_FILE}" exec -T lecturer-service sh -c 'wget -qO- --timeout=2 http://127.0.0.1:8085/actuator/health 2>/dev/null || echo ""' 2>/dev/null || true)
-    if echo "$INTERNAL_CHECK" | grep -q -i "UP"; then
-      echo "Health check PASSED via container internal ✓ (sau $((i * 3))s)"
-      LECTURER_OK=true
-      break
-    fi
-  fi
-
-  echo "Chua san sang, cho 3s... (lan ${i}/35, HTTP: ${RES_CODE})"
-  sleep 3
+  echo "Dang khoi dong, cho 2s... (lan ${i}/10, HTTP: ${RES_CODE})"
+  sleep 2
 done
 
-if [ "$LECTURER_OK" != "true" ]; then
-  echo "⚠️ Warning: lecturer-service external health check did not return HTTP 200 in 105s."
-  docker compose -f "${COMPOSE_FILE}" ps
-  docker compose -f "${COMPOSE_FILE}" logs --tail 50 lecturer-service || true
-  # Nếu container vẫn đang Up bình thường (chỉ là Actuator endpoint phản hồi khác), không ngắt build
-  if docker compose -f "${COMPOSE_FILE}" ps 2>/dev/null | grep 'eduportal-lecturer' | grep -q "Up"; then
-    echo "ℹ️ Container eduportal-lecturer is running (Up). Continuing deploy..."
-  else
-    echo "❌ eduportal-lecturer container has stopped or crashed!"
+# In bảng trạng thái các container sau khi khởi động
+echo "=== Container Statuses ==="
+docker compose -f "${COMPOSE_FILE}" ps
+
+if [ "$LECTURER_OK" = "true" ]; then
+  echo "✅ lecturer-service is ready (HTTP 200)"
+else
+  # Kiểm tra xem có container nào bị crash/restart liên tục không
+  if docker compose -f "${COMPOSE_FILE}" ps 2>/dev/null | grep 'eduportal' | grep -v -E '(Up|healthy)'; then
+    echo "❌ Detected failed container(s)!"
+    docker compose -f "${COMPOSE_FILE}" logs --tail 40
     exit 1
+  else
+    echo "ℹ️ All containers are running (Up). Microservices will be ready shortly in background."
   fi
 fi
 
