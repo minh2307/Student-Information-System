@@ -33,6 +33,11 @@ import java.util.Map;
 import java.util.UUID;
 import javax.imageio.ImageIO;
 
+/**
+ * [TASK-D02-LUONG] Dịch vụ quản lý luồng Điểm danh Mã QR Động TOTP xoay vòng 15 giây.
+ * Hỗ trợ toàn bộ quy trình E2E: Giảng viên mở phiên chiếu mã QR -> Sinh viên quét camera mobile
+ * thời gian thực -> Xác thực TOTP HMAC-SHA256 & lưu bản ghi vào attendance_records.
+ */
 @Service
 @Transactional(readOnly = true)
 public class QrAttendanceService {

@@ -765,7 +765,7 @@ export const StudentTimetable = () => {
         isOpen={showCheckInModal}
         onClose={() => setShowCheckInModal(false)}
         onSuccess={(result) => {
-          toast.success(`Điểm danh thành công môn ${result.courseName}!`)
+          // Toast xanh đã được StudentQrScannerModal tự động hiển thị cho mobile sinh viên
         }}
       />
     </div>

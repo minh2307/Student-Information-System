@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { Camera, QrCode, X, CheckCircle2, AlertCircle, RefreshCw, Keyboard, Loader2 } from 'lucide-react'
 import api from '../services/api'
+import { toast } from '../store/toastStore'
 
 export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
   const [activeTab, setActiveTab] = useState('camera') // 'camera' | 'manual'
@@ -116,9 +117,22 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
       })
 
       if (res.data?.data) {
-        setCheckInResult(res.data.data)
+        const result = res.data.data
+        setCheckInResult(result)
+
+        // Haptic feedback cho trải nghiệm mobile chân thực
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([100, 50, 100])
+        }
+
+        // Bắn Toast xanh thành công hiển thị ngay lập tức trên mobile sinh viên
+        toast.success(
+          `Điểm danh thành công môn ${result.courseName || ''} (${result.sectionCode || ''})!`,
+          'Điểm Danh Thành Công'
+        )
+
         if (onSuccess) {
-          onSuccess(res.data.data)
+          onSuccess(result)
         }
       }
     } catch (err) {
