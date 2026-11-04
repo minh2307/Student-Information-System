@@ -90,8 +90,7 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/frontend:${IMAGE_TAG:-dev}
     container_name: eduportal-frontend-dev
     ports:
-      - "${FRONTEND_PORT:-80}:80"
-      - "${FRONTEND_ALT_PORT:-3000}:80"
+      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - auth-service
       - lecturer-service

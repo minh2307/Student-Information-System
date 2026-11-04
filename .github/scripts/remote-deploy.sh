@@ -22,7 +22,7 @@ for compose_spec in docker-compose.prod.yml docker-compose.staging.yml docker-co
 done
 
 # Giải phóng triệt để các port trên host nếu có container chiếm dụng
-for port in 80 3000 5432 8081 8083 8084 8085; do
+for port in 3000 5432 8081 8083 8084 8085; do
   cids=$(docker ps -q --filter "publish=${port}" 2>/dev/null || true)
   if [ -n "$cids" ]; then
     echo "Stopping & removing container(s) binding port ${port}: $cids"
@@ -38,35 +38,16 @@ if [ -n "$eduportal_cids" ]; then
   docker rm -f $eduportal_cids 2>/dev/null || true
 fi
 
-# Dừng dịch vụ web trên host OS (nginx/apache2) nếu có
-if command -v systemctl >/dev/null 2>&1; then
-  if systemctl is-active --quiet nginx 2>/dev/null; then
-    echo "Stopping host nginx service to free port 80..."
-    systemctl stop nginx 2>/dev/null || true
-  fi
-  if systemctl is-active --quiet apache2 2>/dev/null; then
-    echo "Stopping host apache2 service to free port 80..."
-    systemctl stop apache2 2>/dev/null || true
-  fi
-fi
-
-# Giải phóng socket treo trên port 80 và 3000 bằng fuser nếu có
+# Giải phóng socket treo trên port 3000 bằng fuser nếu có
 if command -v fuser >/dev/null 2>&1; then
-  fuser -k 80/tcp 2>/dev/null || true
   fuser -k 3000/tcp 2>/dev/null || true
 fi
 
 # Chờ 2 giây để Linux kernel TCP socket hoàn tất giải phóng
 sleep 2
 
-# Ưu tiên port 80 cho tất cả môi trường để truy cập trực tiếp; fallback về 3000 nếu port 80 bị chiếm
-RESOLVED_FRONTEND_PORT="${FRONTEND_PORT:-80}"
-if [ "${RESOLVED_FRONTEND_PORT}" = "80" ]; then
-  if command -v ss >/dev/null 2>&1 && ss -tulpn 2>/dev/null | grep -q ':80\b'; then
-    echo "⚠️ Warning: Port 80 is in use on host. Falling back FRONTEND_PORT to 3000 to prevent deploy failure!"
-    RESOLVED_FRONTEND_PORT="3000"
-  fi
-fi
+# Frontend port mặc định là 3000 (được host nginx reverse proxy từ 80 & 443 SSL)
+RESOLVED_FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 
 # Ghi file .env từ biến môi trường (được truyền qua SSH)
 {
@@ -165,8 +146,18 @@ if [ "$LECTURER_OK" != "true" ]; then
   fi
 fi
 
+# Đảm bảo host nginx reverse proxy luôn chạy để xử lý SSL và port 80/443
+if command -v systemctl >/dev/null 2>&1; then
+  if systemctl list-unit-files 2>/dev/null | grep -q nginx; then
+    echo "=== Ensuring host nginx reverse proxy is active... ==="
+    systemctl start nginx 2>/dev/null || true
+    systemctl reload nginx 2>/dev/null || true
+  fi
+fi
+
 # Kiểm tra thêm frontend
 echo "=== Verifying frontend connectivity on port ${RESOLVED_FRONTEND_PORT}... ==="
-curl -s -o /dev/null -w "Frontend HTTP: %{http_code}\n" --connect-timeout 3 "http://127.0.0.1:${RESOLVED_FRONTEND_PORT}/" || true
+curl -s -o /dev/null -w "Frontend internal HTTP: %{http_code}\n" --connect-timeout 3 "http://127.0.0.1:${RESOLVED_FRONTEND_PORT}/" || true
+curl -s -o /dev/null -w "Host HTTP (port 80): %{http_code}\n" --connect-timeout 3 "http://127.0.0.1:80/" || true
 
 echo "✅ Deploy ${ENV_NAME} succeeded"
