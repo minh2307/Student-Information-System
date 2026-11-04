@@ -86,7 +86,7 @@ export const StudentGrades = () => {
             Bảng Ghi Điểm Học Tập & Đánh Giá Học Phần
           </h1>
           <p className="text-xs text-stone-600 mt-0.5">
-            Cơ cấu điểm kiểm tra: Chuyên cần (10%) • Đánh giá giữa kỳ (30%) • Thi kết thúc học phần (60%)
+            Cơ cấu điểm kiểm tra: Chuyên cần (10%) • Đánh giá giữa kỳ (40%) • Thi kết thúc học phần (50%)
           </p>
         </div>
 
@@ -202,8 +202,8 @@ export const StudentGrades = () => {
                   <th className="px-3 py-3 text-center">Học kỳ</th>
                   <th className="px-3 py-3 text-center">Số TC</th>
                   <th className="px-3 py-3 text-right">Chuyên cần (10%)</th>
-                  <th className="px-3 py-3 text-right">Giữa kỳ (30%)</th>
-                  <th className="px-3 py-3 text-right">Cuối kỳ (60%)</th>
+                  <th className="px-3 py-3 text-right">Giữa kỳ (40%)</th>
+                  <th className="px-3 py-3 text-right">Cuối kỳ (50%)</th>
                   <th className="px-3 py-3 text-right font-bold text-red-800">Tổng kết (Hệ 10)</th>
                   <th className="px-3 py-3 text-center">Điểm chữ</th>
                   <th className="px-4 py-3 text-center">Tình trạng</th>
