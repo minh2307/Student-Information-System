@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rikkei.eduportal.common.ApiResponse;
 import com.rikkei.eduportal.enrollment.dto.TuitionDto;
+import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
 import com.rikkei.eduportal.enrollment.service.TuitionService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -28,9 +29,10 @@ public class TuitionController {
     @GetMapping
     public ResponseEntity<ApiResponse<TuitionDto>> getTuition(
             @RequestParam(required = false) String semester,
+            @RequestParam(required = false) String bank,
             HttpServletRequest request) {
         String studentIdentifier = extractUser(request);
-        TuitionDto dto = tuitionService.getStudentTuition(studentIdentifier, semester);
+        TuitionDto dto = tuitionService.getStudentTuition(studentIdentifier, semester, bank);
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin học phí thành công", dto));
     }
 
@@ -40,7 +42,7 @@ public class TuitionController {
             HttpServletRequest request) {
         String studentIdentifier = extractUser(request);
         String semester = body != null ? body.get("semester") : null;
-        String paymentMethod = body != null ? body.get("paymentMethod") : "VietQR";
+        String paymentMethod = body != null ? body.get("paymentMethod") : "VietQR Napas247";
         TuitionDto dto = tuitionService.payTuition(studentIdentifier, semester, paymentMethod);
         return ResponseEntity.ok(ApiResponse.success("Thanh toán học phí thành công", dto));
     }
@@ -67,6 +69,6 @@ public class TuitionController {
                 } catch (Exception ignored) {}
             }
         }
-        return "sv2024001";
+        throw new UnauthorizedException("Yêu cầu xác thực tài khoản sinh viên hợp lệ để truy cập thông tin học phí.");
     }
 }
