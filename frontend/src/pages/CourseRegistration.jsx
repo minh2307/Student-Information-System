@@ -73,7 +73,11 @@ export const CourseRegistration = () => {
   useEffect(() => {
     let eventSource = null
     try {
-      eventSource = new EventSource('/api/v1/student/class-sections/live-seats')
+      const studentCode = user?.studentCode || user?.username || ''
+      const sseUrl = studentCode
+        ? `/api/v1/student/class-sections/live-seats?studentCode=${encodeURIComponent(studentCode)}`
+        : '/api/v1/student/class-sections/live-seats'
+      eventSource = new EventSource(sseUrl)
 
       eventSource.addEventListener('SEAT_UPDATE', (event) => {
         try {
@@ -115,6 +119,34 @@ export const CourseRegistration = () => {
 
       eventSource.addEventListener('HEARTBEAT', () => {
         // Heartbeat keep-alive từ server (EDUP-204-1)
+      })
+
+      // Cảnh báo giữ chỗ sắp hết hạn (<= 60s) từ server push (EDUP-203)
+      eventSource.addEventListener('RESERVATION_EXPIRING', (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          setMessage({
+            type: 'warning',
+            text: `Lớp ${data.sectionCode} (${data.courseName}) chỉ còn ${data.remainingSeconds}s giữ chỗ! Hãy bấm Đăng ký ngay.`
+          })
+        } catch (e) {
+          console.debug('Lỗi parse RESERVATION_EXPIRING:', e)
+        }
+      })
+
+      // Thông báo thu hồi giữ chỗ đã hết hạn 300s từ server push (EDUP-203)
+      eventSource.addEventListener('RESERVATION_EXPIRED', (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          setMessage({
+            type: 'warning',
+            text: `Phiên giữ chỗ lớp ${data.sectionCode} (${data.courseName}) đã hết hạn 300s. Chỗ đã được giải phóng.`
+          })
+          fetchActiveReservations()
+          fetchSections()
+        } catch (e) {
+          console.debug('Lỗi parse RESERVATION_EXPIRED:', e)
+        }
       })
     } catch (e) {
       console.warn('EventSource không khả dụng:', e)
