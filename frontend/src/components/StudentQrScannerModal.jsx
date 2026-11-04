@@ -292,6 +292,23 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
     }
   }, [isOpen, activeTab, startScanner, stopScanner])
 
+  // Lắng nghe phím ESC & Khoá cuộn body khi mở Modal
+  useEffect(() => {
+    if (!isOpen) return
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen])
+
   // Xử lý khi quét thấy mã QR
   const onScanSuccess = async (decodedText) => {
     if (isProcessingRef.current || submitting) return
@@ -384,7 +401,12 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+    <div 
+      className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose()
+      }}
+    >
       {/* CSS chống màn hình đen & tối ưu hiển thị video trên iOS Safari & Android Chrome */}
       <style>{`
         #${containerId} {
@@ -411,7 +433,10 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
         }
       `}</style>
 
-      <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
+      <div 
+        className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2.5">
@@ -424,10 +449,12 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
             </div>
           </div>
           <button
+            type="button"
             onClick={handleClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 active:bg-slate-300 transition-colors touch-manipulation cursor-pointer"
+            aria-label="Đóng Quét QR"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
