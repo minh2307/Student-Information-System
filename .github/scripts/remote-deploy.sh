@@ -22,7 +22,7 @@ for compose_spec in docker-compose.prod.yml docker-compose.staging.yml docker-co
 done
 
 # Giải phóng triệt để các port trên host nếu có container chiếm dụng
-for port in 80 3000 5432 8081 8083 8085; do
+for port in 80 3000 5432 8081 8083 8084 8085; do
   cids=$(docker ps -q --filter "publish=${port}" 2>/dev/null || true)
   if [ -n "$cids" ]; then
     echo "Stopping & removing container(s) binding port ${port}: $cids"
@@ -92,6 +92,11 @@ fi
   echo "FRONTEND_PORT=${RESOLVED_FRONTEND_PORT}"
   echo "FRONTEND_ALT_PORT=${FRONTEND_ALT_PORT:-3000}"
 } > .env
+
+# Đăng nhập GHCR nếu có token truyền vào (đảm bảo quyền pull các package mới/private)
+if [ -n "${GHCR_TOKEN}" ] && [ -n "${GHCR_USER}" ]; then
+  echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin 2>/dev/null || true
+fi
 
 # Pull images trước khi tắt container cũ để giảm tối đa downtime
 echo "=== Pulling images... ==="
