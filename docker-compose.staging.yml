@@ -69,7 +69,7 @@ services:
     image: ${IMAGE_PREFIX}/frontend:${IMAGE_TAG}
     container_name: eduportal-frontend-staging
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - auth-service
       - lecturer-service

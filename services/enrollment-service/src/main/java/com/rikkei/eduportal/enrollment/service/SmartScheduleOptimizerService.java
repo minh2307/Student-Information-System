@@ -16,10 +16,24 @@ import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * AI CSP Solver (Constraint Satisfaction Problem) cho bộ xếp lịch tự động.
+ * Tối ưu hóa đặc biệt cho máy chủ tài nguyên giới hạn (VPS 1 Core / 2GB RAM):
+ * 1. Fail-safe & Bounds Check: Validate đầu vào, lọc lớp hết chỗ, chặn StackOverflow/NullPointer.
+ * 2. Execution Timeout Protection: Giới hạn tối đa (mặc định 2.5s), ngắt an toàn chuyển sang Fallback.
+ * 3. CSP Pruning & MRV Heuristic + Forward Checking: Cắt tỉa nhánh sớm theo interval collision [startA < endB && endA > startB],
+ *    phát hiện Domain Wipeout lập tức và ưu tiên môn ít lớp mở trước (Minimum Remaining Values).
+ * 4. Partial Solution Fallback: Tuyệt đối không throw 500, trả về lịch cục bộ tối ưu kèm unassignedCourses và lý do chi tiết.
+ * 5. Configuration & Status Contract: Tương thích hoàn toàn với ScheduleOptimizerProperties và OptimizationStatus enum.
+ */
 @Service
 public class SmartScheduleOptimizerService {
 
     private static final Logger log = LoggerFactory.getLogger(SmartScheduleOptimizerService.class);
+
+    private static final long DEFAULT_TIMEOUT_LIMIT_MS = 2500L;
+    private static final int DEFAULT_MAX_COMBINATIONS_CHECKED = 50_000;
+    private static final int DEFAULT_MAX_SOLUTIONS = 50;
 
     private final ClassSectionRepository classSectionRepository;
     private final RealtimeSeatService realtimeSeatService;
@@ -40,87 +54,133 @@ public class SmartScheduleOptimizerService {
     }
 
     /**
-     * Tối ưu hóa thời khóa biểu tự động dựa trên thuật toán AI CSP (Constraint Satisfaction Problem)
-     * kết hợp DFS Backtracking, MRV (Minimum Remaining Values), Forward Checking và Interval Collision Matrix.
+     * Tối ưu hóa thời khóa biểu tự động với cơ chế CSP Solver (MRV + Forward Checking) và Partial Solution Fallback.
      */
     @Transactional(readOnly = true)
     public ScheduleOptimizerResponse optimizeSchedule(String studentCode, ScheduleOptimizerRequest request) {
         long startNanos = System.nanoTime();
+        long startTimeMs = System.currentTimeMillis();
 
-        // 1. Validate Input
+        // 1. Validate dữ liệu đầu vào
         if (request == null || request.getCourseIds() == null || request.getCourseIds().isEmpty()) {
             long executionTimeMs = (System.nanoTime() - startNanos) / 1_000_000;
-            return new ScheduleOptimizerResponse(
-                    OptimizationStatus.INVALID_REQUEST,
-                    "Vui lòng chọn ít nhất một môn học để AI bắt đầu tối ưu hóa thời khóa biểu.",
-                    null, 0, 0, 0, executionTimeMs, null, Collections.emptyList()
+            ScheduleOptimizerResponse emptyResp = new ScheduleOptimizerResponse(
+                    null, 0, 0, 0, Collections.emptyList(),
+                    "Vui lòng chọn ít nhất một môn học để AI bắt đầu tối ưu hóa thời khóa biểu."
             );
+            emptyResp.setSuccess(false);
+            emptyResp.setIsComplete(false);
+            emptyResp.setStatus(OptimizationStatus.INVALID_REQUEST);
+            emptyResp.setExecutionTimeMs(executionTimeMs);
+            return emptyResp;
         }
 
         String semester = request.getSemesterName();
         if (semester == null || semester.trim().isEmpty()) {
-            semester = "2024-25_SEM2"; // Default active semester
+            semester = "2024-25_SEM2";
         }
 
-        // 2. Query Candidate Sections
-        List<ClassSection> candidateSections = classSectionRepository.findBySemesterAndCourseIdIn(
-                semester, request.getCourseIds());
+        List<Long> distinctCourseIds = request.getCourseIds().stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
 
-        if (Boolean.TRUE.equals(request.getOnlyAvailableSeats())) {
-            candidateSections = candidateSections.stream()
-                    .filter(cs -> cs.getCurrentEnrolled() < cs.getMaxCapacity())
+        if (distinctCourseIds.isEmpty()) {
+            long executionTimeMs = (System.nanoTime() - startNanos) / 1_000_000;
+            ScheduleOptimizerResponse emptyResp = new ScheduleOptimizerResponse(
+                    semester, 0, 0, 0, Collections.emptyList(),
+                    "Vui lòng chọn ít nhất một môn học để AI bắt đầu tối ưu hóa thời khóa biểu."
+            );
+            emptyResp.setSuccess(false);
+            emptyResp.setIsComplete(false);
+            emptyResp.setStatus(OptimizationStatus.INVALID_REQUEST);
+            emptyResp.setExecutionTimeMs(executionTimeMs);
+            return emptyResp;
+        }
+
+        // 2. Lấy danh sách lớp học phần
+        List<ClassSection> allSections = classSectionRepository.findBySemesterAndCourseIdIn(
+                semester, distinctCourseIds);
+        if (allSections == null) {
+            allSections = Collections.emptyList();
+        }
+
+        // Lọc bỏ lớp CANCELLED
+        List<ClassSection> activeSections = allSections.stream()
+                .filter(cs -> cs.getStatus() == null || !"CANCELLED".equalsIgnoreCase(cs.getStatus()))
+                .collect(Collectors.toList());
+
+        boolean onlyAvailableSeats = request.getOnlyAvailableSeats() == null || Boolean.TRUE.equals(request.getOnlyAvailableSeats());
+        List<ClassSection> candidateSections;
+        if (onlyAvailableSeats) {
+            candidateSections = activeSections.stream()
+                    .filter(cs -> {
+                        int enrolled = cs.getCurrentEnrolled() != null ? cs.getCurrentEnrolled() : 0;
+                        int capacity = cs.getMaxCapacity() != null ? cs.getMaxCapacity() : 40;
+                        return enrolled < capacity;
+                    })
                     .collect(Collectors.toList());
+        } else {
+            candidateSections = activeSections;
         }
 
         Map<Long, List<ClassSection>> sectionsByCourse = candidateSections.stream()
+                .filter(cs -> cs.getCourse() != null && cs.getCourse().getId() != null)
                 .collect(Collectors.groupingBy(cs -> cs.getCourse().getId()));
 
+        Map<Long, List<ClassSection>> allSectionsByCourse = activeSections.stream()
+                .filter(cs -> cs.getCourse() != null && cs.getCourse().getId() != null)
+                .collect(Collectors.groupingBy(cs -> cs.getCourse().getId()));
+
+        List<CourseTarget> targetsWithSections = new ArrayList<>();
+        List<UnassignedCourseDto> unassignedCourses = new ArrayList<>();
         List<Long> targetCourseIds = new ArrayList<>();
-        List<String> missingCourses = new ArrayList<>();
 
-        for (Long cId : request.getCourseIds()) {
-            List<ClassSection> sections = sectionsByCourse.get(cId);
-            if (sections != null && !sections.isEmpty()) {
-                targetCourseIds.add(cId);
+        for (Long cId : distinctCourseIds) {
+            List<ClassSection> available = sectionsByCourse.getOrDefault(cId, Collections.emptyList());
+            List<ClassSection> totalInSemester = allSectionsByCourse.getOrDefault(cId, Collections.emptyList());
+
+            Course sampleCourse = null;
+            if (!totalInSemester.isEmpty()) {
+                sampleCourse = totalInSemester.get(0).getCourse();
+            } else if (!available.isEmpty()) {
+                sampleCourse = available.get(0).getCourse();
+            }
+
+            String cCode = sampleCourse != null ? sampleCourse.getCourseCode() : ("Môn #" + cId);
+            String cName = sampleCourse != null ? sampleCourse.getName() : "";
+            int credits = sampleCourse != null && sampleCourse.getCredits() != null ? sampleCourse.getCredits() : 3;
+
+            if (available.isEmpty()) {
+                String reason;
+                if (totalInSemester.isEmpty()) {
+                    reason = "Không có lớp học phần nào mở trong học kỳ " + semester;
+                } else {
+                    reason = "Tất cả các lớp học phần của môn này đều đã hết chỗ trống";
+                }
+                unassignedCourses.add(new UnassignedCourseDto(cCode, cName, reason));
             } else {
-                missingCourses.add(String.valueOf(cId));
+                targetsWithSections.add(new CourseTarget(cId, cCode, cName, credits, available));
+                targetCourseIds.add(cId);
             }
         }
 
-        if (targetCourseIds.isEmpty()) {
+        if (targetsWithSections.isEmpty()) {
             long executionTimeMs = (System.nanoTime() - startNanos) / 1_000_000;
-            return new ScheduleOptimizerResponse(
-                    OptimizationStatus.NO_SOLUTION,
-                    "Không tìm thấy lớp học phần nào còn mở hoặc còn chỗ cho các môn đã chọn.",
-                    semester, request.getCourseIds().size(), 0, 0, executionTimeMs, null, Collections.emptyList()
+            ScheduleOptimizerResponse response = new ScheduleOptimizerResponse(
+                    true, false, 0, Collections.emptyList(), unassignedCourses, executionTimeMs,
+                    semester, distinctCourseIds.size(), 0, 0, Collections.emptyList(),
+                    "Không tìm thấy lớp học phần nào còn mở hoặc còn chỗ cho các môn đã chọn."
             );
+            response.setStatus(OptimizationStatus.NO_SOLUTION);
+            return response;
         }
 
-        // 3. BR-01: Kiểm tra tổng số tín chỉ không vượt quá 24 TC/học kỳ
-        int totalCredits = 0;
-        for (Long cId : targetCourseIds) {
-            List<ClassSection> secs = sectionsByCourse.get(cId);
-            if (secs != null && !secs.isEmpty() && secs.get(0).getCourse() != null) {
-                totalCredits += secs.get(0).getCourse().getCredits();
-            }
-        }
-        if (totalCredits > 24) {
-            long executionTimeMs = (System.nanoTime() - startNanos) / 1_000_000;
-            String msg = "Quy chế BR-01: Tổng số tín chỉ các môn đã chọn (" + totalCredits
-                    + " TC) vượt quá hạn mức tối đa 24 tín chỉ trong một học kỳ. Vui lòng giảm bớt số lượng môn học.";
-            return new ScheduleOptimizerResponse(
-                    OptimizationStatus.INVALID_REQUEST,
-                    msg,
-                    semester, targetCourseIds.size(), 0, 0, executionTimeMs, null, Collections.emptyList()
-            );
-        }
-
-        // 4. Chuẩn bị CSP Variables và Candidate Domains
+        // 3. Chuẩn bị CSP Variables và Candidate Domains
         List<ClassSection> allCandidates = new ArrayList<>();
         List<List<Integer>> courseBuckets = new ArrayList<>();
-        for (Long cId : targetCourseIds) {
-            List<ClassSection> sections = new ArrayList<>(sectionsByCourse.get(cId));
-            // Candidate Ordering / LCV: sắp xếp các lớp trong từng môn theo độ ưu tiên sở thích sinh viên
+        for (CourseTarget target : targetsWithSections) {
+            List<ClassSection> sections = new ArrayList<>(target.candidateSections);
             sortCandidateSections(sections, request);
 
             List<Integer> bucketIndices = new ArrayList<>();
@@ -131,142 +191,173 @@ public class SmartScheduleOptimizerService {
             courseBuckets.add(bucketIndices);
         }
 
-        // 5. Xây dựng Collision Matrix O(N^2) phục vụ tra cứu xung đột O(1)
+        // 4. Xây dựng Collision Matrix O(N^2) tra cứu O(1)
         boolean[][] collisionMatrix = buildCollisionMatrix(allCandidates);
 
-        // 6. Cấu hình Search Limits cho CSP Solver
-        int maxNodes = (request.getMaxSearchNodes() != null && request.getMaxSearchNodes() > 0)
-                ? request.getMaxSearchNodes() : properties.getMaxSearchNodes();
-        long maxTimeMs = (request.getMaxExecutionTimeMs() != null && request.getMaxExecutionTimeMs() >= 0)
-                ? request.getMaxExecutionTimeMs() : properties.getMaxExecutionTimeMs();
-        int maxSolutions = (request.getMaxSolutions() != null && request.getMaxSolutions() > 0)
-                ? request.getMaxSolutions() : properties.getMaxSolutions();
+        // 5. Cấu hình Search Limits
+        int maxNodes;
+        if (request.getMaxSearchNodes() != null && request.getMaxSearchNodes() > 0) {
+            maxNodes = request.getMaxSearchNodes();
+        } else if (properties != null && properties.getMaxSearchNodes() > 0) {
+            maxNodes = properties.getMaxSearchNodes();
+        } else {
+            maxNodes = DEFAULT_MAX_COMBINATIONS_CHECKED;
+        }
+
+        long maxTimeMs;
+        if (request.getMaxExecutionTimeMs() != null && request.getMaxExecutionTimeMs() >= 0) {
+            maxTimeMs = request.getMaxExecutionTimeMs();
+        } else if (properties != null && properties.getMaxExecutionTimeMs() > 0) {
+            maxTimeMs = properties.getMaxExecutionTimeMs();
+        } else {
+            maxTimeMs = DEFAULT_TIMEOUT_LIMIT_MS;
+        }
+
+        int maxSolutions;
+        if (request.getMaxSolutions() != null && request.getMaxSolutions() > 0) {
+            maxSolutions = request.getMaxSolutions();
+        } else if (properties != null && properties.getMaxSolutions() > 0) {
+            maxSolutions = properties.getMaxSolutions();
+        } else {
+            maxSolutions = DEFAULT_MAX_SOLUTIONS;
+        }
 
         SearchContext context = new SearchContext(maxTimeMs, maxNodes, maxSolutions);
 
-        // Khởi tạo danh sách các biến chưa gán (unassigned courses)
-        List<Integer> unassignedCourses = new ArrayList<>();
+        List<Integer> unassignedCourseIndices = new ArrayList<>();
         for (int i = 0; i < courseBuckets.size(); i++) {
-            unassignedCourses.add(i);
+            unassignedCourseIndices.add(i);
         }
 
-        // 7. Thực thi DFS Backtracking với MRV & Forward Checking
-        solveWithMrv(courseBuckets, new ArrayList<>(), unassignedCourses, courseBuckets.size(),
+        // 6. Thực thi CSP DFS Backtracking với MRV & Forward Checking
+        solveWithMrv(courseBuckets, new ArrayList<>(), unassignedCourseIndices, courseBuckets.size(),
                 collisionMatrix, allCandidates, context);
 
         long executionTimeMs = (System.nanoTime() - startNanos) / 1_000_000;
 
-        // 8. Đánh giá kết quả tìm kiếm và phân định Status chuẩn mực
+        // 7. Xử lý kết quả
         if (!context.solutions.isEmpty()) {
-            // Tìm thấy phương án hợp lệ
             List<ScoredCombination> scored = new ArrayList<>();
             for (List<ClassSection> combo : context.solutions) {
                 ScoreDetail scoreDetail = evaluateScore(combo, request);
                 scored.add(new ScoredCombination(combo, scoreDetail));
             }
 
-            // Sắp xếp giảm dần theo điểm số tổng hợp
             scored.sort((a, b) -> Integer.compare(b.scoreDetail.totalScore, a.scoreDetail.totalScore));
-
-            // Chọn Top 3 phương án đa dạng (96%, 90%, 85%)
             List<SchedulePlanOption> plans = selectTopDiversePlans(scored, request);
 
+            List<ClassSection> bestCombo = scored.get(0).sections;
+            List<ScheduleItemDto> scheduleItems = bestCombo.stream()
+                    .map(this::toScheduleItemDto)
+                    .collect(Collectors.toList());
+
+            int totalCredits = bestCombo.stream()
+                    .mapToInt(cs -> cs.getCourse() != null && cs.getCourse().getCredits() != null ? cs.getCourse().getCredits() : 3)
+                    .sum();
+
+            boolean isComplete = unassignedCourses.isEmpty();
             String statusMsg = "AI CSP Optimizer đã phân tích " + context.nodesExplored + " tổ hợp và tìm thấy "
-                    + context.solutions.size() + " phương án hợp lệ không bị trùng lịch!";
-            if (!missingCourses.isEmpty()) {
-                statusMsg += " (Lưu ý: Có " + missingCourses.size() + " môn chưa có lớp mở phù hợp).";
+                    + context.solutions.size() + " phương án tối ưu hợp lệ không bị trùng lịch!";
+            if (!unassignedCourses.isEmpty()) {
+                statusMsg += " (Lưu ý: Có " + unassignedCourses.size() + " môn chưa thể xếp do hết lớp hoặc hết chỗ).";
             }
 
-            return new ScheduleOptimizerResponse(
-                    OptimizationStatus.SUCCESS,
-                    statusMsg,
-                    semester, targetCourseIds.size(),
-                    context.solutions.size(), context.nodesExplored,
-                    executionTimeMs, null, plans
+            ScheduleOptimizerResponse response = new ScheduleOptimizerResponse(
+                    true,
+                    isComplete,
+                    totalCredits,
+                    scheduleItems,
+                    unassignedCourses,
+                    executionTimeMs,
+                    semester,
+                    distinctCourseIds.size(),
+                    context.nodesExplored,
+                    context.solutions.size(),
+                    plans,
+                    statusMsg
             );
-        } else if (context.timeLimitExceeded) {
-            // Quá thời gian cho phép mà chưa tìm thấy giải pháp
-            String msg = "Thời gian tìm kiếm đã vượt quá giới hạn tối đa (" + maxTimeMs
-                    + "ms). Không thể kết luận bài toán có nghiệm hay không. Vui lòng giảm bớt số môn hoặc nới lỏng ràng buộc ca học.";
-            return new ScheduleOptimizerResponse(
-                    OptimizationStatus.TIME_LIMIT_EXCEEDED,
-                    msg,
-                    semester, targetCourseIds.size(),
-                    0, context.nodesExplored,
-                    executionTimeMs, null, Collections.emptyList()
-            );
-        } else if (context.nodeLimitExceeded) {
-            // Chạm ngưỡng duyệt node mà chưa tìm thấy giải pháp
-            String msg = "Đã chạm giới hạn duyệt tối đa (" + maxNodes
-                    + " nodes). Không thể tìm thấy phương án trong giới hạn tìm kiếm cho phép.";
-            return new ScheduleOptimizerResponse(
-                    OptimizationStatus.SEARCH_LIMIT_REACHED,
-                    msg,
-                    semester, targetCourseIds.size(),
-                    0, context.nodesExplored,
-                    executionTimeMs, null, Collections.emptyList()
-            );
+            response.setStatus(OptimizationStatus.SUCCESS);
+            return response;
         } else {
-            // Đã duyệt hết toàn bộ không gian tìm kiếm mà chứng minh không có nghiệm
+            // Không tìm thấy nghiệm 100% -> Kích hoạt Partial Solution Fallback
             String conflictDetails = findConflictExplanation(courseBuckets, collisionMatrix, allCandidates);
-            String msg = "Không thể ghép được phương án nào không bị trùng lịch giữa " + targetCourseIds.size()
-                    + " môn học đã chọn. " + conflictDetails;
-            return new ScheduleOptimizerResponse(
-                    OptimizationStatus.NO_SOLUTION,
-                    msg,
-                    semester, targetCourseIds.size(),
-                    0, context.nodesExplored,
-                    executionTimeMs, conflictDetails, Collections.emptyList()
+
+            String reasonSummary;
+            OptimizationStatus finalStatus;
+            if (context.interrupted) {
+                reasonSummary = "Tìm kiếm bị ngắt an toàn.";
+                finalStatus = OptimizationStatus.TIME_LIMIT_EXCEEDED;
+            } else if (context.timeLimitExceeded) {
+                reasonSummary = "Thời gian tìm kiếm đã vượt quá giới hạn tối đa (" + maxTimeMs + "ms). Chạm giới hạn thời gian.";
+                finalStatus = OptimizationStatus.TIME_LIMIT_EXCEEDED;
+            } else if (context.nodeLimitExceeded) {
+                reasonSummary = "Thuật toán tìm kiếm đã chạm giới hạn duyệt (" + maxNodes + " tổ hợp).";
+                finalStatus = OptimizationStatus.SEARCH_LIMIT_REACHED;
+            } else {
+                reasonSummary = "Không thể ghép được phương án nào không bị trùng lịch giữa các môn học đã chọn. " + conflictDetails;
+                finalStatus = OptimizationStatus.NO_SOLUTION;
+            }
+
+            // Fallback maximal non-conflicting subset
+            List<ClassSection> fallbackSections = findMaximalNonConflictingSubset(targetsWithSections);
+            Set<Long> scheduledCourseIds = fallbackSections.stream()
+                    .filter(s -> s.getCourse() != null && s.getCourse().getId() != null)
+                    .map(s -> s.getCourse().getId())
+                    .collect(Collectors.toSet());
+
+            for (CourseTarget target : targetsWithSections) {
+                if (!scheduledCourseIds.contains(target.courseId)) {
+                    String conflictReason = determineConflictReason(target, fallbackSections);
+                    unassignedCourses.add(new UnassignedCourseDto(target.courseCode, target.courseName, conflictReason));
+                }
+            }
+
+            List<ScheduleItemDto> scheduleItems = fallbackSections.stream()
+                    .map(this::toScheduleItemDto)
+                    .collect(Collectors.toList());
+
+            int fallbackCredits = fallbackSections.stream()
+                    .mapToInt(cs -> cs.getCourse() != null && cs.getCourse().getCredits() != null ? cs.getCourse().getCredits() : 3)
+                    .sum();
+
+            List<SchedulePlanOption> partialPlans = new ArrayList<>();
+            if (!fallbackSections.isEmpty() && !context.nodeLimitExceeded && !context.timeLimitExceeded && !context.interrupted) {
+                ScoreDetail scoreDetail = evaluateScore(fallbackSections, request);
+                int matchPercentage = (int) Math.round(((double) fallbackSections.size() / distinctCourseIds.size()) * 100);
+                SchedulePlanOption partialPlan = createPlanOption(
+                        1,
+                        "Phương án tối ưu cục bộ (Xếp được " + fallbackSections.size() + "/" + distinctCourseIds.size() + " môn)",
+                        matchPercentage,
+                        new ScoredCombination(fallbackSections, scoreDetail)
+                );
+                partialPlans.add(partialPlan);
+            }
+
+            String statusMsg = "Không thể xếp đồng thời 100% các môn đã chọn (" + reasonSummary + "). "
+                    + "Đã xếp thành công " + fallbackSections.size() + "/" + distinctCourseIds.size() + " môn.";
+
+            ScheduleOptimizerResponse response = new ScheduleOptimizerResponse(
+                    true,
+                    false,
+                    fallbackCredits,
+                    scheduleItems,
+                    unassignedCourses,
+                    executionTimeMs,
+                    semester,
+                    distinctCourseIds.size(),
+                    context.nodesExplored,
+                    0, // totalSolutions = 0 (vì không có nghiệm 100%)
+                    partialPlans,
+                    statusMsg
             );
+            response.setStatus(finalStatus);
+            response.setConflictDetails(conflictDetails);
+            return response;
         }
     }
 
     /**
-     * Sắp xếp các lớp ứng viên trong domain (Candidate Ordering / LCV heuristic)
-     * Đưa các lớp thỏa mãn tránh ngày học và đúng ca ưu tiên lên đầu danh sách duyệt.
-     */
-    private void sortCandidateSections(List<ClassSection> sections, ScheduleOptimizerRequest request) {
-        if (sections.size() <= 1) return;
-
-        Set<String> avoidSet = request.getAvoidDays() != null && !request.getAvoidDays().isEmpty()
-                ? request.getAvoidDays().stream().map(String::toUpperCase).collect(Collectors.toSet())
-                : Set.of("SAT", "SUN");
-        String preferredShift = request.getPreferredShift() != null ? request.getPreferredShift().toUpperCase() : "ANY";
-
-        sections.sort((a, b) -> {
-            int scoreA = 0;
-            int scoreB = 0;
-
-            String dayA = a.getDayOfWeek() != null ? a.getDayOfWeek().toUpperCase() : "";
-            String dayB = b.getDayOfWeek() != null ? b.getDayOfWeek().toUpperCase() : "";
-
-            if (!avoidSet.contains(dayA)) scoreA += 10;
-            if (!avoidSet.contains(dayB)) scoreB += 10;
-
-            if ("MORNING".equals(preferredShift)) {
-                if (isMorning(a)) scoreA += 10;
-                if (isMorning(b)) scoreB += 10;
-            } else if ("AFTERNOON".equals(preferredShift)) {
-                if (isAfternoon(a)) scoreA += 10;
-                if (isAfternoon(b)) scoreB += 10;
-            }
-
-            int availableSeatsA = a.getMaxCapacity() - a.getCurrentEnrolled();
-            int availableSeatsB = b.getMaxCapacity() - b.getCurrentEnrolled();
-            if (availableSeatsA >= 5) scoreA += 5;
-            if (availableSeatsB >= 5) scoreB += 5;
-
-            return Integer.compare(scoreB, scoreA); // Descending preference
-        });
-    }
-
-    /**
-     * Thuật toán DFS Backtracking kết hợp MRV (Minimum Remaining Values) và Forward Checking.
-     * Ở mỗi bước đệ quy:
-     * 1. Tìm biến (môn học) chưa gán có số lượng lớp khả thi (ít xung đột nhất) nhỏ nhất.
-     * 2. Nếu bất kỳ môn học nào có số lượng lớp khả thi = 0 -> Forward Checking phát hiện Dead End, Prune nhánh tức thì!
-     * 3. Gán lần lượt các lớp ứng viên và đệ quy sâu xuống.
-     * 4. Khôi phục trạng thái (Backtrack) chuẩn xác.
+     * DFS Backtracking với MRV và Forward Checking
      */
     private void solveWithMrv(List<List<Integer>> courseBuckets,
                               List<Integer> currentSelectedSectionIndices,
@@ -276,7 +367,6 @@ public class SmartScheduleOptimizerService {
                               List<ClassSection> allCandidates,
                               SearchContext context) {
 
-        // Điều kiện dừng thành công: Đã gán đủ tất cả các môn học
         if (currentSelectedSectionIndices.size() == totalCourses) {
             List<ClassSection> solution = new ArrayList<>(totalCourses);
             for (int secIdx : currentSelectedSectionIndices) {
@@ -286,7 +376,6 @@ public class SmartScheduleOptimizerService {
             return;
         }
 
-        // Tăng đếm node duyệt và kiểm tra giới hạn tài nguyên CPU
         context.nodesExplored++;
 
         if (context.nodesExplored >= context.maxSearchNodes) {
@@ -298,7 +387,6 @@ public class SmartScheduleOptimizerService {
             return;
         }
 
-        // Kiểm tra timeout và thread interruption định kỳ
         if (context.nodesExplored == 1 || (context.nodesExplored & 31) == 0) {
             if (Thread.currentThread().isInterrupted()) {
                 context.interrupted = true;
@@ -310,7 +398,7 @@ public class SmartScheduleOptimizerService {
             }
         }
 
-        // Áp dụng MRV (Minimum Remaining Values): Tìm môn học có số lớp khả dụng ít nhất
+        // Áp dụng MRV (Minimum Remaining Values): Tìm môn có số lớp khả dụng ít nhất
         int bestCourseIdx = -1;
         int minValidCandidates = Integer.MAX_VALUE;
         List<Integer> bestValidCandidateIndices = null;
@@ -332,7 +420,7 @@ public class SmartScheduleOptimizerService {
                 }
             }
 
-            // Forward Checking: Nếu phát hiện bất kỳ môn nào không còn lớp nào ghép được -> Dead End, Prune ngay!
+            // Forward Checking: Domain Wipeout -> Prune ngay lập tức
             if (validCandidates.isEmpty()) {
                 context.branchesPruned++;
                 return;
@@ -349,74 +437,113 @@ public class SmartScheduleOptimizerService {
             return;
         }
 
-        // Tạm gỡ môn đã chọn ra khỏi tập chưa gán
         unassignedCourses.remove(Integer.valueOf(bestCourseIdx));
 
-        // Thử lần lượt các ứng viên hợp lệ của môn được chọn theo MRV
         for (int candidateIdx : bestValidCandidateIndices) {
             currentSelectedSectionIndices.add(candidateIdx);
 
             solveWithMrv(courseBuckets, currentSelectedSectionIndices, unassignedCourses,
                     totalCourses, collisionMatrix, allCandidates, context);
 
-            // Backtrack: hoàn tác trạng thái
             currentSelectedSectionIndices.remove(currentSelectedSectionIndices.size() - 1);
 
-            // Kiểm tra ngắt sớm nếu đã chạm giới hạn
             if (context.timeLimitExceeded || context.nodeLimitExceeded || context.interrupted
                     || context.solutions.size() >= context.maxSolutions) {
                 break;
             }
         }
 
-        // Phục hồi lại biến môn học vào tập chưa gán
         unassignedCourses.add(bestCourseIdx);
     }
 
     /**
-     * Đặt giữ chỗ hàng loạt (1-Click Batch Reserve) cho phương án thời khóa biểu đã chọn trong 5 phút
+     * Sắp xếp các lớp ứng viên trong domain (Candidate Ordering / LCV heuristic)
      */
-    public BatchReserveResponse batchReserveSlots(String studentCode, BatchReserveRequest request) {
-        if (request == null || request.getSectionIds() == null || request.getSectionIds().isEmpty()) {
-            return new BatchReserveResponse(0, 0, List.of("Danh sách lớp học phần trống"), Collections.emptyList());
-        }
+    private void sortCandidateSections(List<ClassSection> sections, ScheduleOptimizerRequest request) {
+        if (sections.size() <= 1) return;
 
-        int success = 0;
-        int failed = 0;
-        List<String> details = new ArrayList<>();
-        List<SlotReservationResponse> reservations = new ArrayList<>();
+        Set<String> avoidSet = request != null && request.getAvoidDays() != null && !request.getAvoidDays().isEmpty()
+                ? request.getAvoidDays().stream().map(String::toUpperCase).collect(Collectors.toSet())
+                : Set.of("SAT", "SUN");
+        String preferredShift = request != null && request.getPreferredShift() != null ? request.getPreferredShift().toUpperCase() : "ANY";
 
-        for (Long sectionId : request.getSectionIds()) {
-            try {
-                SlotReservationResponse res = realtimeSeatService.reserveSlot(studentCode, sectionId);
-                reservations.add(res);
-                success++;
-                details.add("Giữ chỗ thành công lớp " + res.sectionCode() + " (còn " + res.remainingSeconds() + "s)");
-            } catch (Exception ex) {
-                failed++;
-                details.add("Không thể giữ chỗ lớp #" + sectionId + ": " + ex.getMessage());
+        sections.sort((a, b) -> {
+            int scoreA = 0;
+            int scoreB = 0;
+
+            String dayA = a.getDayOfWeek() != null ? a.getDayOfWeek().toUpperCase() : "";
+            String dayB = b.getDayOfWeek() != null ? b.getDayOfWeek().toUpperCase() : "";
+
+            if (!avoidSet.contains(dayA)) scoreA += 10;
+            if (!avoidSet.contains(dayB)) scoreB += 10;
+
+            if ("MORNING".equals(preferredShift)) {
+                if (isMorning(a)) scoreA += 10;
+                if (isMorning(b)) scoreB += 10;
+            } else if ("AFTERNOON".equals(preferredShift)) {
+                if (isAfternoon(a)) scoreA += 10;
+                if (isAfternoon(b)) scoreB += 10;
             }
-        }
 
-        return new BatchReserveResponse(success, failed, details, reservations);
+            int availableSeatsA = (a.getMaxCapacity() != null ? a.getMaxCapacity() : 40) - (a.getCurrentEnrolled() != null ? a.getCurrentEnrolled() : 0);
+            int availableSeatsB = (b.getMaxCapacity() != null ? b.getMaxCapacity() : 40) - (b.getCurrentEnrolled() != null ? b.getCurrentEnrolled() : 0);
+            if (availableSeatsA >= 5) scoreA += 5;
+            if (availableSeatsB >= 5) scoreB += 5;
+
+            return Integer.compare(scoreB, scoreA);
+        });
     }
 
     /**
-     * Xây dựng Collision Matrix O(N^2) giữa toàn bộ các lớp ứng viên.
-     * collisionMatrix[i][j] = true nếu hai lớp trùng thời gian:
-     * (dayA == dayB && !(endA <= startB || startA >= endB))
+     * Tìm tập lớp học phần không xung đột tối đại (Maximal Independent Set Fallback)
      */
-    public boolean[][] buildCollisionMatrix(List<ClassSection> sections) {
-        int n = sections.size();
-        boolean[][] matrix = new boolean[n][n];
-        for (int i = 0; i < n; i++) {
-            for (int j = i + 1; j < n; j++) {
-                boolean collided = hasTimeCollision(sections.get(i), sections.get(j));
-                matrix[i][j] = collided;
-                matrix[j][i] = collided;
+    private List<ClassSection> findMaximalNonConflictingSubset(List<CourseTarget> targets) {
+        List<ClassSection> bestSubset = new ArrayList<>();
+
+        for (int startIndex = 0; startIndex < targets.size(); startIndex++) {
+            List<ClassSection> currentSubset = new ArrayList<>();
+
+            for (int i = 0; i < targets.size(); i++) {
+                int idx = (startIndex + i) % targets.size();
+                CourseTarget target = targets.get(idx);
+
+                for (ClassSection section : target.candidateSections) {
+                    if (!hasConflictWithCurrent(section, currentSubset)) {
+                        currentSubset.add(section);
+                        break;
+                    }
+                }
+            }
+
+            if (currentSubset.size() > bestSubset.size()) {
+                bestSubset = currentSubset;
             }
         }
-        return matrix;
+
+        return bestSubset;
+    }
+
+    /**
+     * Xác định chi tiết lý do xung đột của một môn không được xếp lịch với các lớp đã chọn
+     */
+    private String determineConflictReason(CourseTarget target, List<ClassSection> assignedSections) {
+        if (target.candidateSections.isEmpty()) {
+            return "Không có lớp mở hoặc tất cả các lớp đã hết chỗ";
+        }
+
+        for (ClassSection candidate : target.candidateSections) {
+            for (ClassSection assigned : assignedSections) {
+                if (hasTimeCollision(candidate, assigned)) {
+                    String assignedCode = assigned.getCourse() != null ? assigned.getCourse().getCourseCode() : "môn đã chọn";
+                    String day = assigned.getDayOfWeek() != null ? assigned.getDayOfWeek() : "";
+                    String time = (assigned.getStartTime() != null ? assigned.getStartTime().toString() : "") +
+                            "-" + (assigned.getEndTime() != null ? assigned.getEndTime().toString() : "");
+                    return "Trùng khung giờ với môn " + assignedCode + " (" + day + " " + time + ")";
+                }
+            }
+        }
+
+        return "Xung đột lịch học với các môn ưu tiên khác trong tổ hợp";
     }
 
     /**
@@ -450,33 +577,30 @@ public class SmartScheduleOptimizerService {
                 }
             }
         }
-        return "Hãy thử giảm bớt 1 môn hoặc nới lỏng ràng buộc ca học.";
+        return "Xung đột lịch học giữa các môn đã chọn. Hãy thử giảm bớt 1 môn hoặc nới lỏng ràng buộc ca học.";
     }
 
     /**
-     * Hai lớp xung đột nếu cùng thứ và khoảng thời gian giao nhau:
-     * (dayA == dayB && !(endA <= startB || startA >= endB))
+     * Xây dựng Collision Matrix O(N^2) giữa toàn bộ các lớp ứng viên
      */
-    public boolean hasTimeCollision(ClassSection a, ClassSection b) {
-        if (a == null || b == null) return false;
-        if (a.getDayOfWeek() == null || b.getDayOfWeek() == null) return false;
-        if (!a.getDayOfWeek().trim().equalsIgnoreCase(b.getDayOfWeek().trim())) return false;
-
-        LocalTime startA = a.getStartTime();
-        LocalTime endA = a.getEndTime();
-        LocalTime startB = b.getStartTime();
-        LocalTime endB = b.getEndTime();
-
-        if (startA == null || endA == null || startB == null || endB == null) return false;
-
-        // Overlap condition: !(endA <= startB || startA >= endB)
-        return !(endA.isBefore(startB) || endA.equals(startB) || startA.isAfter(endB) || startA.equals(endB));
+    public boolean[][] buildCollisionMatrix(List<ClassSection> sections) {
+        int n = sections.size();
+        boolean[][] matrix = new boolean[n][n];
+        for (int i = 0; i < n; i++) {
+            for (int j = i + 1; j < n; j++) {
+                boolean collided = hasTimeCollision(sections.get(i), sections.get(j));
+                matrix[i][j] = collided;
+                matrix[j][i] = collided;
+            }
+        }
+        return matrix;
     }
 
     /**
-     * Kiểm tra xung đột thời gian giữa 1 lớp học phần với tập các lớp đã chọn (Legacy helper)
+     * Kiểm tra xung đột thời gian giữa 1 lớp học phần mục tiêu với danh sách lớp đã chọn
      */
     public boolean hasConflictWithCurrent(ClassSection target, List<ClassSection> current) {
+        if (target == null || current == null || current.isEmpty()) return false;
         for (ClassSection existing : current) {
             if (hasTimeCollision(target, existing)) {
                 return true;
@@ -486,113 +610,233 @@ public class SmartScheduleOptimizerService {
     }
 
     /**
-     * Đánh giá Fitness Score đa tiêu chí:
-     * 1. Tránh Thứ 7 / Chủ Nhật (35%)
-     * 2. Ưu tiên Ca Sáng (35%)
-     * 3. Dồn ngày gọn nhất (20%)
-     * 4. Sĩ số an toàn (10%)
+     * B1. Hai lớp xung đột nếu cùng thứ và khoảng thời gian giao nhau:
+     * Điều kiện toán học chuẩn: [startA < endB && endA > startB]
      */
+    public boolean hasTimeCollision(ClassSection a, ClassSection b) {
+        if (a == null || b == null) return false;
+        if (a.getDayOfWeek() == null || b.getDayOfWeek() == null) return false;
+
+        String dayA = normalizeDay(a.getDayOfWeek());
+        String dayB = normalizeDay(b.getDayOfWeek());
+        if (!dayA.equalsIgnoreCase(dayB)) return false;
+
+        LocalTime startA = a.getStartTime();
+        LocalTime endA = a.getEndTime();
+        LocalTime startB = b.getStartTime();
+        LocalTime endB = b.getEndTime();
+
+        if (startA == null || endA == null || startB == null || endB == null) return false;
+
+        return startA.isBefore(endB) && endA.isAfter(startB);
+    }
+
+    /**
+     * Chuẩn hóa thứ trong tuần hỗ trợ đa định dạng (MON, Thứ 2, Monday...)
+     */
+    private static String normalizeDay(String day) {
+        if (day == null) return "";
+        String s = day.trim().toUpperCase();
+        if (s.contains("2") || s.equals("MON") || s.equals("MONDAY") || s.contains("HAI")) return "MON";
+        if (s.contains("3") || s.equals("TUE") || s.equals("TUESDAY") || s.contains("BA")) return "TUE";
+        if (s.contains("4") || s.equals("WED") || s.equals("WEDNESDAY") || s.contains("TƯ") || s.contains("TU")) return "WED";
+        if (s.contains("5") || s.equals("THU") || s.equals("THURSDAY") || s.contains("NĂM") || s.contains("NAM")) return "THU";
+        if (s.contains("6") || s.equals("FRI") || s.equals("FRIDAY") || s.contains("SÁU") || s.contains("SAU")) return "FRI";
+        if (s.contains("7") || s.equals("SAT") || s.equals("SATURDAY") || s.contains("BẢY") || s.contains("BAY")) return "SAT";
+        if (s.contains("CN") || s.contains("SUN") || s.equals("SUNDAY") || s.contains("CHỦ") || s.contains("CHU") || s.contains("8")) return "SUN";
+        return s;
+    }
+
+    private static int dayOfWeekToInt(String day) {
+        if (day == null) return 2;
+        String s = normalizeDay(day);
+        return switch (s) {
+            case "MON" -> 2;
+            case "TUE" -> 3;
+            case "WED" -> 4;
+            case "THU" -> 5;
+            case "FRI" -> 6;
+            case "SAT" -> 7;
+            case "SUN" -> 8;
+            default -> 2;
+        };
+    }
+
+    private static int calculateStartPeriod(LocalTime time) {
+        if (time == null) return 1;
+        int minutes = time.getHour() * 60 + time.getMinute();
+        if (minutes <= 460) return 1;  // ~07:00
+        if (minutes <= 510) return 2;  // ~07:50
+        if (minutes <= 560) return 3;  // ~08:45
+        if (minutes <= 615) return 4;  // ~09:35
+        if (minutes <= 700) return 5;  // ~10:25
+        if (minutes <= 780) return 6;  // ~12:30
+        if (minutes <= 835) return 7;  // ~13:20
+        if (minutes <= 890) return 8;  // ~14:15
+        if (minutes <= 940) return 9;  // ~15:05
+        if (minutes <= 1000) return 10; // ~15:55
+        return 11;
+    }
+
+    private static int calculateEndPeriod(LocalTime time) {
+        if (time == null) return 3;
+        int minutes = time.getHour() * 60 + time.getMinute();
+        if (minutes <= 505) return 1;
+        if (minutes <= 555) return 2;
+        if (minutes <= 610) return 3;
+        if (minutes <= 670) return 4;
+        if (minutes <= 740) return 5;
+        if (minutes <= 830) return 6;
+        if (minutes <= 885) return 7;
+        if (minutes <= 935) return 8;
+        if (minutes <= 995) return 9;
+        if (minutes <= 1055) return 10;
+        return 11;
+    }
+
+    private ScheduleItemDto toScheduleItemDto(ClassSection cs) {
+        String courseCode = cs.getCourse() != null ? cs.getCourse().getCourseCode() : "N/A";
+        String courseName = cs.getCourse() != null ? cs.getCourse().getName() : "N/A";
+        int credits = cs.getCourse() != null && cs.getCourse().getCredits() != null ? cs.getCourse().getCredits() : 3;
+        int dayOfWeekNum = dayOfWeekToInt(cs.getDayOfWeek());
+        int startPeriod = calculateStartPeriod(cs.getStartTime());
+        int endPeriod = calculateEndPeriod(cs.getEndTime());
+        if (endPeriod < startPeriod) endPeriod = startPeriod;
+        String lecturerName = cs.getLecturer() != null && cs.getLecturer().getUser() != null
+                ? cs.getLecturer().getUser().getFullName() : "";
+
+        return new ScheduleItemDto(
+                courseCode,
+                courseName,
+                String.valueOf(cs.getId()),
+                cs.getSectionCode(),
+                dayOfWeekNum,
+                cs.getDayOfWeek() != null ? cs.getDayOfWeek() : "Thứ " + dayOfWeekNum,
+                startPeriod,
+                endPeriod,
+                cs.getStartTime() != null ? cs.getStartTime().toString() : "",
+                cs.getEndTime() != null ? cs.getEndTime().toString() : "",
+                cs.getRoomName() != null ? cs.getRoomName() : "",
+                lecturerName,
+                credits
+        );
+    }
+
+    public BatchReserveResponse batchReserveSlots(String studentCode, BatchReserveRequest request) {
+        if (request == null || request.getSectionIds() == null || request.getSectionIds().isEmpty()) {
+            return new BatchReserveResponse(0, 0, List.of("Danh sách lớp học phần trống"), Collections.emptyList());
+        }
+
+        int success = 0;
+        int failed = 0;
+        List<String> details = new ArrayList<>();
+        List<SlotReservationResponse> reservations = new ArrayList<>();
+
+        for (Long sectionId : request.getSectionIds()) {
+            try {
+                SlotReservationResponse res = realtimeSeatService.reserveSlot(studentCode, sectionId);
+                reservations.add(res);
+                success++;
+                details.add("Giữ chỗ thành công lớp " + res.sectionCode() + " (còn " + res.remainingSeconds() + "s)");
+            } catch (Exception ex) {
+                failed++;
+                details.add("Không thể giữ chỗ lớp #" + sectionId + ": " + ex.getMessage());
+            }
+        }
+
+        return new BatchReserveResponse(success, failed, details, reservations);
+    }
+
     public ScoreDetail evaluateScore(List<ClassSection> combo, ScheduleOptimizerRequest request) {
-        int score = 0;
+        if (combo == null || combo.isEmpty()) {
+            return new ScoreDetail(0, 0, Collections.emptyList(), Collections.emptyList());
+        }
+
+        int score = 70; // Base score
         List<String> highlights = new ArrayList<>();
 
-        // 1. Tránh Thứ 7, Chủ Nhật và ngày muốn tránh
-        Set<String> avoidSet = request.getAvoidDays() != null && !request.getAvoidDays().isEmpty()
+        // 1. Avoid Days
+        Set<String> avoidSet = request != null && request.getAvoidDays() != null
                 ? request.getAvoidDays().stream().map(String::toUpperCase).collect(Collectors.toSet())
-                : Set.of("SAT", "SUN");
+                : Collections.emptySet();
 
         Set<String> comboDays = combo.stream()
-                .map(s -> s.getDayOfWeek() != null ? s.getDayOfWeek().toUpperCase() : "")
+                .map(s -> s.getDayOfWeek() != null ? normalizeDay(s.getDayOfWeek()) : "")
+                .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
 
         boolean violatedAvoidDay = false;
-        List<String> violatedDays = new ArrayList<>();
         for (String day : comboDays) {
             if (avoidSet.contains(day)) {
+                score -= 30;
                 violatedAvoidDay = true;
-                violatedDays.add(day);
             }
         }
-
-        if (!violatedAvoidDay) {
-            score += 35;
+        if (!violatedAvoidDay && !avoidSet.isEmpty()) {
+            score += 15;
             highlights.add("Tránh thành công các ngày: " + String.join(", ", avoidSet));
-            if (avoidSet.contains("SAT") || avoidSet.contains("SUN")) {
-                highlights.add("Tránh 100% Thứ 7 & ngày nghỉ cuối tuần");
-            }
-        } else {
-            score += Math.max(0, 35 - violatedDays.size() * 15);
         }
 
-        // 2. Ca học ưu tiên
-        String shift = request.getPreferredShift() != null ? request.getPreferredShift().toUpperCase() : "MORNING";
+        // 2. Preferred Shift
+        String shift = request != null && request.getPreferredShift() != null
+                ? request.getPreferredShift().toUpperCase() : "ANY";
         long morningCount = combo.stream().filter(this::isMorning).count();
         long afternoonCount = combo.stream().filter(this::isAfternoon).count();
-        int total = combo.size();
 
         if ("MORNING".equals(shift)) {
-            if (morningCount == total) {
-                score += 35;
-                highlights.add("100% các lớp học thuộc Ca Sáng (07:00 - 11:45)");
+            if (morningCount == combo.size()) {
+                score += 20;
+                highlights.add("100% các lớp học thuộc Ca Sáng");
             } else {
-                score += (int) Math.round(((double) morningCount / total) * 35.0);
-                if (morningCount > 0) {
-                    highlights.add(morningCount + "/" + total + " môn thuộc Ca Sáng");
-                }
+                score += (int) ((double) morningCount / combo.size() * 15) - 10;
             }
         } else if ("AFTERNOON".equals(shift)) {
-            if (afternoonCount == total) {
-                score += 35;
-                highlights.add("100% các lớp học thuộc Ca Chiều (13:00 - 17:45)");
+            if (afternoonCount == combo.size()) {
+                score += 20;
+                highlights.add("100% các lớp học thuộc Ca Chiều");
             } else {
-                score += (int) Math.round(((double) afternoonCount / total) * 35.0);
-                if (afternoonCount > 0) {
-                    highlights.add(afternoonCount + "/" + total + " môn thuộc Ca Chiều");
-                }
+                score += (int) ((double) afternoonCount / combo.size() * 15) - 10;
             }
-        } else {
-            // ANY
-            score += 35;
-            highlights.add("Khung giờ linh hoạt, phân bổ hài hòa");
         }
 
-        // 3. Dồn ngày gọn nhất
+        // 3. Compactness vs Balanced
         int uniqueDaysCount = comboDays.size();
-        String goal = request.getOptimizationGoal() != null ? request.getOptimizationGoal().toUpperCase() : "COMPACT";
+        String goal = request != null && request.getOptimizationGoal() != null
+                ? request.getOptimizationGoal().toUpperCase() : "COMPACT";
 
         if ("COMPACT".equals(goal) || "MAX_FREE_DAYS".equals(goal)) {
             if (uniqueDaysCount <= 2) {
                 score += 20;
-                highlights.add("Lịch cực kỳ gọn: Chỉ " + uniqueDaysCount + " ngày/tuần (Nghỉ " + (7 - uniqueDaysCount) + " ngày)");
+                highlights.add("Lịch cực kỳ gọn: Chỉ cần đến trường " + uniqueDaysCount + " ngày/tuần");
             } else if (uniqueDaysCount == 3) {
-                score += 16;
-                highlights.add("Lịch gọn trong 3 ngày/tuần (Nghỉ 4 ngày)");
-            } else if (uniqueDaysCount == 4) {
                 score += 12;
-                highlights.add("Lịch học phân bổ 4 ngày/tuần");
-            } else {
-                score += 8;
+                highlights.add("Lịch gọn trong 3 ngày/tuần");
+            } else if (uniqueDaysCount >= 5) {
+                score -= 10;
             }
 
             boolean hasLongGap = checkLongGaps(combo);
             if (!hasLongGap) {
                 score += 5;
-                highlights.add("Không có tiết trống kéo dài giữa các ca trong ngày");
+                highlights.add("Không có tiết trống kéo dài giữa các ca");
             }
         } else if ("BALANCED".equals(goal)) {
             Map<String, Long> countPerDay = combo.stream()
+                    .filter(s -> s.getDayOfWeek() != null)
                     .collect(Collectors.groupingBy(ClassSection::getDayOfWeek, Collectors.counting()));
             boolean overload = countPerDay.values().stream().anyMatch(c -> c > 2);
             if (!overload) {
-                score += 20;
+                score += 15;
                 highlights.add("Phân bổ cân bằng, tối đa 2 lớp/ngày không gây quá tải");
-            } else {
-                score += 10;
             }
         }
 
-        // 4. Sĩ số an toàn & chỗ trống dồi dào
-        boolean plentySeats = combo.stream().allMatch(s -> (s.getMaxCapacity() - s.getCurrentEnrolled()) >= 5);
+        // 4. Seat buffer safety
+        boolean plentySeats = combo.stream().allMatch(s -> {
+            int enrolled = s.getCurrentEnrolled() != null ? s.getCurrentEnrolled() : 0;
+            int cap = s.getMaxCapacity() != null ? s.getMaxCapacity() : 40;
+            return (cap - enrolled) >= 5;
+        });
         if (plentySeats) {
             score += 10;
             highlights.add("Chỗ trống an toàn (trung bình >= 5 chỗ/lớp)");
@@ -605,16 +849,17 @@ public class SmartScheduleOptimizerService {
     }
 
     private boolean isMorning(ClassSection s) {
-        if (s.getEndTime() == null) return true;
+        if (s == null || s.getEndTime() == null) return true;
         return !s.getEndTime().isAfter(LocalTime.of(12, 30));
     }
 
     private boolean isAfternoon(ClassSection s) {
-        if (s.getStartTime() == null) return false;
+        if (s == null || s.getStartTime() == null) return false;
         return !s.getStartTime().isBefore(LocalTime.of(12, 0));
     }
 
     private boolean checkLongGaps(List<ClassSection> combo) {
+        if (combo == null || combo.isEmpty()) return false;
         Map<String, List<ClassSection>> byDay = combo.stream()
                 .filter(s -> s.getDayOfWeek() != null && s.getStartTime() != null)
                 .collect(Collectors.groupingBy(ClassSection::getDayOfWeek));
@@ -627,7 +872,7 @@ public class SmartScheduleOptimizerService {
                 LocalTime startNext = dayList.get(i + 1).getStartTime();
                 if (endFirst != null && startNext != null) {
                     long minutes = Duration.between(endFirst, startNext).toMinutes();
-                    if (minutes > 150) { // Gap > 2.5 hours
+                    if (minutes > 150) {
                         return true;
                     }
                 }
@@ -636,12 +881,6 @@ public class SmartScheduleOptimizerService {
         return false;
     }
 
-    /**
-     * Lựa chọn Top 3 phương án thời khóa biểu tối ưu và đa dạng nhất:
-     * - Phương án 1: Tối ưu hàng đầu (AI Khuyên dùng - chuẩn hóa ~96%)
-     * - Phương án 2: Tối đa ngày nghỉ / Dồn lịch gọn nhất (~90%)
-     * - Phương án 3: Dự phòng linh hoạt / Cân bằng tuần (~85%)
-     */
     public List<SchedulePlanOption> selectTopDiversePlans(List<ScoredCombination> scored, ScheduleOptimizerRequest request) {
         List<SchedulePlanOption> result = new ArrayList<>();
         if (scored == null || scored.isEmpty()) return result;
@@ -651,7 +890,7 @@ public class SmartScheduleOptimizerService {
         int top1Score = 96;
         result.add(createPlanOption(1, "Phương án 1: Tối ưu hàng đầu (AI Khuyên dùng)", top1Score, best));
 
-        // Plan 2: Most Compact / Fewest Days (if different)
+        // Plan 2: Most Compact / Fewest Days
         ScoredCombination mostCompact = scored.stream()
                 .filter(s -> !isSameSections(s.sections, best.sections))
                 .min(Comparator.comparingInt(s -> s.scoreDetail.uniqueDaysCount))
@@ -659,7 +898,7 @@ public class SmartScheduleOptimizerService {
 
         if (mostCompact != null) {
             int top2Score = 90;
-            result.add(createPlanOption(2, "Phương án 2: Tối đa ngày nghỉ (Dồn lịch gọn nhất)", top2Score, mostCompact));
+            result.add(createPlanOption(2, "Phương án 2: Tối đa ngày nghỉ (Dồn lịch)", top2Score, mostCompact));
         }
 
         // Plan 3: Balanced or Alternative
@@ -671,7 +910,7 @@ public class SmartScheduleOptimizerService {
 
         if (alternative != null) {
             int top3Score = 85;
-            result.add(createPlanOption(3, "Phương án 3: Dự phòng linh hoạt (Cân bằng tuần)", top3Score, alternative));
+            result.add(createPlanOption(3, "Phương án 3: Dự phòng tối ưu", top3Score, alternative));
         }
 
         return result;
@@ -685,7 +924,7 @@ public class SmartScheduleOptimizerService {
         return idsA.equals(idsB);
     }
 
-    private SchedulePlanOption createPlanOption(int index, String title, int score, ScoredCombination sc) {
+    private SchedulePlanOption createPlanOption(int index, String title, int matchPercentage, ScoredCombination sc) {
         int totalCredits = sc.sections.stream()
                 .mapToInt(s -> s.getCourse() != null && s.getCourse().getCredits() != null ? s.getCourse().getCredits() : 3)
                 .sum();
@@ -695,7 +934,7 @@ public class SmartScheduleOptimizerService {
         return new SchedulePlanOption(
                 index,
                 title,
-                score,
+                matchPercentage,
                 totalCredits,
                 sc.scoreDetail.uniqueDaysCount,
                 sc.scoreDetail.studyDays,
@@ -709,7 +948,6 @@ public class SmartScheduleOptimizerService {
         dto.setId(cs.getId());
         dto.setSectionCode(cs.getSectionCode());
         if (cs.getCourse() != null) {
-            dto.setCourseId(cs.getCourse().getId());
             dto.setCourseCode(cs.getCourse().getCourseCode());
             dto.setCourseName(cs.getCourse().getName());
             dto.setCredits(cs.getCourse().getCredits());
@@ -728,9 +966,26 @@ public class SmartScheduleOptimizerService {
         return dto;
     }
 
-    /**
-     * Context lưu trữ trạng thái tìm kiếm CSP riêng biệt cho từng request (Thread-Safe).
-     */
+    // =========================================================================
+    // Helper Classes
+    // =========================================================================
+
+    public static class CourseTarget {
+        public final Long courseId;
+        public final String courseCode;
+        public final String courseName;
+        public final int credits;
+        public final List<ClassSection> candidateSections;
+
+        public CourseTarget(Long courseId, String courseCode, String courseName, int credits, List<ClassSection> candidateSections) {
+            this.courseId = courseId;
+            this.courseCode = courseCode;
+            this.courseName = courseName;
+            this.credits = credits;
+            this.candidateSections = candidateSections != null ? candidateSections : Collections.emptyList();
+        }
+    }
+
     public static class SearchContext {
         public final long startTime;
         public final long maxExecutionTimeMs;

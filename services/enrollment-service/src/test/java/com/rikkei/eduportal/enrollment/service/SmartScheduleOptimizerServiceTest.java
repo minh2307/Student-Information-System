@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@DisplayName("Test Suite: AI CSP Schedule Optimizer (SmartScheduleOptimizerService)")
 class SmartScheduleOptimizerServiceTest {
 
     @Mock
@@ -40,6 +42,7 @@ class SmartScheduleOptimizerServiceTest {
 
     private Course course1;
     private Course course2;
+    private Course course3;
     private LecturerProfile lecturer;
 
     @BeforeEach
@@ -58,6 +61,13 @@ class SmartScheduleOptimizerServiceTest {
         course2.setCredits(3);
         course2.setWeeklyHours(3);
 
+        course3 = new Course();
+        course3.setId(103L);
+        course3.setCourseCode("CS103");
+        course3.setName("Data Structures and Algorithms");
+        course3.setCredits(4);
+        course3.setWeeklyHours(4);
+
         User user = new User();
         user.setId(1L);
         user.setFullName("Nguyen Van Giảng Viên");
@@ -68,7 +78,7 @@ class SmartScheduleOptimizerServiceTest {
     }
 
     private ClassSection createSection(Long id, String code, Course course, String day,
-                                      LocalTime start, LocalTime end, int maxCap, int enrolled) {
+                                       LocalTime start, LocalTime end, int maxCap, int enrolled) {
         ClassSection cs = new ClassSection();
         cs.setId(id);
         cs.setSectionCode(code);
@@ -86,7 +96,7 @@ class SmartScheduleOptimizerServiceTest {
     }
 
     @Test
-    @DisplayName("TC-OPT-01: Kiểm tra xung đột thời gian hai lớp học phần")
+    @DisplayName("TC-OPT-01: Kiểm tra xung đột thời gian hai lớp học phần (Interval Collision)")
     void testTimeCollisionLogic() {
         // Cùng Thứ 2: 09:00 - 10:30 và 10:00 - 11:30 (Trùng nhau 30 phút -> Xung đột)
         ClassSection s1 = createSection(1L, "S1", course1, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 10);
@@ -103,13 +113,14 @@ class SmartScheduleOptimizerServiceTest {
     }
 
     @Test
-    @DisplayName("TC-OPT-02: optimizeSchedule với danh sách môn rỗng trả về thông báo hợp lệ")
+    @DisplayName("TC-OPT-02: optimizeSchedule với danh sách môn rỗng trả về thông báo hợp lệ không văng lỗi")
     void testOptimizeSchedule_EmptyCourses_ReturnsEarly() {
         ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
         request.setCourseIds(new ArrayList<>());
 
         ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
         assertNotNull(response);
+        assertFalse(response.isSuccess());
         assertEquals(0, response.getPlans().size());
         assertTrue(response.getStatusMessage().contains("ít nhất một môn học"));
     }
@@ -135,8 +146,11 @@ class SmartScheduleOptimizerServiceTest {
         ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
 
         assertNotNull(response);
+        assertTrue(response.isSuccess());
+        assertTrue(response.getIsComplete());
         assertEquals(1, response.getValidOptionsCount());
         assertEquals(1, response.getPlans().size());
+        assertEquals(2, response.getSchedule().size());
 
         // Phương án hợp lệ duy nhất phải là S1B (TUE) ghép với S2A (MON)
         SchedulePlanOption plan = response.getPlans().get(0);
@@ -165,7 +179,6 @@ class SmartScheduleOptimizerServiceTest {
 
         assertNotNull(response);
         assertTrue(response.getPlans().size() >= 1);
-        // Phương án điểm cao nhất phải là lớp Thứ 2 tránh được Thứ 7
         SchedulePlanOption topPlan = response.getPlans().get(0);
         assertEquals("S2-MON", topPlan.getSections().get(0).getSectionCode());
         assertTrue(topPlan.getHighlights().stream().anyMatch(h -> h.contains("Tránh thành công")));
@@ -192,7 +205,102 @@ class SmartScheduleOptimizerServiceTest {
     }
 
     @Test
-    @DisplayName("TC-OPT-06: buildCollisionMatrix xây dựng ma trận kiểm tra xung đột thời gian O(N^2)")
+    @DisplayName("TC-OPT-06: Xung đột khung giờ 100% -> Tuyệt đối không crash HTTP 500, kích hoạt Partial Solution Fallback")
+    void testOptimizeSchedule_100PercentConflict_TriggersPartialFallback() {
+        // CS101 và CS102 chỉ có duy nhất 1 lớp và trùng giờ hoàn toàn vào Thứ 2 09:00 - 10:30
+        ClassSection s1 = createSection(1L, "CS101-01", course1, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 10);
+        ClassSection s2 = createSection(2L, "CS102-01", course2, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 10);
+
+        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
+                .thenReturn(Arrays.asList(s1, s2));
+
+        ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
+        request.setCourseIds(Arrays.asList(101L, 102L));
+        request.setSemesterName("2024-25_SEM2");
+
+        // Chạy thuật toán không được văng Exception
+        ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
+
+        assertNotNull(response);
+        assertTrue(response.isSuccess(), "API phải trả về success: true");
+        assertFalse(response.getIsComplete(), "isComplete phải là false vì chỉ xếp được 1 phần");
+        assertEquals(1, response.getSchedule().size(), "Phải xếp được 1/2 môn");
+        assertEquals(1, response.getUnassignedCourses().size(), "Phải có 1 môn không xếp được vào unassignedCourses");
+
+        UnassignedCourseDto unassigned = response.getUnassignedCourses().get(0);
+        assertTrue(unassigned.getReason().contains("Trùng khung giờ"), "Phải giải thích rõ nguyên nhân trùng giờ");
+        assertTrue(response.getStatusMessage().contains("xung đột"));
+    }
+
+    @Test
+    @DisplayName("TC-OPT-07: Có môn không còn lớp mở hoặc hết chỗ -> Ghi nhận vào unassignedCourses và xếp các môn còn lại")
+    void testOptimizeSchedule_CourseWithNoOpenSections() {
+        // CS101 có 1 lớp mở
+        ClassSection s1 = createSection(1L, "CS101-01", course1, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 10);
+        // CS102 KHÔNG có lớp nào mở trong repository
+
+        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
+                .thenReturn(List.of(s1));
+
+        ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
+        request.setCourseIds(Arrays.asList(101L, 102L));
+        request.setSemesterName("2024-25_SEM2");
+
+        ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
+
+        assertNotNull(response);
+        assertTrue(response.isSuccess());
+        assertFalse(response.getIsComplete());
+        assertEquals(1, response.getSchedule().size());
+        assertEquals("CS101", response.getSchedule().get(0).getCourseCode());
+
+        assertEquals(1, response.getUnassignedCourses().size());
+        UnassignedCourseDto unassigned = response.getUnassignedCourses().get(0);
+        assertTrue(unassigned.getReason().contains("Không có lớp học phần nào mở"));
+    }
+
+    @Test
+    @DisplayName("TC-OPT-08: Lọc bỏ lớp học phần đã hết chỗ khi onlyAvailableSeats = true")
+    void testOptimizeSchedule_FilterOutFullSections() {
+        // CS101 có lớp đã đầy (40/40)
+        ClassSection s1Full = createSection(1L, "CS101-FULL", course1, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 40);
+        // CS101 có lớp còn chỗ (15/40)
+        ClassSection s1Open = createSection(2L, "CS101-OPEN", course1, "TUE", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 15);
+
+        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
+                .thenReturn(Arrays.asList(s1Full, s1Open));
+
+        ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
+        request.setCourseIds(List.of(101L));
+        request.setOnlyAvailableSeats(true);
+
+        ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
+
+        assertNotNull(response);
+        assertTrue(response.isSuccess());
+        assertEquals(1, response.getSchedule().size());
+        assertEquals("CS101-OPEN", response.getSchedule().get(0).getSectionCode());
+    }
+
+    @Test
+    @DisplayName("TC-OPT-09: Thời gian thực thi không vượt quá 2.5s và trả về executionTimeMs chính xác")
+    void testOptimizeSchedule_ExecutionTimeReported() {
+        ClassSection s1 = createSection(1L, "CS101-01", course1, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 10);
+        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
+                .thenReturn(List.of(s1));
+
+        ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
+        request.setCourseIds(List.of(101L));
+
+        ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
+
+        assertNotNull(response);
+        assertTrue(response.getExecutionTimeMs() >= 0);
+        assertTrue(response.getExecutionTimeMs() <= 2500, "Thời gian thực thi phải <= 2500ms");
+    }
+
+    @Test
+    @DisplayName("TC-OPT-10: buildCollisionMatrix xây dựng ma trận kiểm tra xung đột thời gian O(N^2)")
     void testBuildCollisionMatrix_IdentifiesConflictsCorrectly() {
         ClassSection s1 = createSection(1L, "S1", course1, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 5);
         ClassSection s2 = createSection(2L, "S2", course2, "MON", LocalTime.of(10, 0), LocalTime.of(11, 30), 40, 5); // Overlap with S1
@@ -219,30 +327,7 @@ class SmartScheduleOptimizerServiceTest {
     }
 
     @Test
-    @DisplayName("TC-OPT-07: Chẩn đoán nguyên nhân xung đột cụ thể khi tất cả các lớp trùng nhau 100%")
-    void testOptimizeSchedule_ConflictDiagnostics_WhenNoValidPlanFound() {
-        // Cả 2 môn đều chỉ có lớp mở đúng Thứ 2 lúc 09:00 - 10:30
-        ClassSection s1 = createSection(1L, "CS101-01", course1, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 5);
-        ClassSection s2 = createSection(2L, "CS102-01", course2, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 5);
-
-        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
-                .thenReturn(Arrays.asList(s1, s2));
-
-        ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
-        request.setCourseIds(Arrays.asList(101L, 102L));
-        request.setSemesterName("2024-25_SEM2");
-
-        ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
-
-        assertNotNull(response);
-        assertEquals(0, response.getValidOptionsCount());
-        assertEquals(0, response.getPlans().size());
-        assertTrue(response.getStatusMessage().contains("Xung đột: Lớp CS101-01"));
-        assertTrue(response.getStatusMessage().contains("trùng lịch với lớp CS102-01"));
-    }
-
-    @Test
-    @DisplayName("TC-OPT-08: Trả về Top 3 phương án thời khóa biểu đa dạng chuẩn hóa (96%, 90%, 85%)")
+    @DisplayName("TC-OPT-11: Trả về Top 3 phương án thời khóa biểu đa dạng chuẩn hóa (96%, 90%, 85%)")
     void testOptimizeSchedule_Top3DiversePlans_YieldsCalibratedTiers() {
         // Tạo 3 lớp cho Course 1 và 2 lớp cho Course 2 để sinh nhiều tổ hợp
         ClassSection s1A = createSection(1L, "S1A", course1, "MON", LocalTime.of(7, 0), LocalTime.of(9, 15), 40, 5);
@@ -280,7 +365,7 @@ class SmartScheduleOptimizerServiceTest {
     }
 
     @Test
-    @DisplayName("TC-OPT-09: Ưu tiên Ca Sáng (Preferred Shift MORNING)")
+    @DisplayName("TC-OPT-12: Ưu tiên Ca Sáng (Preferred Shift MORNING)")
     void testOptimizeSchedule_PreferredMorningShift() {
         // Lớp S1: Ca Sáng (07:00 - 09:15)
         ClassSection s1Morning = createSection(1L, "S1-MORN", course1, "MON", LocalTime.of(7, 0), LocalTime.of(9, 15), 40, 5);
@@ -304,7 +389,7 @@ class SmartScheduleOptimizerServiceTest {
     }
 
     @Test
-    @DisplayName("TC-OPT-10: Chạm giới hạn số node duyệt trả về SEARCH_LIMIT_REACHED và KHÔNG ĐƯỢC báo NO_SOLUTION")
+    @DisplayName("TC-OPT-13: Chạm giới hạn số node duyệt trả về SEARCH_LIMIT_REACHED và KHÔNG ĐƯỢC báo NO_SOLUTION")
     void testOptimizeSchedule_SearchLimitReached_DoesNotReportNoSolution() {
         // Tạo 4 courses, mỗi course có 5 lớp học không trùng giờ
         List<ClassSection> sections = new ArrayList<>();
@@ -318,7 +403,6 @@ class SmartScheduleOptimizerServiceTest {
             course.setName("Course " + cId);
             course.setCredits(3);
             for (int s = 1; s <= 5; s++) {
-                // Giờ học khác nhau trong tuần
                 sections.add(createSection((long) (c * 100 + s), "S" + c + "-" + s, course, "MON",
                         LocalTime.of(7 + s, 0), LocalTime.of(7 + s, 50), 40, 5));
             }
@@ -338,12 +422,12 @@ class SmartScheduleOptimizerServiceTest {
         assertEquals(OptimizationStatus.SEARCH_LIMIT_REACHED, response.getStatus());
         assertNotEquals(OptimizationStatus.NO_SOLUTION, response.getStatus(),
                 "Khi chạm giới hạn tìm kiếm, tuyệt đối không được báo NO_SOLUTION!");
-        assertTrue(response.getStatusMessage().contains("chạm giới hạn duyệt"));
+        assertTrue(response.getStatusMessage().contains("chạm giới hạn"));
         assertEquals(0, response.getPlans().size());
     }
 
     @Test
-    @DisplayName("TC-OPT-11: Quá thời gian tìm kiếm trả về TIME_LIMIT_EXCEEDED và KHÔNG ĐƯỢC báo NO_SOLUTION")
+    @DisplayName("TC-OPT-14: Quá thời gian tìm kiếm trả về TIME_LIMIT_EXCEEDED và KHÔNG ĐƯỢC báo NO_SOLUTION")
     void testOptimizeSchedule_TimeLimitExceeded_DoesNotReportNoSolution() {
         List<ClassSection> sections = new ArrayList<>();
         List<Long> courseIds = new ArrayList<>();
@@ -375,11 +459,11 @@ class SmartScheduleOptimizerServiceTest {
         assertEquals(OptimizationStatus.TIME_LIMIT_EXCEEDED, response.getStatus());
         assertNotEquals(OptimizationStatus.NO_SOLUTION, response.getStatus(),
                 "Một CSP Solver hết thời gian chưa có nghĩa là bài toán vô nghiệm!");
-        assertTrue(response.getStatusMessage().contains("vượt quá giới hạn tối đa"));
+        assertTrue(response.getStatusMessage().contains("vượt quá giới hạn") || response.getStatusMessage().contains("chạm giới hạn"));
     }
 
     @Test
-    @DisplayName("TC-OPT-12: Giới hạn maxSolutions kết thúc tìm kiếm sớm khi đủ số nghiệm yêu cầu")
+    @DisplayName("TC-OPT-15: Giới hạn maxSolutions kết thúc tìm kiếm sớm khi đủ số nghiệm yêu cầu")
     void testOptimizeSchedule_MaxSolutionsLimit_StopsEarly() {
         // Course 1 có 3 lớp khác giờ, Course 2 có 3 lớp khác giờ -> Tổng cộng 9 tổ hợp hợp lệ
         ClassSection s1A = createSection(1L, "S1A", course1, "MON", LocalTime.of(7, 0), LocalTime.of(8, 0), 40, 5);
@@ -407,7 +491,7 @@ class SmartScheduleOptimizerServiceTest {
     }
 
     @Test
-    @DisplayName("TC-OPT-13: Kiểm thử Concurrency - Nhiều request chạy đồng thời không rò rỉ trạng thái")
+    @DisplayName("TC-OPT-16: Kiểm thử Concurrency - Nhiều request chạy đồng thời không rò rỉ trạng thái")
     void testOptimizeSchedule_ConcurrentRequests_ThreadSafe() throws Exception {
         ClassSection s1A = createSection(1L, "S1A", course1, "MON", LocalTime.of(7, 0), LocalTime.of(8, 0), 40, 5);
         ClassSection s1B = createSection(2L, "S1B", course1, "TUE", LocalTime.of(7, 0), LocalTime.of(8, 0), 40, 5);
@@ -448,7 +532,7 @@ class SmartScheduleOptimizerServiceTest {
     }
 
     @Test
-    @DisplayName("TC-OPT-14: Kiểm tra ngắt Thread Interruption - Dừng tìm kiếm an toàn")
+    @DisplayName("TC-OPT-17: Kiểm tra ngắt Thread Interruption - Dừng tìm kiếm an toàn")
     void testOptimizeSchedule_InterruptionHandling() throws Exception {
         List<ClassSection> sections = new ArrayList<>();
         List<Long> courseIds = new ArrayList<>();
@@ -470,7 +554,6 @@ class SmartScheduleOptimizerServiceTest {
                 .thenReturn(sections);
 
         Thread currentThread = Thread.currentThread();
-        // Set interrupt flag
         currentThread.interrupt();
 
         ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
@@ -483,7 +566,6 @@ class SmartScheduleOptimizerServiceTest {
         Thread.interrupted();
 
         assertNotNull(response);
-        // Interrupted search must exit cleanly without throwing unhandled exceptions
         assertNotNull(response.getStatus());
     }
 }

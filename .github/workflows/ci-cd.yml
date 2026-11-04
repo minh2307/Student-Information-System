@@ -470,12 +470,13 @@ jobs:
         id: resolve
         run: |
           case "${GITHUB_REF_NAME}" in
-            main)    ENV_NAME="prod"    ; COMPOSE_FILE="docker-compose.prod.yml"    ;;
-            staging) ENV_NAME="staging" ; COMPOSE_FILE="docker-compose.staging.yml" ;;
-            *)       ENV_NAME="dev"     ; COMPOSE_FILE="docker-compose.dev.yml"     ;;
+            main)    ENV_NAME="prod"    ; COMPOSE_FILE="docker-compose.prod.yml"    ; FRONTEND_PORT="80"   ;;
+            staging) ENV_NAME="staging" ; COMPOSE_FILE="docker-compose.staging.yml" ; FRONTEND_PORT="3000" ;;
+            *)       ENV_NAME="dev"     ; COMPOSE_FILE="docker-compose.dev.yml"     ; FRONTEND_PORT="3000" ;;
           esac
-          echo "env_name=${ENV_NAME}"       >> $GITHUB_OUTPUT
-          echo "compose_file=${COMPOSE_FILE}" >> $GITHUB_OUTPUT
+          echo "env_name=${ENV_NAME}"           >> $GITHUB_OUTPUT
+          echo "compose_file=${COMPOSE_FILE}"   >> $GITHUB_OUTPUT
+          echo "frontend_port=${FRONTEND_PORT}" >> $GITHUB_OUTPUT
           echo "tag=$(echo ${GITHUB_REF_NAME} | tr '/' '-')-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Setup SSH
@@ -531,6 +532,8 @@ jobs:
           AI_MODEL: ${{ secrets.AI_MODEL || 'google/gemini-2.5-flash' }}
           AI_PROVIDER: ${{ secrets.AI_PROVIDER || 'openrouter' }}
           AI_MAX_TOKENS: '1500'
+          FRONTEND_PORT: ${{ vars.FRONTEND_PORT || steps.resolve.outputs.frontend_port }}
+          FRONTEND_ALT_PORT: ${{ vars.FRONTEND_ALT_PORT || '3000' }}
           COMPOSE_FILE: ${{ steps.resolve.outputs.compose_file }}
           ENV_NAME: ${{ steps.resolve.outputs.env_name }}
           IMAGE_TAG: ${{ steps.resolve.outputs.tag }}
@@ -548,7 +551,7 @@ jobs:
             "${SSH_USER}@${SSH_HOST}:/opt/eduportal/"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             "${SSH_USER}@${SSH_HOST}" \
-            "COMPOSE_FILE='${COMPOSE_FILE}' ENV_NAME='${ENV_NAME}' IMAGE_TAG='${IMAGE_TAG}' REGISTRY='${REGISTRY}' IMAGE_PREFIX='${IMAGE_PREFIX}' DB_PASSWORD='${DB_PASSWORD}' JWT_SECRET='${JWT_SECRET}' AI_API_KEY='${AI_API_KEY}' AI_BASE_URL='${AI_BASE_URL}' AI_MODEL='${AI_MODEL}' AI_PROVIDER='${AI_PROVIDER}' AI_MAX_TOKENS='${AI_MAX_TOKENS}' bash /opt/eduportal/remote-deploy.sh"
+            "COMPOSE_FILE='${COMPOSE_FILE}' ENV_NAME='${ENV_NAME}' IMAGE_TAG='${IMAGE_TAG}' REGISTRY='${REGISTRY}' IMAGE_PREFIX='${IMAGE_PREFIX}' DB_PASSWORD='${DB_PASSWORD}' JWT_SECRET='${JWT_SECRET}' AI_API_KEY='${AI_API_KEY}' AI_BASE_URL='${AI_BASE_URL}' AI_MODEL='${AI_MODEL}' AI_PROVIDER='${AI_PROVIDER}' AI_MAX_TOKENS='${AI_MAX_TOKENS}' FRONTEND_PORT='${FRONTEND_PORT}' FRONTEND_ALT_PORT='${FRONTEND_ALT_PORT}' bash /opt/eduportal/remote-deploy.sh"
 
       - name: Notify deploy result
         if: always()

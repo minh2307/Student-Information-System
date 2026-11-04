@@ -799,6 +799,24 @@ export const ScheduleOptimizerModal = ({
                 )}
               </div>
 
+              {/* Unassigned Courses Warning Banner */}
+              {result.unassignedCourses && result.unassignedCourses.length > 0 && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5 text-xs text-amber-900 animate-in fade-in">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                    <AlertTriangle size={14} className="text-amber-600" />
+                    <span>Môn chưa thể xếp lịch ({result.unassignedCourses.length} môn):</span>
+                  </div>
+                  <ul className="space-y-1 text-[11px] text-amber-800/90 pl-1">
+                    {result.unassignedCourses.map((u, i) => (
+                      <li key={i} className="flex items-start gap-1.5">
+                        <span className="font-mono font-bold text-amber-950 shrink-0">• {u.courseCode}:</span>
+                        <span>{u.reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* Selected Plan Details */}
               {activePlan ? (
                 <div className="space-y-4 animate-in fade-in">
