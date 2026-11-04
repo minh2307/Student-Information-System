@@ -30,16 +30,22 @@ public class ScheduleOptimizerController {
 
     /**
      * POST /api/v1/student/schedule-optimizer/solve
-     * Tự động giải bài toán xếp thời khóa biểu không trùng lặp và tối ưu theo sở thích của sinh viên
+     * Tự động giải bài toán xếp thời khóa biểu không trùng lặp và tối ưu theo sở thích của sinh viên.
+     * Validate đầu vào: Nếu danh sách môn học rỗng -> trả về lỗi 400 kèm message rõ ràng, không chạy thuật toán.
      */
     @PostMapping("/solve")
     public ResponseEntity<ApiResponse<ScheduleOptimizerResponse>> solveOptimalSchedules(
             @RequestBody ScheduleOptimizerRequest request,
             HttpServletRequest httpRequest) {
 
+        if (request == null || request.getCourseIds() == null || request.getCourseIds().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(400, "Danh sách môn học rỗng. Vui lòng chọn ít nhất một môn học để AI bắt đầu tối ưu hóa thời khóa biểu."));
+        }
+
         String studentCode = extractStudentIdentifier(httpRequest);
         log.info("Solving optimal schedules for student '{}' with {} target courses",
-                studentCode, request.getCourseIds() != null ? request.getCourseIds().size() : 0);
+                studentCode, request.getCourseIds().size());
 
         ScheduleOptimizerResponse response = scheduleOptimizerService.optimizeSchedule(studentCode, request);
         return ResponseEntity.ok(ApiResponse.success("AI đã tối ưu hóa thời khóa biểu thành công", response));
