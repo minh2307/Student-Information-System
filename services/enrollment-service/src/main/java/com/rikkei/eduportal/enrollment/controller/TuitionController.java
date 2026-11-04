@@ -3,8 +3,10 @@ package com.rikkei.eduportal.enrollment.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rikkei.eduportal.common.ApiResponse;
+import com.rikkei.eduportal.enrollment.dto.PayOSPaymentLinkResponse;
 import com.rikkei.eduportal.enrollment.dto.TuitionDto;
 import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
+import com.rikkei.eduportal.enrollment.service.PayOSService;
 import com.rikkei.eduportal.enrollment.service.TuitionService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -19,10 +21,12 @@ import java.util.Map;
 public class TuitionController {
 
     private final TuitionService tuitionService;
+    private final PayOSService payOSService;
     private final ObjectMapper objectMapper;
 
-    public TuitionController(TuitionService tuitionService) {
+    public TuitionController(TuitionService tuitionService, PayOSService payOSService) {
         this.tuitionService = tuitionService;
+        this.payOSService = payOSService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -45,6 +49,32 @@ public class TuitionController {
         String paymentMethod = body != null ? body.get("paymentMethod") : "VietQR Napas247";
         TuitionDto dto = tuitionService.payTuition(studentIdentifier, semester, paymentMethod);
         return ResponseEntity.ok(ApiResponse.success("Thanh toán học phí thành công", dto));
+    }
+
+    /**
+     * Tạo liên kết thanh toán trực tuyến qua cổng PayOS kèm mã QR động & checkoutUrl
+     */
+    @PostMapping("/payos/create-payment-link")
+    public ResponseEntity<ApiResponse<PayOSPaymentLinkResponse>> createPayOSPaymentLink(
+            @RequestBody(required = false) Map<String, String> body,
+            @RequestParam(required = false) String semester,
+            HttpServletRequest request) {
+        String studentIdentifier = extractUser(request);
+        String targetSemester = (body != null && body.containsKey("semester")) ? body.get("semester") : semester;
+        PayOSPaymentLinkResponse response = payOSService.createPaymentLink(studentIdentifier, targetSemester);
+        return ResponseEntity.ok(ApiResponse.success("Tạo liên kết thanh toán PayOS thành công", response));
+    }
+
+    /**
+     * Tra cứu trạng thái quyết toán PayOS cho giao dịch gần nhất
+     */
+    @GetMapping("/payos/status")
+    public ResponseEntity<ApiResponse<TuitionDto>> checkPayOSStatus(
+            @RequestParam(required = false) String semester,
+            HttpServletRequest request) {
+        String studentIdentifier = extractUser(request);
+        TuitionDto dto = tuitionService.getStudentTuition(studentIdentifier, semester);
+        return ResponseEntity.ok(ApiResponse.success("Trạng thái quyết toán học phí", dto));
     }
 
     private String extractUser(HttpServletRequest request) {

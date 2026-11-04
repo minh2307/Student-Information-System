@@ -128,9 +128,12 @@ CREATE TABLE IF NOT EXISTS tuition_fees (
     payment_date TIMESTAMP,
     transaction_code VARCHAR(100),
     payment_method VARCHAR(50),
+    payos_order_code BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_student_semester_tuition UNIQUE (student_id, semester_name)
 );
+
+CREATE INDEX IF NOT EXISTS idx_tuition_payos_order_code ON tuition_fees(payos_order_code);
 
 -- 9. Table announcements (Bảng tin Đào tạo)
 CREATE TABLE IF NOT EXISTS announcements (

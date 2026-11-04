@@ -32,6 +32,10 @@ export const StudentTuition = () => {
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [selectedBankBin, setSelectedBankBin] = useState('970422') // 970422 (MB) | 970415 (VietinBank)
   const [showRawPayload, setShowRawPayload] = useState(false)
+  const [showPayOsModal, setShowPayOsModal] = useState(false)
+  const [payOsData, setPayOsData] = useState(null)
+  const [creatingPayOs, setCreatingPayOs] = useState(false)
+  const [pollingActive, setPollingActive] = useState(false)
 
   // Tải danh sách học kỳ
   useEffect(() => {
@@ -72,6 +76,69 @@ export const StudentTuition = () => {
     }
     fetchTuition()
   }, [selectedSemester, selectedBankBin])
+
+  // Polling tự động kiểm tra trạng thái quyết toán khi mở cổng PayOS
+  useEffect(() => {
+    let timer = null
+    const isPaid = tuition?.status === 'PAID'
+    if (pollingActive && !isPaid) {
+      timer = setInterval(async () => {
+        try {
+          const res = await api.get(`/student/tuition?semester=${selectedSemester}&bank=${selectedBankBin}`)
+          if (res.data?.data) {
+            setTuition(res.data.data)
+            if (res.data.data.status === 'PAID') {
+              setPollingActive(false)
+              setShowPayOsModal(false)
+              setShowReceiptModal(true)
+              toast.success('Học phí đã được quyết toán tự động qua cổng PayOS!')
+            }
+          }
+        } catch (ignored) {}
+      }, 3000)
+    }
+    return () => {
+      if (timer) clearInterval(timer)
+    }
+  }, [pollingActive, tuition?.status, selectedSemester, selectedBankBin])
+
+  const handleOpenPayOs = async () => {
+    setCreatingPayOs(true)
+    try {
+      const res = await api.post('/student/tuition/payos/create-payment-link', { semester: selectedSemester })
+      if (res.data?.data) {
+        setPayOsData(res.data.data)
+        setShowPayOsModal(true)
+        setPollingActive(true)
+      }
+    } catch (err) {
+      toast.error('Không thể tạo liên kết thanh toán PayOS: ' + (err.response?.data?.message || err.message))
+    } finally {
+      setCreatingPayOs(false)
+    }
+  }
+
+  const handleSimulatePayOsWebhook = async () => {
+    if (!payOsData?.orderCode) return
+    try {
+      await api.post('/public/tuition/payos-webhook', {
+        code: '00',
+        desc: 'success',
+        success: true,
+        data: {
+          orderCode: payOsData.orderCode,
+          amount: payOsData.amount,
+          description: payOsData.description,
+          code: '00',
+          reference: 'SIM-PAYOS-' + Date.now()
+        },
+        signature: 'demo-signature'
+      })
+      toast.success('Đã gửi tín hiệu Webhook PayOS mô phỏng thành công!')
+    } catch (err) {
+      toast.error('Lỗi gửi webhook mô phỏng: ' + (err.response?.data?.message || err.message))
+    }
+  }
 
   const handleConfirmPayment = async () => {
     setPaying(true)
@@ -228,13 +295,23 @@ export const StudentTuition = () => {
 
             <div className="relative z-10 flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
               {!isPaid ? (
-                <button
-                  onClick={() => setShowQrModal(true)}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-xs font-bold bg-red-700 hover:bg-red-800 text-white transition shadow-2xs cursor-pointer"
-                >
-                  <QrCode size={16} />
-                  <span>Quét Mã VietQR Napas247</span>
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={handleOpenPayOs}
+                    disabled={creatingPayOs}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-xs font-bold bg-gradient-to-r from-red-800 to-rose-700 hover:from-red-900 hover:to-rose-800 text-white transition shadow-2xs cursor-pointer"
+                  >
+                    <CreditCard size={16} />
+                    <span>{creatingPayOs ? 'Đang kết nối PayOS...' : 'Thanh Toán Online (PayOS)'}</span>
+                  </button>
+                  <button
+                    onClick={() => setShowQrModal(true)}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-xs font-semibold bg-stone-100 hover:bg-stone-200 text-stone-800 transition border border-stone-300 cursor-pointer"
+                  >
+                    <QrCode size={16} className="text-stone-600" />
+                    <span>VietQR Napas247</span>
+                  </button>
+                </div>
               ) : (
                 <div className="bg-white p-3 rounded-lg border border-stone-200 text-xs text-stone-700 space-y-1 font-mono">
                   <div>Mã biên nhận: <strong className="text-stone-900">{tuition.transactionCode}</strong></div>
@@ -476,6 +553,111 @@ export const StudentTuition = () => {
                     <span>Xác nhận đã nộp</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4.5. PayOS Online Payment Modal (Dynamic QR & Webhook Auto-Settlement) */}
+      {showPayOsModal && payOsData && (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+              <div className="flex items-center gap-2">
+                <CreditCard size={18} className="text-red-700" />
+                <h3 className="text-sm font-bold text-stone-900 uppercase font-mono tracking-wider">
+                  Cổng Thanh Toán Trực Tuyến PayOS
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPayOsModal(false)
+                  setPollingActive(false)
+                }}
+                className="text-stone-400 hover:text-stone-600 text-xl leading-none cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="mt-4 text-center space-y-4">
+              <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl text-left flex items-start gap-2.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping mt-1 shrink-0" />
+                <div className="text-[11px] text-emerald-900">
+                  <span className="font-bold">Luồng Quyết Toán Tự Động (Webhook IPN):</span> Sau khi bạn quét QR hoặc thanh toán trên cổng PayOS, hệ thống sẽ tự động cập nhật trạng thái học phí sang <strong>ĐÃ THANH TOÁN</strong> tức thời mà không cần xác nhận thủ công.
+                </div>
+              </div>
+
+              {/* Dynamic VietQR code from PayOS */}
+              <div className="relative mx-auto w-56 h-auto min-h-56 bg-white border-2 border-dashed border-red-200 rounded-2xl p-3 flex flex-col items-center justify-center shadow-xs">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payOsData.qrCode || '')}`}
+                  alt="PayOS VietQR Code"
+                  className="w-full h-auto object-contain rounded-lg shadow-2xs"
+                />
+              </div>
+
+              {/* Order Details Box */}
+              <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 text-xs text-left space-y-2 font-mono">
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-sans">Mã đơn hàng PayOS:</span>
+                  <strong className="text-red-800 text-sm tracking-wide">{payOsData.orderCode}</strong>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-sans">Số tiền cần đóng:</span>
+                  <strong className="text-stone-900 text-sm">{formatVnd(payOsData.amount)}</strong>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-sans">Nội dung thanh toán:</span>
+                  <strong className="text-stone-900 bg-white px-2 py-0.5 rounded border border-stone-200">{payOsData.description}</strong>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-sans">Tài khoản thụ hưởng:</span>
+                  <span className="text-stone-700">{payOsData.accountNumber} ({payOsData.accountName})</span>
+                </div>
+              </div>
+
+              {/* Link to PayOS Checkout Page */}
+              {payOsData.checkoutUrl && (
+                <div className="pt-1">
+                  <a
+                    href={payOsData.checkoutUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold transition"
+                  >
+                    <ExternalLink size={14} />
+                    <span>Mở Giao Diện Thanh Toán PayOS (Tab mới)</span>
+                  </a>
+                </div>
+              )}
+
+              {/* Simulation test helper */}
+              <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
+                <span className="text-[10px] text-stone-500 font-mono">Chế độ kiểm thử (Sandbox):</span>
+                <button
+                  type="button"
+                  onClick={handleSimulatePayOsWebhook}
+                  className="px-2.5 py-1 text-[11px] font-medium bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-md transition cursor-pointer"
+                >
+                  ⚡ Mô phỏng Webhook thành công
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => {
+                  setShowPayOsModal(false)
+                  setPollingActive(false)
+                }}
+                className="w-full py-2 rounded-lg border border-stone-300 text-xs font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+              >
+                Đóng cửa sổ
               </button>
             </div>
           </div>
