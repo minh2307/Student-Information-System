@@ -136,10 +136,10 @@ export const Header = ({ onToggleMobileMenu }) => {
       <div className="flex items-center gap-2 sm:gap-4">
         <button
           onClick={onToggleMobileMenu}
-          className="p-2 -ml-1 rounded-lg text-stone-600 hover:text-stone-900 hover:bg-stone-100 md:hidden transition"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center -ml-2 rounded-xl text-stone-600 hover:text-stone-900 hover:bg-stone-100 active:bg-stone-200 md:hidden transition-colors touch-manipulation"
           aria-label="Mở Menu Điều Hướng"
         >
-          <Menu size={20} />
+          <Menu size={22} />
         </button>
 
         <div className="hidden lg:flex items-center gap-2.5 text-xs text-stone-600 font-medium">

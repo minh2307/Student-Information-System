@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { getRealAvatar } from '../utils/avatarUtils'
 import api from '../services/api'
+import StudentQrScannerModal from '../components/StudentQrScannerModal'
 import { 
   BookOpen, 
   Clock, 
@@ -40,6 +41,7 @@ export const StudentDashboard = () => {
   const [loading, setLoading] = useState(true)
   const [activeSemester, setActiveSemester] = useState(null)
   const [cardFlipped, setCardFlipped] = useState(false)
+  const [showQrScanModal, setShowQrScanModal] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
 
   const [dashboardData, setDashboardData] = useState({
@@ -716,6 +718,24 @@ export const StudentDashboard = () => {
                 </div>
                 <ChevronRight size={14} className="text-stone-400 group-hover:text-red-700" />
               </Link>
+
+              <button
+                onClick={() => setShowQrScanModal(true)}
+                className="w-full p-3 rounded-xl border border-indigo-200/80 hover:border-indigo-400 hover:bg-indigo-50/70 transition flex items-center justify-between group text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 group-hover:bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                    <QrCode size={16} />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-stone-900 group-hover:text-indigo-800">
+                      Quét QR Điểm Danh
+                    </h5>
+                    <p className="text-[10px] text-stone-600">Điểm danh bằng mã QR bảo mật</p>
+                  </div>
+                </div>
+                <ChevronRight size={14} className="text-stone-400 group-hover:text-indigo-700" />
+              </button>
             </div>
           </div>
 
@@ -726,6 +746,14 @@ export const StudentDashboard = () => {
         </div>
 
       </div>
+
+      <StudentQrScannerModal
+        isOpen={showQrScanModal}
+        onClose={() => setShowQrScanModal(false)}
+        onSuccess={(result) => {
+          setShowQrScanModal(false)
+        }}
+      />
     </div>
   )
 }
