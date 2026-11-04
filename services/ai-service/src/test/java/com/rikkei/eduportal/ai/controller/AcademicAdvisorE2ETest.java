@@ -159,4 +159,33 @@ class AcademicAdvisorE2ETest {
                 .andExpect(jsonPath("$.data.reply").value(containsString("24 tín chỉ")))
                 .andExpect(jsonPath("$.data.limitations").isArray());
     }
+
+    @Test
+    @DisplayName("E2E: Student inquires about real timetable - Receives formatted schedule table")
+    void e2e_timetableInquiry_returnsRealScheduleWithConflictDetection() throws Exception {
+        String token = createStudentToken("SV2024001");
+
+        CurrentEnrollmentDto e1 = new CurrentEnrollmentDto("CS301", "DBMS", "CS301-01", 3, "MON", "09:00", "10:30", "Lab 1", "TS. A", "REGISTERED", false);
+        CurrentEnrollmentDto e2 = new CurrentEnrollmentDto("CS402", "Software Engineering", "CS402-01", 3, "MON", "10:00", "11:30", "Lab 2", "ThS. B", "REGISTERED", true);
+        sampleContext.setCurrentEnrollments(List.of(e1, e2));
+        sampleContext.setScheduleConflictCount(1);
+        sampleContext.setConflictingSections(List.of("CS402-01"));
+
+        when(enrollmentClient.fetchAcademicContext(any(), eq("SV2024001"))).thenReturn(Optional.of(sampleContext));
+
+        AcademicAdvisorRequest request = new AcademicAdvisorRequest("Thời khóa biểu tuần này của tôi");
+
+        mockMvc.perform(post("/api/v1/ai/academic-advisor")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data.category").value("TIMETABLE"))
+                .andExpect(jsonPath("$.data.reply").value(containsString("Thời Khóa Biểu & Lịch Học Thực Tế")))
+                .andExpect(jsonPath("$.data.reply").value(containsString("CS301")))
+                .andExpect(jsonPath("$.data.reply").value(containsString("CS402")))
+                .andExpect(jsonPath("$.data.reply").value(containsString("Trùng lịch")))
+                .andExpect(jsonPath("$.data.academicSummary.scheduleConflictCount").value(1));
+    }
 }

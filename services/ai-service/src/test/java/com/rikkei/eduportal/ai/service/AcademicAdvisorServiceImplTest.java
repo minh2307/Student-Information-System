@@ -302,4 +302,47 @@ class AcademicAdvisorServiceImplTest {
         verify(enrollmentClient, never()).fetchAcademicContext(any(), eq("SV2024002"));
         assertEquals("SV2024001", response.getAcademicSummary().getStudentCode());
     }
+
+    @Test
+    @DisplayName("Case 8: Timetable Inquiry - Chatbot returns actual weekly schedule and detects conflict")
+    void case8_timetableInquiry_returnsFormattedWeeklyScheduleAndDetectsConflicts() {
+        when(aiConfig.isConfiguredWithRealKey()).thenReturn(false);
+        when(enrollmentClient.fetchAcademicContext(any(), eq("SV2024001"))).thenReturn(Optional.of(sampleContext));
+
+        AcademicAdvisorRequest request = new AcademicAdvisorRequest("Thời khóa biểu tuần này của tôi như thế nào?");
+
+        AcademicAdvisorResponse response = advisorService.advise(request, "SV2024001", "token");
+
+        assertNotNull(response);
+        assertEquals("TIMETABLE", response.getCategory());
+        assertTrue(response.getReply().contains("Thời Khóa Biểu & Lịch Học Thực Tế"));
+        assertTrue(response.getReply().contains("CS301"));
+        assertTrue(response.getReply().contains("CS402"));
+        assertTrue(response.getReply().contains("Trùng lịch"));
+        assertEquals(1, response.getAcademicSummary().getScheduleConflictCount());
+    }
+
+    @Test
+    @DisplayName("Case 9: Failed Course Retake - Prioritizes retake recommendation with high urgency")
+    void case9_failedCourseRecommendation_prioritizesRetakeCourse() {
+        when(aiConfig.isConfiguredWithRealKey()).thenReturn(false);
+
+        FailedCourseDto failed = new FailedCourseDto("CS102", "OOP in Java", 3, "2023-24_SEM1", "F", BigDecimal.valueOf(2.5));
+        sampleContext.setFailedCourses(List.of(failed));
+
+        when(enrollmentClient.fetchAcademicContext(any(), eq("SV2024001"))).thenReturn(Optional.of(sampleContext));
+
+        AcademicAdvisorRequest request = new AcademicAdvisorRequest("Nên đăng ký môn gì trong kỳ tới?");
+
+        AcademicAdvisorResponse response = advisorService.advise(request, "SV2024001", "token");
+
+        assertNotNull(response);
+        assertNotNull(response.getRecommendations());
+        assertFalse(response.getRecommendations().isEmpty());
+
+        CourseRecommendationDto firstRec = response.getRecommendations().get(0);
+        assertEquals("CS102", firstRec.getCourseCode());
+        assertEquals("HIGH", firstRec.getRecommendedPriority());
+        assertTrue(firstRec.getReason().contains("Môn học bị nợ/trượt (Điểm F)"));
+    }
 }

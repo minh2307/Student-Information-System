@@ -90,8 +90,8 @@ public class AdvisorPromptBuilder {
             }
             sb.append("\n");
 
-            // Current semester enrollments
-            sb.append("3. Các lớp học phần ĐANG ĐĂNG KÝ HỌC KỲ NÀY:\n");
+            // Current semester enrollments & timetable
+            sb.append("3. Các lớp học phần ĐANG ĐĂNG KÝ HỌC KỲ NÀY & THỜI KHÓA BIỂU:\n");
             if (context.getCurrentEnrollments() == null || context.getCurrentEnrollments().isEmpty()) {
                 sb.append("   (Chưa có môn nào đang đăng ký trong học kỳ này)\n");
             } else {
@@ -99,7 +99,9 @@ public class AdvisorPromptBuilder {
                     sb.append("   * ").append(e.getCourseCode()).append(" - ").append(e.getCourseName())
                             .append(" [Lớp: ").append(e.getSectionCode()).append(", ").append(e.getCredits()).append(" TC]")
                             .append(" - Thứ: ").append(e.getDayOfWeek()).append(" (").append(e.getStartTime()).append("-").append(e.getEndTime()).append(")")
-                            .append(", Phòng: ").append(e.getRoomName()).append(", Trạng thái: ").append(e.getStatus())
+                            .append(", Phòng: ").append(e.getRoomName() != null ? e.getRoomName() : "TBA")
+                            .append(", Giảng viên: ").append(e.getLecturerName() != null ? e.getLecturerName() : "Chưa phân công")
+                            .append(", Trạng thái: ").append(e.getStatus())
                             .append(Boolean.TRUE.equals(e.getHasConflict()) ? " ⚠️ [BỊ TRÙNG THỜI KHÓA BIỂU]" : "")
                             .append("\n");
                 }

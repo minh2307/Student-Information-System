@@ -140,35 +140,58 @@ public class AcademicAdvisorServiceImpl implements AcademicAdvisorService {
 
     private List<CourseRecommendationDto> buildCourseRecommendations(StudentAcademicContextDto context) {
         List<CourseRecommendationDto> recommendations = new ArrayList<>();
-        if (context.getAvailableCourses() == null) return recommendations;
+        if (context == null) return recommendations;
 
-        for (AvailableCourseDto av : context.getAvailableCourses()) {
-            if (Boolean.TRUE.equals(av.getPrerequisiteSatisfied())
-                    && !Boolean.TRUE.equals(av.getAlreadyCompleted())
-                    && !Boolean.TRUE.equals(av.getCurrentlyEnrolled())) {
-
-                String priority = Boolean.TRUE.equals(av.getHasScheduleConflict()) ? "MEDIUM" : "HIGH";
-                String reason;
-                if (av.getPrerequisiteCourseCode() != null) {
-                    reason = "Đã hoàn thành môn tiên quyết " + av.getPrerequisiteCourseCode()
-                            + " (" + (av.getPrerequisiteCourseName() != null ? av.getPrerequisiteCourseName() : "") + "). Môn mở lớp trong kỳ và phù hợp lộ trình ngành " + context.getMajor() + ".";
-                } else {
-                    reason = "Môn học nền tảng không yêu cầu tiên quyết, phù hợp tích lũy trong học kỳ tiếp theo.";
-                }
-
-                if (Boolean.TRUE.equals(av.getHasScheduleConflict())) {
-                    reason += " [Lưu ý: Có lịch học trùng ca, hãy chọn Section phù hợp].";
-                }
-
+        // 1. Highest priority: Retake failed courses to avoid prerequisite chain blocking and restore C-GPA
+        if (context.getFailedCourses() != null) {
+            for (FailedCourseDto failed : context.getFailedCourses()) {
                 recommendations.add(new CourseRecommendationDto(
-                        av.getCourseCode(),
-                        av.getCourseName(),
-                        av.getCredits(),
-                        reason,
+                        failed.getCourseCode(),
+                        failed.getCourseName(),
+                        failed.getCredits(),
+                        "Môn học bị nợ/trượt (Điểm F). Cần ưu tiên đăng ký học lại sớm nhất để cải thiện điểm C-GPA và mở khóa môn tiên quyết.",
                         true,
                         true,
-                        priority
+                        "HIGH"
                 ));
+            }
+        }
+
+        // 2. Eligible open courses matching prerequisite criteria
+        if (context.getAvailableCourses() != null) {
+            for (AvailableCourseDto av : context.getAvailableCourses()) {
+                // Avoid duplicating if already added from failed list
+                boolean alreadyAdded = recommendations.stream()
+                        .anyMatch(r -> r.getCourseCode().equalsIgnoreCase(av.getCourseCode()));
+                if (alreadyAdded) continue;
+
+                if (Boolean.TRUE.equals(av.getPrerequisiteSatisfied())
+                        && !Boolean.TRUE.equals(av.getAlreadyCompleted())
+                        && !Boolean.TRUE.equals(av.getCurrentlyEnrolled())) {
+
+                    String priority = Boolean.TRUE.equals(av.getHasScheduleConflict()) ? "MEDIUM" : "HIGH";
+                    String reason;
+                    if (av.getPrerequisiteCourseCode() != null) {
+                        reason = "Đã hoàn thành môn tiên quyết " + av.getPrerequisiteCourseCode()
+                                + " (" + (av.getPrerequisiteCourseName() != null ? av.getPrerequisiteCourseName() : "") + "). Môn mở lớp trong kỳ và phù hợp lộ trình ngành " + context.getMajor() + ".";
+                    } else {
+                        reason = "Môn học nền tảng không yêu cầu tiên quyết, phù hợp tích lũy trong học kỳ tiếp theo.";
+                    }
+
+                    if (Boolean.TRUE.equals(av.getHasScheduleConflict())) {
+                        reason += " [Lưu ý: Có Section trùng lịch học hiện tại, hãy chọn Section khác].";
+                    }
+
+                    recommendations.add(new CourseRecommendationDto(
+                            av.getCourseCode(),
+                            av.getCourseName(),
+                            av.getCredits(),
+                            reason,
+                            true,
+                            true,
+                            priority
+                    ));
+                }
             }
         }
         return recommendations;

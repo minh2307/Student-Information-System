@@ -109,6 +109,47 @@ public class AdvisorFallbackService {
                 }
             }
 
+            case "TIMETABLE" -> {
+                reply.append("### 📅 Thời Khóa Biểu & Lịch Học Thực Tế\n\n");
+                if (context != null) {
+                    if (context.getCurrentEnrollments() != null && !context.getCurrentEnrollments().isEmpty()) {
+                        reply.append("Dưới đây là lịch học chi tiết các lớp học phần bạn đang đăng ký trong học kỳ này:\n\n");
+                        reply.append("| Thứ | Môn học | Mã lớp | Giờ học | Phòng | Giảng viên | Trạng thái |\n");
+                        reply.append("| :--- | :--- | :--- | :--- | :--- | :--- | :---: |\n");
+                        for (CurrentEnrollmentDto e : context.getCurrentEnrollments()) {
+                            String conflictBadge = Boolean.TRUE.equals(e.getHasConflict()) ? "⚠️ Trùng lịch" : "✅ Hợp lệ";
+                            reply.append("| **").append(e.getDayOfWeek()).append("** | ")
+                                    .append(e.getCourseCode()).append(" - ").append(e.getCourseName()).append(" | `")
+                                    .append(e.getSectionCode()).append("` | ")
+                                    .append(e.getStartTime()).append(" - ").append(e.getEndTime()).append(" | ")
+                                    .append(e.getRoomName() != null ? e.getRoomName() : "TBA").append(" | ")
+                                    .append(e.getLecturerName() != null ? e.getLecturerName() : "Chưa phân công").append(" | ")
+                                    .append(conflictBadge).append(" |\n");
+                        }
+                        reply.append("\n");
+
+                        if (context.getScheduleConflictCount() > 0) {
+                            reply.append("⚠️ **CẢNH BÁO XUNG ĐỘT THỜI KHÓA BIỂU**: Bạn đang có **").append(context.getScheduleConflictCount())
+                                    .append(" lớp bị trùng lịch học** (`").append(String.join(", ", context.getConflictingSections()))
+                                    .append("`). Vui lòng vào Cổng đăng ký học phần để chọn Section khác tránh bị trùng giờ thi/học nhé!\n\n");
+                        } else {
+                            reply.append("✨ **Thời khóa biểu hợp lệ**: Tất cả các lớp học phần của bạn đều được bố trí phù hợp, không bị trùng ca học.\n\n");
+                        }
+                    } else {
+                        reply.append("Bạn hiện chưa đăng ký lớp học phần nào trong học kỳ này.\n");
+                        reply.append("Hãy tham khảo danh sách môn học khuyến nghị bên dưới để đăng ký học phần nhé!\n\n");
+                    }
+                } else {
+                    reply.append("Hiện tại không thể truy xuất thời khóa biểu cá nhân do mất kết nối đến dịch vụ đào tạo.\n");
+                    reply.append("Bạn vui lòng kiểm tra lại trên trang Thời khóa biểu sinh viên.\n\n");
+                }
+                response.setSuggestions(List.of(
+                        "Gợi ý môn học phù hợp cho kỳ tới?",
+                        "Một học kỳ mình được đăng ký tối đa bao nhiêu tín chỉ?",
+                        "Bị trùng lịch học giữa 2 môn thì xử lý thế nào?"
+                ));
+            }
+
             case "SCHEDULE_CONFLICT" -> {
                 reply.append("### 🗓️ Hướng dẫn giải quyết Trùng thời khóa biểu (Schedule Conflict)\n\n");
                 if (context != null && context.getScheduleConflictCount() > 0) {
@@ -211,35 +252,57 @@ public class AdvisorFallbackService {
 
     private List<CourseRecommendationDto> buildRecommendations(StudentAcademicContextDto context) {
         List<CourseRecommendationDto> recommendations = new ArrayList<>();
-        if (context.getAvailableCourses() == null) return recommendations;
+        if (context == null) return recommendations;
 
-        for (AvailableCourseDto av : context.getAvailableCourses()) {
-            if (Boolean.TRUE.equals(av.getPrerequisiteSatisfied())
-                    && !Boolean.TRUE.equals(av.getAlreadyCompleted())
-                    && !Boolean.TRUE.equals(av.getCurrentlyEnrolled())) {
-
-                String priority = Boolean.TRUE.equals(av.getHasScheduleConflict()) ? "MEDIUM" : "HIGH";
-                String reason;
-                if (av.getPrerequisiteCourseCode() != null) {
-                    reason = "Đã hoàn thành môn tiên quyết " + av.getPrerequisiteCourseCode()
-                            + " (" + (av.getPrerequisiteCourseName() != null ? av.getPrerequisiteCourseName() : "") + "). Môn mở lớp trong kỳ và phù hợp lộ trình ngành " + context.getMajor() + ".";
-                } else {
-                    reason = "Môn học nền tảng không yêu cầu tiên quyết, phù hợp tích lũy trong học kỳ tiếp theo.";
-                }
-
-                if (Boolean.TRUE.equals(av.getHasScheduleConflict())) {
-                    reason += " [Lưu ý: Có lịch học trùng ca, hãy chọn Section phù hợp].";
-                }
-
+        // 1. Highest priority: Retake failed courses
+        if (context.getFailedCourses() != null) {
+            for (FailedCourseDto failed : context.getFailedCourses()) {
                 recommendations.add(new CourseRecommendationDto(
-                        av.getCourseCode(),
-                        av.getCourseName(),
-                        av.getCredits(),
-                        reason,
+                        failed.getCourseCode(),
+                        failed.getCourseName(),
+                        failed.getCredits(),
+                        "Môn học bị nợ/trượt (Điểm F). Cần ưu tiên đăng ký học lại sớm nhất để cải thiện điểm C-GPA và mở khóa môn tiên quyết.",
                         true,
                         true,
-                        priority
+                        "HIGH"
                 ));
+            }
+        }
+
+        // 2. Eligible open courses matching prerequisite criteria
+        if (context.getAvailableCourses() != null) {
+            for (AvailableCourseDto av : context.getAvailableCourses()) {
+                boolean alreadyAdded = recommendations.stream()
+                        .anyMatch(r -> r.getCourseCode().equalsIgnoreCase(av.getCourseCode()));
+                if (alreadyAdded) continue;
+
+                if (Boolean.TRUE.equals(av.getPrerequisiteSatisfied())
+                        && !Boolean.TRUE.equals(av.getAlreadyCompleted())
+                        && !Boolean.TRUE.equals(av.getCurrentlyEnrolled())) {
+
+                    String priority = Boolean.TRUE.equals(av.getHasScheduleConflict()) ? "MEDIUM" : "HIGH";
+                    String reason;
+                    if (av.getPrerequisiteCourseCode() != null) {
+                        reason = "Đã hoàn thành môn tiên quyết " + av.getPrerequisiteCourseCode()
+                                + " (" + (av.getPrerequisiteCourseName() != null ? av.getPrerequisiteCourseName() : "") + "). Môn mở lớp trong kỳ và phù hợp lộ trình ngành " + context.getMajor() + ".";
+                    } else {
+                        reason = "Môn học nền tảng không yêu cầu tiên quyết, phù hợp tích lũy trong học kỳ tiếp theo.";
+                    }
+
+                    if (Boolean.TRUE.equals(av.getHasScheduleConflict())) {
+                        reason += " [Lưu ý: Có Section trùng lịch học hiện tại, hãy chọn Section khác].";
+                    }
+
+                    recommendations.add(new CourseRecommendationDto(
+                            av.getCourseCode(),
+                            av.getCourseName(),
+                            av.getCredits(),
+                            reason,
+                            true,
+                            true,
+                            priority
+                    ));
+                }
             }
         }
         return recommendations;
@@ -249,8 +312,11 @@ public class AdvisorFallbackService {
         if (query == null) return "GENERAL";
         String q = query.toLowerCase();
 
-        if (q.contains("trùng") || q.contains("xung đột") || q.contains("lịch") || q.contains("thời khóa biểu") || q.contains("conflict")) {
+        if (q.contains("trùng") || q.contains("xung đột") || q.contains("conflict")) {
             return "SCHEDULE_CONFLICT";
+        }
+        if (q.contains("thời khóa biểu") || q.contains("thời khoá biểu") || q.contains("tkb") || q.contains("lịch học") || q.contains("lịch tuần") || q.contains("hôm nay học") || q.contains("tiết học")) {
+            return "TIMETABLE";
         }
         if (q.contains("tín chỉ") || q.contains("tối đa") || q.contains("tối thiểu") || q.contains("bao nhiêu tín") || q.contains("giới hạn")) {
             return "CREDITS_LIMIT";
@@ -261,7 +327,7 @@ public class AdvisorFallbackService {
         if (q.contains("điểm") || q.contains("chuyên cần") || q.contains("giữa kỳ") || q.contains("cuối kỳ") || q.contains("c-gpa") || q.contains("gpa") || q.contains("cảnh báo") || q.contains("cấm thi")) {
             return "GRADES_AND_GPA";
         }
-        if (q.contains("lộ trình") || q.contains("kỳ") || q.contains("học kỳ") || q.contains("kế hoạch") || q.contains("năm 1") || q.contains("năm 2") || q.contains("năm 3") || q.contains("năm 4") || q.contains("tốt nghiệp")) {
+        if (q.contains("lộ trình") || q.contains("học kỳ") || q.contains("kế hoạch") || q.contains("năm 1") || q.contains("năm 2") || q.contains("năm 3") || q.contains("năm 4") || q.contains("tốt nghiệp")) {
             return "ROADMAP";
         }
         if (q.contains("đăng ký") || q.contains("nên học") || q.contains("học môn nào") || q.contains("môn gì") || q.contains("gợi ý") || q.contains("khuyên")) {
