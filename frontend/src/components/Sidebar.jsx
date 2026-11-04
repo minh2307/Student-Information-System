@@ -29,9 +29,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
   useEffect(() => {
     if (mobileOpen) {
       const originalOverflow = document.body.style.overflow
-      const originalTouchAction = document.body.style.touchAction
       document.body.style.overflow = 'hidden'
-      document.body.style.touchAction = 'none'
 
       const handleKeyDown = (e) => {
         if (e.key === 'Escape') onClose()
@@ -40,7 +38,6 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
 
       return () => {
         document.body.style.overflow = originalOverflow
-        document.body.style.touchAction = originalTouchAction
         window.removeEventListener('keydown', handleKeyDown)
       }
     }
@@ -66,10 +63,11 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
 
       {/* Sidebar: Static on Desktop, Off-Canvas Drawer with 100dvh & Safe-Area on Mobile */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 sm:w-64 bg-white border-r border-stone-200/90 flex flex-col shrink-0 h-screen h-[100dvh] max-h-[100dvh] transition-transform duration-300 ease-in-out md:static md:translate-x-0 md:h-auto md:min-h-screen drawer-hardware-accelerated ${
-          mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 w-72 sm:w-64 bg-white border-r border-stone-200/90 flex flex-col shrink-0 h-screen h-[100dvh] max-h-[100dvh] transition-transform duration-300 ease-in-out md:static md:translate-x-0 md:h-auto md:min-h-screen transform-gpu drawer-hardware-accelerated ${
+          mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full pointer-events-none md:pointer-events-auto'
         }`}
         aria-label="Thanh điều hướng chính"
+        aria-hidden={!mobileOpen}
       >
         {/* 1. Official University Brand Header (with iOS Notch Safe Area) */}
         <div className="px-4 py-3.5 pt-[max(0.875rem,env(safe-area-inset-top,0.875rem))] border-b border-stone-200/80 bg-white flex items-center justify-between shrink-0">
@@ -94,8 +92,12 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
 
           {/* Close button for mobile with 44x44px touch target */}
           <button
-            onClick={onClose}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 active:bg-stone-200 md:hidden transition-colors"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onClose()
+            }}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 active:bg-stone-200 md:hidden transition-colors touch-manipulation cursor-pointer"
             aria-label="Đóng Menu"
           >
             <X size={20} />
