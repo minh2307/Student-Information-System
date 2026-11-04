@@ -85,6 +85,10 @@ fi
   echo "IMAGE_TAG=${IMAGE_TAG}"
   echo "IMAGE_PREFIX=${IMAGE_PREFIX}"
   echo "AI_API_KEY=${AI_API_KEY}"
+  echo "AI_BASE_URL=${AI_BASE_URL:-https://openrouter.ai/api}"
+  echo "AI_MODEL=${AI_MODEL:-google/gemini-2.5-flash}"
+  echo "AI_PROVIDER=${AI_PROVIDER:-openrouter}"
+  echo "AI_MAX_TOKENS=${AI_MAX_TOKENS:-1500}"
   echo "FRONTEND_PORT=${RESOLVED_FRONTEND_PORT}"
   echo "FRONTEND_ALT_PORT=${FRONTEND_ALT_PORT:-3000}"
 } > .env

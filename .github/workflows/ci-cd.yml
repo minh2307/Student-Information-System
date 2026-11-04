@@ -528,6 +528,10 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL || 'https://openrouter.ai/api' }}
+          AI_MODEL: ${{ secrets.AI_MODEL || 'google/gemini-2.5-flash' }}
+          AI_PROVIDER: ${{ secrets.AI_PROVIDER || 'openrouter' }}
+          AI_MAX_TOKENS: '1500'
           FRONTEND_PORT: ${{ vars.FRONTEND_PORT || steps.resolve.outputs.frontend_port }}
           FRONTEND_ALT_PORT: ${{ vars.FRONTEND_ALT_PORT || '3000' }}
           COMPOSE_FILE: ${{ steps.resolve.outputs.compose_file }}
@@ -547,7 +551,7 @@ jobs:
             "${SSH_USER}@${SSH_HOST}:/opt/eduportal/"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             "${SSH_USER}@${SSH_HOST}" \
-            "COMPOSE_FILE='${COMPOSE_FILE}' ENV_NAME='${ENV_NAME}' IMAGE_TAG='${IMAGE_TAG}' REGISTRY='${REGISTRY}' IMAGE_PREFIX='${IMAGE_PREFIX}' DB_PASSWORD='${DB_PASSWORD}' JWT_SECRET='${JWT_SECRET}' AI_API_KEY='${AI_API_KEY}' FRONTEND_PORT='${FRONTEND_PORT}' FRONTEND_ALT_PORT='${FRONTEND_ALT_PORT}' bash /opt/eduportal/remote-deploy.sh"
+            "COMPOSE_FILE='${COMPOSE_FILE}' ENV_NAME='${ENV_NAME}' IMAGE_TAG='${IMAGE_TAG}' REGISTRY='${REGISTRY}' IMAGE_PREFIX='${IMAGE_PREFIX}' DB_PASSWORD='${DB_PASSWORD}' JWT_SECRET='${JWT_SECRET}' AI_API_KEY='${AI_API_KEY}' AI_BASE_URL='${AI_BASE_URL}' AI_MODEL='${AI_MODEL}' AI_PROVIDER='${AI_PROVIDER}' AI_MAX_TOKENS='${AI_MAX_TOKENS}' FRONTEND_PORT='${FRONTEND_PORT}' FRONTEND_ALT_PORT='${FRONTEND_ALT_PORT}' bash /opt/eduportal/remote-deploy.sh"
 
       - name: Notify deploy result
         if: always()

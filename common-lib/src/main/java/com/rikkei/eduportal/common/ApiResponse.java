@@ -28,6 +28,10 @@ public class ApiResponse<T> {
         return new ApiResponse<>(status, message, null);
     }
 
+    public boolean isSuccess() {
+        return status >= 200 && status < 300;
+    }
+
     public int getStatus() { return status; }
     public void setStatus(int status) { this.status = status; }
 

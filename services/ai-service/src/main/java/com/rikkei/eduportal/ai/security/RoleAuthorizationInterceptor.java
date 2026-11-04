@@ -70,6 +70,16 @@ public class RoleAuthorizationInterceptor implements HandlerInterceptor {
         }
 
         log.debug("Authorized request to {} with role {}", request.getRequestURI(), userRole);
+        String username = tokenValidator.extractUsername(token, request.getHeader("X-User-Username"));
+        if (username == null || username.isBlank()) {
+            username = request.getHeader("X-Student-Code");
+        }
+        if (username != null && !username.isBlank()) {
+            request.setAttribute("authenticatedUser", username);
+        }
+        if (token != null && !token.isBlank()) {
+            request.setAttribute("authenticatedToken", token);
+        }
         return true;
     }
 

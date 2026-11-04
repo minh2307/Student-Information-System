@@ -78,7 +78,7 @@ class SmartScheduleOptimizerServiceTest {
     }
 
     private ClassSection createSection(Long id, String code, Course course, String day,
-                                      LocalTime start, LocalTime end, int maxCap, int enrolled) {
+                                       LocalTime start, LocalTime end, int maxCap, int enrolled) {
         ClassSection cs = new ClassSection();
         cs.setId(id);
         cs.setSectionCode(code);
@@ -297,5 +297,275 @@ class SmartScheduleOptimizerServiceTest {
         assertNotNull(response);
         assertTrue(response.getExecutionTimeMs() >= 0);
         assertTrue(response.getExecutionTimeMs() <= 2500, "Thời gian thực thi phải <= 2500ms");
+    }
+
+    @Test
+    @DisplayName("TC-OPT-10: buildCollisionMatrix xây dựng ma trận kiểm tra xung đột thời gian O(N^2)")
+    void testBuildCollisionMatrix_IdentifiesConflictsCorrectly() {
+        ClassSection s1 = createSection(1L, "S1", course1, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 5);
+        ClassSection s2 = createSection(2L, "S2", course2, "MON", LocalTime.of(10, 0), LocalTime.of(11, 30), 40, 5); // Overlap with S1
+        ClassSection s3 = createSection(3L, "S3", course2, "MON", LocalTime.of(10, 30), LocalTime.of(12, 0), 40, 5); // Adjacent to S1, no overlap
+        ClassSection s4 = createSection(4L, "S4", course2, "TUE", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 5); // Different day
+
+        List<ClassSection> sections = List.of(s1, s2, s3, s4);
+        boolean[][] matrix = optimizerService.buildCollisionMatrix(sections);
+
+        assertEquals(4, matrix.length);
+        assertEquals(4, matrix[0].length);
+
+        // s1 vs s2: Trùng giờ Thứ 2 -> true
+        assertTrue(matrix[0][1]);
+        assertTrue(matrix[1][0]);
+
+        // s1 vs s3: Liền kề Thứ 2 (10:30) -> false
+        assertFalse(matrix[0][2]);
+        assertFalse(matrix[2][0]);
+
+        // s1 vs s4: Khác thứ -> false
+        assertFalse(matrix[0][3]);
+        assertFalse(matrix[3][0]);
+    }
+
+    @Test
+    @DisplayName("TC-OPT-11: Trả về Top 3 phương án thời khóa biểu đa dạng chuẩn hóa (96%, 90%, 85%)")
+    void testOptimizeSchedule_Top3DiversePlans_YieldsCalibratedTiers() {
+        // Tạo 3 lớp cho Course 1 và 2 lớp cho Course 2 để sinh nhiều tổ hợp
+        ClassSection s1A = createSection(1L, "S1A", course1, "MON", LocalTime.of(7, 0), LocalTime.of(9, 15), 40, 5);
+        ClassSection s1B = createSection(2L, "S1B", course1, "MON", LocalTime.of(9, 30), LocalTime.of(11, 45), 40, 5);
+        ClassSection s1C = createSection(3L, "S1C", course1, "WED", LocalTime.of(7, 0), LocalTime.of(9, 15), 40, 5);
+
+        ClassSection s2A = createSection(4L, "S2A", course2, "TUE", LocalTime.of(7, 0), LocalTime.of(9, 15), 40, 5);
+        ClassSection s2B = createSection(5L, "S2B", course2, "THU", LocalTime.of(7, 0), LocalTime.of(9, 15), 40, 5);
+
+        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
+                .thenReturn(Arrays.asList(s1A, s1B, s1C, s2A, s2B));
+
+        ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
+        request.setCourseIds(Arrays.asList(101L, 102L));
+        request.setSemesterName("2024-25_SEM2");
+        request.setPreferredShift("MORNING");
+        request.setAvoidDays(List.of("SAT", "SUN"));
+
+        ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
+
+        assertNotNull(response);
+        assertEquals(3, response.getPlans().size());
+
+        SchedulePlanOption p1 = response.getPlans().get(0);
+        SchedulePlanOption p2 = response.getPlans().get(1);
+        SchedulePlanOption p3 = response.getPlans().get(2);
+
+        assertEquals(96, p1.getMatchPercentage());
+        assertEquals(90, p2.getMatchPercentage());
+        assertEquals(85, p3.getMatchPercentage());
+
+        assertTrue(p1.getTitle().contains("Phương án 1"));
+        assertTrue(p2.getTitle().contains("Phương án 2"));
+        assertTrue(p3.getTitle().contains("Phương án 3"));
+    }
+
+    @Test
+    @DisplayName("TC-OPT-12: Ưu tiên Ca Sáng (Preferred Shift MORNING)")
+    void testOptimizeSchedule_PreferredMorningShift() {
+        // Lớp S1: Ca Sáng (07:00 - 09:15)
+        ClassSection s1Morning = createSection(1L, "S1-MORN", course1, "MON", LocalTime.of(7, 0), LocalTime.of(9, 15), 40, 5);
+        // Lớp S2: Ca Chiều (13:00 - 15:15)
+        ClassSection s2Afternoon = createSection(2L, "S2-AFT", course1, "TUE", LocalTime.of(13, 0), LocalTime.of(15, 15), 40, 5);
+
+        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
+                .thenReturn(Arrays.asList(s1Morning, s2Afternoon));
+
+        ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
+        request.setCourseIds(List.of(101L));
+        request.setPreferredShift("MORNING");
+
+        ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
+
+        assertNotNull(response);
+        assertTrue(response.getPlans().size() >= 1);
+        SchedulePlanOption topPlan = response.getPlans().get(0);
+        assertEquals("S1-MORN", topPlan.getSections().get(0).getSectionCode());
+        assertTrue(topPlan.getHighlights().stream().anyMatch(h -> h.contains("Ca Sáng")));
+    }
+
+    @Test
+    @DisplayName("TC-OPT-13: Chạm giới hạn số node duyệt trả về SEARCH_LIMIT_REACHED và KHÔNG ĐƯỢC báo NO_SOLUTION")
+    void testOptimizeSchedule_SearchLimitReached_DoesNotReportNoSolution() {
+        // Tạo 4 courses, mỗi course có 5 lớp học không trùng giờ
+        List<ClassSection> sections = new ArrayList<>();
+        List<Long> courseIds = new ArrayList<>();
+        for (int c = 1; c <= 4; c++) {
+            Long cId = 200L + c;
+            courseIds.add(cId);
+            Course course = new Course();
+            course.setId(cId);
+            course.setCourseCode("CS" + cId);
+            course.setName("Course " + cId);
+            course.setCredits(3);
+            for (int s = 1; s <= 5; s++) {
+                sections.add(createSection((long) (c * 100 + s), "S" + c + "-" + s, course, "MON",
+                        LocalTime.of(7 + s, 0), LocalTime.of(7 + s, 50), 40, 5));
+            }
+        }
+
+        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
+                .thenReturn(sections);
+
+        ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
+        request.setCourseIds(courseIds);
+        request.setSemesterName("2024-25_SEM2");
+        request.setMaxSearchNodes(3); // Giới hạn cực thấp để chắc chắn chạm limit trước khi tìm thấy nghiệm
+
+        ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
+
+        assertNotNull(response);
+        assertEquals(OptimizationStatus.SEARCH_LIMIT_REACHED, response.getStatus());
+        assertNotEquals(OptimizationStatus.NO_SOLUTION, response.getStatus(),
+                "Khi chạm giới hạn tìm kiếm, tuyệt đối không được báo NO_SOLUTION!");
+        assertTrue(response.getStatusMessage().contains("chạm giới hạn"));
+        assertEquals(0, response.getPlans().size());
+    }
+
+    @Test
+    @DisplayName("TC-OPT-14: Quá thời gian tìm kiếm trả về TIME_LIMIT_EXCEEDED và KHÔNG ĐƯỢC báo NO_SOLUTION")
+    void testOptimizeSchedule_TimeLimitExceeded_DoesNotReportNoSolution() {
+        List<ClassSection> sections = new ArrayList<>();
+        List<Long> courseIds = new ArrayList<>();
+        for (int c = 1; c <= 4; c++) {
+            Long cId = 300L + c;
+            courseIds.add(cId);
+            Course course = new Course();
+            course.setId(cId);
+            course.setCourseCode("CS" + cId);
+            course.setName("Course " + cId);
+            course.setCredits(3);
+            for (int s = 1; s <= 5; s++) {
+                sections.add(createSection((long) (c * 100 + s), "S" + c + "-" + s, course, "TUE",
+                        LocalTime.of(7 + s, 0), LocalTime.of(7 + s, 50), 40, 5));
+            }
+        }
+
+        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
+                .thenReturn(sections);
+
+        ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
+        request.setCourseIds(courseIds);
+        request.setSemesterName("2024-25_SEM2");
+        request.setMaxExecutionTimeMs(0L); // Giới hạn 0ms để hết hạn ngay lập tức
+
+        ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
+
+        assertNotNull(response);
+        assertEquals(OptimizationStatus.TIME_LIMIT_EXCEEDED, response.getStatus());
+        assertNotEquals(OptimizationStatus.NO_SOLUTION, response.getStatus(),
+                "Một CSP Solver hết thời gian chưa có nghĩa là bài toán vô nghiệm!");
+        assertTrue(response.getStatusMessage().contains("vượt quá giới hạn") || response.getStatusMessage().contains("chạm giới hạn"));
+    }
+
+    @Test
+    @DisplayName("TC-OPT-15: Giới hạn maxSolutions kết thúc tìm kiếm sớm khi đủ số nghiệm yêu cầu")
+    void testOptimizeSchedule_MaxSolutionsLimit_StopsEarly() {
+        // Course 1 có 3 lớp khác giờ, Course 2 có 3 lớp khác giờ -> Tổng cộng 9 tổ hợp hợp lệ
+        ClassSection s1A = createSection(1L, "S1A", course1, "MON", LocalTime.of(7, 0), LocalTime.of(8, 0), 40, 5);
+        ClassSection s1B = createSection(2L, "S1B", course1, "MON", LocalTime.of(8, 0), LocalTime.of(9, 0), 40, 5);
+        ClassSection s1C = createSection(3L, "S1C", course1, "MON", LocalTime.of(9, 0), LocalTime.of(10, 0), 40, 5);
+
+        ClassSection s2A = createSection(4L, "S2A", course2, "TUE", LocalTime.of(7, 0), LocalTime.of(8, 0), 40, 5);
+        ClassSection s2B = createSection(5L, "S2B", course2, "TUE", LocalTime.of(8, 0), LocalTime.of(9, 0), 40, 5);
+        ClassSection s2C = createSection(6L, "S2C", course2, "TUE", LocalTime.of(9, 0), LocalTime.of(10, 0), 40, 5);
+
+        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
+                .thenReturn(Arrays.asList(s1A, s1B, s1C, s2A, s2B, s2C));
+
+        ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
+        request.setCourseIds(Arrays.asList(101L, 102L));
+        request.setSemesterName("2024-25_SEM2");
+        request.setMaxSolutions(2); // Chỉ yêu cầu tối đa 2 nghiệm
+
+        ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
+
+        assertNotNull(response);
+        assertEquals(OptimizationStatus.SUCCESS, response.getStatus());
+        assertEquals(2, response.getTotalSolutions());
+        assertEquals(2, response.getValidOptionsCount());
+    }
+
+    @Test
+    @DisplayName("TC-OPT-16: Kiểm thử Concurrency - Nhiều request chạy đồng thời không rò rỉ trạng thái")
+    void testOptimizeSchedule_ConcurrentRequests_ThreadSafe() throws Exception {
+        ClassSection s1A = createSection(1L, "S1A", course1, "MON", LocalTime.of(7, 0), LocalTime.of(8, 0), 40, 5);
+        ClassSection s1B = createSection(2L, "S1B", course1, "TUE", LocalTime.of(7, 0), LocalTime.of(8, 0), 40, 5);
+        ClassSection s2A = createSection(3L, "S2A", course2, "WED", LocalTime.of(7, 0), LocalTime.of(8, 0), 40, 5);
+
+        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
+                .thenReturn(Arrays.asList(s1A, s1B, s2A));
+
+        int threadCount = 10;
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(threadCount);
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(threadCount);
+        java.util.concurrent.atomic.AtomicInteger successCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        for (int i = 0; i < threadCount; i++) {
+            final int index = i;
+            executor.submit(() -> {
+                try {
+                    ScheduleOptimizerRequest req = new ScheduleOptimizerRequest();
+                    req.setCourseIds(Arrays.asList(101L, 102L));
+                    req.setSemesterName("2024-25_SEM2");
+                    req.setPreferredShift(index % 2 == 0 ? "MORNING" : "AFTERNOON");
+
+                    ScheduleOptimizerResponse resp = optimizerService.optimizeSchedule("sv_user_" + index, req);
+                    if (resp.getStatus() == OptimizationStatus.SUCCESS && resp.getValidOptionsCount() == 2) {
+                        successCount.incrementAndGet();
+                    }
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        boolean completed = latch.await(5, java.util.concurrent.TimeUnit.SECONDS);
+        executor.shutdown();
+
+        assertTrue(completed, "Tất cả các thread đồng thời phải hoàn tất trong 5 giây");
+        assertEquals(threadCount, successCount.get(), "Toàn bộ 10 request đồng thời phải cho kết quả chính xác độc lập");
+    }
+
+    @Test
+    @DisplayName("TC-OPT-17: Kiểm tra ngắt Thread Interruption - Dừng tìm kiếm an toàn")
+    void testOptimizeSchedule_InterruptionHandling() throws Exception {
+        List<ClassSection> sections = new ArrayList<>();
+        List<Long> courseIds = new ArrayList<>();
+        for (int c = 1; c <= 4; c++) {
+            Long cId = 400L + c;
+            courseIds.add(cId);
+            Course course = new Course();
+            course.setId(cId);
+            course.setCourseCode("CS" + cId);
+            course.setName("Course " + cId);
+            course.setCredits(3);
+            for (int s = 1; s <= 6; s++) {
+                sections.add(createSection((long) (c * 100 + s), "S" + c + "-" + s, course, "WED",
+                        LocalTime.of(7 + s, 0), LocalTime.of(7 + s, 50), 40, 5));
+            }
+        }
+
+        when(classSectionRepository.findBySemesterAndCourseIdIn(anyString(), anyList()))
+                .thenReturn(sections);
+
+        Thread currentThread = Thread.currentThread();
+        currentThread.interrupt();
+
+        ScheduleOptimizerRequest request = new ScheduleOptimizerRequest();
+        request.setCourseIds(courseIds);
+        request.setSemesterName("2024-25_SEM2");
+
+        ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
+
+        // Clear interrupted status for JUnit
+        Thread.interrupted();
+
+        assertNotNull(response);
+        assertNotNull(response.getStatus());
     }
 }

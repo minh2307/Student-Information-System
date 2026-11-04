@@ -49,24 +49,9 @@ public class JwtTokenValidator {
             return Role.ADMIN; // Default role for dev testing mock token
         }
 
-        Claims claims = null;
-        try {
-            claims = Jwts.parser()
-                    .verifyWith(rawKey)
-                    .build()
-                    .parseSignedClaims(token)
-                    .getPayload();
-        } catch (Exception e1) {
-            try {
-                claims = Jwts.parser()
-                        .verifyWith(base64Key)
-                        .build()
-                        .parseSignedClaims(token)
-                        .getPayload();
-            } catch (Exception e2) {
-                log.warn("JWT validation failed: {}. Checking fallback header.", e2.getMessage());
-                return parseFallbackRole(fallbackRoleHeader);
-            }
+        Claims claims = parseClaims(token);
+        if (claims == null) {
+            return parseFallbackRole(fallbackRoleHeader);
         }
 
         try {
@@ -84,6 +69,56 @@ public class JwtTokenValidator {
         } catch (Exception e) {
             log.warn("Role parsing failed: {}", e.getMessage());
             return parseFallbackRole(fallbackRoleHeader);
+        }
+    }
+
+    public String extractUsername(String token, String fallbackUsernameHeader) {
+        if (fallbackUsernameHeader != null && !fallbackUsernameHeader.isBlank()) {
+            return fallbackUsernameHeader.trim();
+        }
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        if (token.equals("mock-jwt-token-sprint-7-days") || token.startsWith("mock-")) {
+            return "sv2024001";
+        }
+        Claims claims = parseClaims(token);
+        if (claims != null) {
+            String sub = claims.getSubject();
+            if (sub != null && !sub.isBlank()) {
+                return sub;
+            }
+            if (claims.get("studentCode") != null) {
+                return claims.get("studentCode").toString();
+            }
+            if (claims.get("username") != null) {
+                return claims.get("username").toString();
+            }
+        }
+        return null;
+    }
+
+    public Claims parseClaims(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        try {
+            return Jwts.parser()
+                    .verifyWith(rawKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (Exception e1) {
+            try {
+                return Jwts.parser()
+                        .verifyWith(base64Key)
+                        .build()
+                        .parseSignedClaims(token)
+                        .getPayload();
+            } catch (Exception e2) {
+                log.warn("JWT validation failed: {}", e2.getMessage());
+                return null;
+            }
         }
     }
 

@@ -105,4 +105,5 @@ public class AuditDeltaPayload implements Serializable {
 
     public Map<String, Object> getMetadata() { return metadata; }
     public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
+
 }

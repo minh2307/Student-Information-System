@@ -3,6 +3,7 @@ package com.rikkei.eduportal.enrollment.dto;
 public class ClassSectionDto {
     private Long id;
     private String sectionCode;
+    private Long courseId;
     private String courseCode;
     private String courseName;
     private Integer credits;
@@ -35,6 +36,9 @@ public class ClassSectionDto {
 
     public String getSectionCode() { return sectionCode; }
     public void setSectionCode(String sectionCode) { this.sectionCode = sectionCode; }
+
+    public Long getCourseId() { return courseId; }
+    public void setCourseId(Long courseId) { this.courseId = courseId; }
 
     public String getCourseCode() { return courseCode; }
     public void setCourseCode(String courseCode) { this.courseCode = courseCode; }
