@@ -272,7 +272,11 @@ export const LecturerTimetable = () => {
         </div>
       ) : viewMode === 'grid' ? (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="md:hidden px-4 py-1.5 bg-slate-100/70 border-b border-slate-200 text-[10px] text-slate-500 flex items-center justify-between font-mono">
+            <span>Vuốt ngang để xem đủ các ngày trong tuần</span>
+            <span>👉</span>
+          </div>
+          <div className="overflow-x-auto touch-scroll">
             <table className="w-full border-collapse min-w-[900px]">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 text-xs uppercase tracking-wider">

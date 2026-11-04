@@ -5,6 +5,67 @@
 @layer base {
   html {
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    /* Ngăn horizontal bounce khó chịu trên mobile */
+    overscroll-behavior-x: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    /* Đảm bảo viewport mobile chuẩn UX, hỗ trợ notch */
+    min-height: 100vh;
+    min-height: 100dvh;
+    touch-action: manipulation;
+  }
+}
+
+/* ====================================================================
+   Safari iOS & Chrome Android Mobile Optimization
+   ==================================================================== */
+
+/* Momentum smooth scrolling cho iOS WebKit & Android Blink */
+.touch-scroll,
+.overflow-x-auto,
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Safe area insets cho iPhone có Notch, Dynamic Island & Android Gesture Bar */
+.safe-top {
+  padding-top: max(1rem, env(safe-area-inset-top, 1rem));
+}
+
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
+}
+
+/* Drawer Hardware Acceleration để trượt siêu mượt 60fps */
+.drawer-hardware-accelerated {
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Responsive Table Wrapper: chống vỡ dòng và hiển thị cuộn mượt mà */
+.table-responsive-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  border-radius: 1rem;
+}
+
+/* Chống tự động phóng to (auto-zoom) khó chịu trên Safari iOS khi focus input */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="search"],
+  input[type="number"],
+  input[type="password"],
+  input[type="email"],
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }
 

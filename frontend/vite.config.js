@@ -1,12 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    basicSsl()
+  ],
   server: {
     port: 5173,
     host: true,
+    https: true,
     proxy: {
       // Direct SSE Stream for Real-time Live Seats (EDUP-204, bypass blocking gateway proxy)
       '/api/v1/student/class-sections/live-seats': {

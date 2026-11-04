@@ -334,8 +334,8 @@ export const StudentTuition = () => {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-x-auto touch-scroll">
+              <table className="w-full text-left border-collapse text-xs min-w-[620px]">
                 <thead>
                   <tr className="border-b border-stone-200 bg-stone-100/60 text-stone-600 uppercase tracking-wider font-mono text-[10px]">
                     <th className="py-3 px-4 w-12">STT</th>

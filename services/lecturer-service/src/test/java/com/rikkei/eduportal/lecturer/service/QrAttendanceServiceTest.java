@@ -363,7 +363,30 @@ class QrAttendanceServiceTest {
     }
 
     @Test
-    @DisplayName("TC-QR-10: Từ chối điểm danh nếu phiên có closedAt trong quá khứ")
+    @DisplayName("TC-QR-10: Mã QR sinh ra phải có đủ 4 phần cách nhau bằng dấu chấm")
+    void testGetRotatingQrCode_tokenFormat() {
+        when(lecturerProfileRepo.findByUserUsername("lecturer1")).thenReturn(Optional.of(mockLecturer));
+        when(classSectionRepo.findByIdAndLecturerId(50L, 10L)).thenReturn(Optional.of(mockSection));
+        when(sessionRepo.findFirstByClassSectionIdAndStatusInOrderByCreatedAtDesc(50L, List.of("ACTIVE", "OPEN")))
+                .thenReturn(Optional.of(mockSession));
+
+        DynamicQrResponse qr = qrAttendanceService.getRotatingQrCode("lecturer1", 50L);
+
+        assertThat(qr.qrToken()).isNotBlank();
+        assertThat(qr.stepSeconds()).isEqualTo(15);
+        assertThat(qr.remainingSeconds()).isGreaterThan(0).isLessThanOrEqualTo(15);
+        assertThat(qr.sessionId()).isEqualTo(1L);
+        assertThat(qr.sectionId()).isEqualTo(50L);
+
+        String[] parts = qr.qrToken().split("\\.");
+        assertThat(parts).hasSize(4);
+        assertThat(parts[0]).isEqualTo("1");   // sessionId
+        assertThat(parts[1]).isEqualTo("50");  // sectionId
+        assertThat(parts[3]).hasSize(64);       // HMAC-SHA256 hex = 64 chars
+    }
+
+    @Test
+    @DisplayName("TC-QR-10B: Từ chối điểm danh nếu phiên có closedAt trong quá khứ")
     void testStudentCheckIn_pastClosedAt_throwsInvalidQr() {
         mockSession.setStatus("ACTIVE");
         mockSession.setClosedAt(LocalDateTime.now().minusMinutes(5));
@@ -375,5 +398,126 @@ class QrAttendanceServiceTest {
         assertThatThrownBy(() -> qrAttendanceService.studentCheckIn("sv20210001", new AttendanceCheckInRequest(token, "dev")))
                 .isInstanceOf(InvalidQrException.class)
                 .hasMessageContaining("hết thời gian mở điểm danh");
+    }
+
+    @Test
+    @DisplayName("TC-QR-11: Xác thực cửa sổ trước (previous window) vẫn được chấp nhận để điểm danh")
+    void testStudentCheckIn_previousWindow_accepted() {
+        // Use the previous window (currentWindow - 1) — should be accepted
+        long previousWindow = (System.currentTimeMillis() / 15000L) - 1;
+        String payload = "1:50:" + previousWindow;
+        String sig = computeHmac(payload, sessionSecret);
+        String prevWindowToken = "1.50." + previousWindow + "." + sig;
+
+        when(sessionRepo.findById(1L)).thenReturn(Optional.of(mockSession));
+        when(studentProfileRepo.findByUserUsername("sv20210001")).thenReturn(Optional.of(mockStudent));
+        when(enrollmentRepo.findByClassSectionIdAndStudentId(50L, 20L)).thenReturn(Optional.of(mockEnrollment));
+        when(recordRepo.existsBySessionIdAndStudentId(1L, 20L)).thenReturn(false);
+        when(recordRepo.save(any(AttendanceRecord.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(sessionRepo.save(any(AttendanceSession.class))).thenReturn(mockSession);
+
+        AttendanceCheckInRequest request = new AttendanceCheckInRequest(prevWindowToken, "Android");
+        AttendanceCheckInResponse response = qrAttendanceService.studentCheckIn("sv20210001", request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.studentCode()).isEqualTo("20210001");
+        verify(recordRepo).save(any(AttendanceRecord.class));
+    }
+
+    @Test
+    @DisplayName("TC-QR-12: Từ chối cửa sổ thời gian quá cũ (> 2 windows trước, > 30s) — chống Anti-Proxy chụp màn hình")
+    void testStudentCheckIn_expiredWindow_throwsInvalidQr() {
+        // Use window that is 3 intervals old (> 30s drift tolerance) — should be REJECTED (anti-proxy)
+        long expiredWindow = (System.currentTimeMillis() / 15000L) - 3;
+        String payload = "1:50:" + expiredWindow;
+        String sig = computeHmac(payload, sessionSecret);
+        String expiredToken = "1.50." + expiredWindow + "." + sig;
+
+        when(sessionRepo.findById(1L)).thenReturn(Optional.of(mockSession));
+
+        AttendanceCheckInRequest request = new AttendanceCheckInRequest(expiredToken, "Device");
+
+        assertThatThrownBy(() -> qrAttendanceService.studentCheckIn("sv20210001", request))
+                .isInstanceOf(InvalidQrException.class)
+                .hasMessageContaining("hết hạn");
+
+        verify(recordRepo, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("TC-QR-13: Chấp nhận cửa sổ thời gian cách 2 chu kỳ (±30s) nhờ nới lỏng dung sai time drift (clock mobile / delay mạng)")
+    void testStudentCheckIn_driftWindow2_accepted() {
+        // 2 intervals old (~ 30s) — should be ACCEPTED due to relaxed time drift tolerance
+        long driftWindow2 = (System.currentTimeMillis() / 15000L) - 2;
+        String payload = "1:50:" + driftWindow2;
+        String sig = computeHmac(payload, sessionSecret);
+        String driftToken = "1.50." + driftWindow2 + "." + sig;
+
+        when(sessionRepo.findById(1L)).thenReturn(Optional.of(mockSession));
+        when(studentProfileRepo.findByUserUsername("sv20210001")).thenReturn(Optional.of(mockStudent));
+        when(enrollmentRepo.findByClassSectionIdAndStudentId(50L, 20L)).thenReturn(Optional.of(mockEnrollment));
+        when(recordRepo.existsBySessionIdAndStudentId(1L, 20L)).thenReturn(false);
+        when(recordRepo.save(any(AttendanceRecord.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(sessionRepo.save(any(AttendanceSession.class))).thenReturn(mockSession);
+
+        AttendanceCheckInRequest request = new AttendanceCheckInRequest(driftToken, "Mobile 4G", System.currentTimeMillis() - 28000L);
+        AttendanceCheckInResponse response = qrAttendanceService.studentCheckIn("sv20210001", request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.studentCode()).isEqualTo("20210001");
+        verify(recordRepo).save(any(AttendanceRecord.class));
+    }
+
+    @Test
+    @DisplayName("TC-QR-14: Chấp nhận đồng hồ mobile chạy nhanh hơn server tới 2 chu kỳ (+30s), từ chối nếu vượt quá (+3 chu kỳ)")
+    void testStudentCheckIn_futureClockDrift_handledCorrectly() {
+        // Ahead by 2 intervals (+30s) -> ACCEPTED
+        long futureWindow2 = (System.currentTimeMillis() / 15000L) + 2;
+        String payload2 = "1:50:" + futureWindow2;
+        String sig2 = computeHmac(payload2, sessionSecret);
+        String validFutureToken = "1.50." + futureWindow2 + "." + sig2;
+
+        when(sessionRepo.findById(1L)).thenReturn(Optional.of(mockSession));
+        when(studentProfileRepo.findByUserUsername("sv20210001")).thenReturn(Optional.of(mockStudent));
+        when(enrollmentRepo.findByClassSectionIdAndStudentId(50L, 20L)).thenReturn(Optional.of(mockEnrollment));
+        when(recordRepo.existsBySessionIdAndStudentId(1L, 20L)).thenReturn(false);
+        when(recordRepo.save(any(AttendanceRecord.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(sessionRepo.save(any(AttendanceSession.class))).thenReturn(mockSession);
+
+        AttendanceCheckInRequest okRequest = new AttendanceCheckInRequest(validFutureToken, "Mobile Fast Clock", System.currentTimeMillis() + 25000L);
+        AttendanceCheckInResponse okRes = qrAttendanceService.studentCheckIn("sv20210001", okRequest);
+        assertThat(okRes).isNotNull();
+
+        // Ahead by 3 intervals (> 30s) -> REJECTED
+        long futureWindow3 = (System.currentTimeMillis() / 15000L) + 3;
+        String payload3 = "1:50:" + futureWindow3;
+        String sig3 = computeHmac(payload3, sessionSecret);
+        String expiredFutureToken = "1.50." + futureWindow3 + "." + sig3;
+
+        AttendanceCheckInRequest badRequest = new AttendanceCheckInRequest(expiredFutureToken, "Mobile Clock Way Ahead");
+        assertThatThrownBy(() -> qrAttendanceService.studentCheckIn("sv20210001", badRequest))
+                .isInstanceOf(InvalidQrException.class)
+                .hasMessageContaining("hết hạn");
+    }
+
+    @Test
+    @DisplayName("TC-QR-15: Chặn điểm danh trùng khi xảy ra DataIntegrityViolationException từ race condition database")
+    void testStudentCheckIn_dataIntegrityViolation_throwsAlreadyCheckedIn() {
+        long currentWindow = System.currentTimeMillis() / 15000L;
+        String payload = "1:50:" + currentWindow;
+        String sig = computeHmac(payload, sessionSecret);
+        String token = "1.50." + currentWindow + "." + sig;
+
+        when(sessionRepo.findById(1L)).thenReturn(Optional.of(mockSession));
+        when(studentProfileRepo.findByUserUsername("sv20210001")).thenReturn(Optional.of(mockStudent));
+        when(enrollmentRepo.findByClassSectionIdAndStudentId(50L, 20L)).thenReturn(Optional.of(mockEnrollment));
+        when(recordRepo.existsBySessionIdAndStudentId(1L, 20L)).thenReturn(false);
+        when(recordRepo.save(any(AttendanceRecord.class))).thenThrow(new org.springframework.dao.DataIntegrityViolationException("Duplicate key"));
+
+        AttendanceCheckInRequest request = new AttendanceCheckInRequest(token, "Concurrent Device");
+
+        assertThatThrownBy(() -> qrAttendanceService.studentCheckIn("sv20210001", request))
+                .isInstanceOf(AttendanceAlreadyCheckedInException.class)
+                .hasMessageContaining("Bạn đã điểm danh thành công phiên học này rồi");
     }
 }
