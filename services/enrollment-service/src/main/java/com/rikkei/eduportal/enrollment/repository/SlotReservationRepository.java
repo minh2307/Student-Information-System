@@ -46,4 +46,20 @@ public interface SlotReservationRepository extends JpaRepository<SlotReservation
           AND r.expiresAt <= :now
         """)
     List<SlotReservation> findExpiredReservations(@Param("now") LocalDateTime now);
+
+    /**
+     * Tìm các phiên giữ chỗ của một sinh viên đã hết hạn (expiresAt <= now, status = ACTIVE).
+     * Dùng bởi {@code pushReservationExpiryEvents()} để push sự kiện RESERVATION_EXPIRED
+     * đến đúng sinh viên trước khi cleanup scheduler kịp chạy.
+     */
+    @Query("""
+        SELECT r FROM SlotReservation r
+        JOIN FETCH r.classSection cs
+        LEFT JOIN FETCH cs.course
+        WHERE r.student.id = :studentId
+          AND r.status = 'ACTIVE'
+          AND r.expiresAt <= :now
+        """)
+    List<SlotReservation> findExpiredReservationsByStudent(@Param("studentId") Long studentId,
+                                                           @Param("now") LocalDateTime now);
 }
