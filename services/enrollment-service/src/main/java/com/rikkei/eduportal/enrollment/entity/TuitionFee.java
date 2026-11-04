@@ -52,6 +52,9 @@ public class TuitionFee {
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;
 
+    @Column(name = "payos_order_code")
+    private Long payosOrderCode;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -59,6 +62,9 @@ public class TuitionFee {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public Long getPayosOrderCode() { return payosOrderCode; }
+    public void setPayosOrderCode(Long payosOrderCode) { this.payosOrderCode = payosOrderCode; }
 
     public StudentProfile getStudent() { return student; }
     public void setStudent(StudentProfile student) { this.student = student; }

@@ -65,15 +65,32 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  ai-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/ai-service:${IMAGE_TAG:-dev}
+    container_name: eduportal-ai-dev
+    ports:
+      - "8084:8084"
+    environment:
+      AI_API_KEY: ${AI_API_KEY:-demo-key}
+      AI_BASE_URL: ${AI_BASE_URL:-https://openrouter.ai/api}
+      AI_MODEL: ${AI_MODEL:-google/gemini-2.5-flash}
+      AI_PROVIDER: ${AI_PROVIDER:-openrouter}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-1500}
+      ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
+      SPRING_PROFILES_ACTIVE: dev
+    depends_on:
+      - enrollment-service
+    restart: unless-stopped
+
   frontend:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/frontend:${IMAGE_TAG:-dev}
     container_name: eduportal-frontend-dev
     ports:
-      - "80:80"
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - auth-service
       - lecturer-service
+      - enrollment-service
     restart: unless-stopped
 
 volumes:

@@ -108,7 +108,7 @@ class QrAttendanceServiceTest {
 
         mockSession = new AttendanceSession(mockSection, mockLecturer, "Điểm danh tuần 5", sessionSecret);
         mockSession.setId(1L);
-        mockSession.setStatus("OPEN");
+        mockSession.setStatus("ACTIVE");
         mockSession.setStepSeconds(15);
     }
 
@@ -128,7 +128,8 @@ class QrAttendanceServiceTest {
     void testStartSession_success() {
         when(lecturerProfileRepo.findByUserUsername("lecturer1")).thenReturn(Optional.of(mockLecturer));
         when(classSectionRepo.findByIdAndLecturerId(50L, 10L)).thenReturn(Optional.of(mockSection));
-        when(sessionRepo.findFirstByClassSectionIdAndStatusOrderByCreatedAtDesc(50L, "OPEN")).thenReturn(Optional.empty());
+        when(sessionRepo.findFirstByClassSectionIdAndStatusInOrderByCreatedAtDesc(eq(50L), any()))
+                .thenReturn(Optional.empty());
         when(sessionRepo.save(any(AttendanceSession.class))).thenAnswer(invocation -> {
             AttendanceSession s = invocation.getArgument(0);
             s.setId(1L);
@@ -141,7 +142,7 @@ class QrAttendanceServiceTest {
         assertThat(res).isNotNull();
         assertThat(res.sessionId()).isEqualTo(1L);
         assertThat(res.sectionCode()).isEqualTo("IT3010-01");
-        assertThat(res.status()).isEqualTo("OPEN");
+        assertThat(res.status()).isEqualTo("ACTIVE");
         assertThat(res.stepSeconds()).isEqualTo(15);
         verify(sessionRepo, times(1)).save(any(AttendanceSession.class));
     }
@@ -151,7 +152,7 @@ class QrAttendanceServiceTest {
     void testGetRotatingQrCode_success() {
         when(lecturerProfileRepo.findByUserUsername("lecturer1")).thenReturn(Optional.of(mockLecturer));
         when(classSectionRepo.findByIdAndLecturerId(50L, 10L)).thenReturn(Optional.of(mockSection));
-        when(sessionRepo.findFirstByClassSectionIdAndStatusOrderByCreatedAtDesc(50L, "OPEN"))
+        when(sessionRepo.findFirstByClassSectionIdAndStatusInOrderByCreatedAtDesc(eq(50L), any()))
                 .thenReturn(Optional.of(mockSession));
 
         DynamicQrResponse res = qrAttendanceService.getRotatingQrCode("lecturer1", 50L);
@@ -171,7 +172,7 @@ class QrAttendanceServiceTest {
     }
 
     @Test
-    @DisplayName("TC-QR-03: Sinh viên quét mã QR hợp lệ trong khoảng thời gian cho phép điểm danh thành công")
+    @DisplayName("TC-QR-03: Sinh viên quét mã QR tại bước thời gian hiện tại T0 thành công")
     void testStudentCheckIn_success() {
         long currentWindow = System.currentTimeMillis() / 15000L;
         String payload = "1:50:" + currentWindow;
@@ -187,10 +188,13 @@ class QrAttendanceServiceTest {
         AttendanceCheckInResponse res = qrAttendanceService.studentCheckIn("sv20210001", request);
 
         assertThat(res).isNotNull();
+        assertThat(res.success()).isTrue();
         assertThat(res.sessionId()).isEqualTo(1L);
         assertThat(res.studentCode()).isEqualTo("20210001");
         assertThat(res.studentName()).isEqualTo("Trần Sinh Viên");
         assertThat(res.courseName()).isEqualTo("Lập trình nâng cao");
+        assertThat(res.checkedInAt()).isNotBlank();
+        assertThat(res.message()).contains("Điểm danh thành công");
 
         verify(recordRepo, times(1)).save(any(AttendanceRecord.class));
         verify(sessionRepo, times(1)).save(mockSession);
@@ -198,7 +202,52 @@ class QrAttendanceServiceTest {
     }
 
     @Test
-    @DisplayName("TC-QR-04: Từ chối điểm danh khi mã QR đã hết hạn (> 30s)")
+    @DisplayName("TC-QR-03B: Nới lỏng TOTP Drift Tolerance - Chấp nhận mã ở chu kỳ T0 - 1 bước (lùi 15s)")
+    void testStudentCheckIn_driftTolerance_previousStep_success() {
+        long currentWindow = System.currentTimeMillis() / 15000L;
+        long previousWindow = currentWindow - 1; // T0 - 1 bước (15s trước đó)
+        String payload = "1:50:" + previousWindow;
+        String validSignature = computeHmac(payload, sessionSecret);
+        String validQrToken = "1.50." + previousWindow + "." + validSignature;
+
+        when(sessionRepo.findById(1L)).thenReturn(Optional.of(mockSession));
+        when(studentProfileRepo.findByUserUsername("sv20210001")).thenReturn(Optional.of(mockStudent));
+        when(enrollmentRepo.findByClassSectionIdAndStudentId(50L, 20L)).thenReturn(Optional.of(mockEnrollment));
+        when(recordRepo.existsBySessionIdAndStudentId(1L, 20L)).thenReturn(false);
+
+        AttendanceCheckInRequest request = new AttendanceCheckInRequest(validQrToken, "iOS Safari 4G");
+        AttendanceCheckInResponse res = qrAttendanceService.studentCheckIn("sv20210001", request);
+
+        assertThat(res).isNotNull();
+        assertThat(res.success()).isTrue();
+        assertThat(res.sessionId()).isEqualTo(1L);
+        verify(recordRepo, times(1)).save(any(AttendanceRecord.class));
+    }
+
+    @Test
+    @DisplayName("TC-QR-03C: Nới lỏng TOTP Drift Tolerance - Chấp nhận mã ở chu kỳ T0 + 1 bước (tiến 15s)")
+    void testStudentCheckIn_driftTolerance_nextStep_success() {
+        long currentWindow = System.currentTimeMillis() / 15000L;
+        long nextWindow = currentWindow + 1; // T0 + 1 bước (lệch đồng hồ nhanh hơn 15s)
+        String payload = "1:50:" + nextWindow;
+        String validSignature = computeHmac(payload, sessionSecret);
+        String validQrToken = "1.50." + nextWindow + "." + validSignature;
+
+        when(sessionRepo.findById(1L)).thenReturn(Optional.of(mockSession));
+        when(studentProfileRepo.findByUserUsername("sv20210001")).thenReturn(Optional.of(mockStudent));
+        when(enrollmentRepo.findByClassSectionIdAndStudentId(50L, 20L)).thenReturn(Optional.of(mockEnrollment));
+        when(recordRepo.existsBySessionIdAndStudentId(1L, 20L)).thenReturn(false);
+
+        AttendanceCheckInRequest request = new AttendanceCheckInRequest(validQrToken, "Android Chrome Wifi");
+        AttendanceCheckInResponse res = qrAttendanceService.studentCheckIn("sv20210001", request);
+
+        assertThat(res).isNotNull();
+        assertThat(res.success()).isTrue();
+        verify(recordRepo, times(1)).save(any(AttendanceRecord.class));
+    }
+
+    @Test
+    @DisplayName("TC-QR-04: Từ chối điểm danh khi mã QR đã hết hạn (> 1 interval tolerance window)")
     void testStudentCheckIn_expiredToken_throwsException() {
         long expiredWindow = (System.currentTimeMillis() / 15000L) - 5; // 5 chu kỳ trước (75 giây trước)
         String payload = "1:50:" + expiredWindow;
@@ -255,7 +304,7 @@ class QrAttendanceServiceTest {
     }
 
     @Test
-    @DisplayName("TC-QR-07: Từ chối điểm danh khi sinh viên cố tình điểm danh lại lần 2 (chống duplicate)")
+    @DisplayName("TC-QR-07: Từ chối điểm danh khi sinh viên cố tình điểm danh lại lần 2 (chống duplicate - ĐÃ ĐIỂM DANH TRƯỚC ĐÓ)")
     void testStudentCheckIn_duplicateCheckIn_throwsConflict() {
         long currentWindow = System.currentTimeMillis() / 15000L;
         String payload = "1:50:" + currentWindow;
@@ -271,6 +320,7 @@ class QrAttendanceServiceTest {
 
         assertThatThrownBy(() -> qrAttendanceService.studentCheckIn("sv20210001", request))
                 .isInstanceOf(AttendanceAlreadyCheckedInException.class)
+                .hasMessageContaining("ĐÃ ĐIỂM DANH TRƯỚC ĐÓ")
                 .hasMessageContaining("Bạn đã điểm danh thành công phiên học này rồi");
 
         verify(recordRepo, never()).save(any());
@@ -281,7 +331,7 @@ class QrAttendanceServiceTest {
     void testCloseSession_success() {
         when(lecturerProfileRepo.findByUserUsername("lecturer1")).thenReturn(Optional.of(mockLecturer));
         when(classSectionRepo.findByIdAndLecturerId(50L, 10L)).thenReturn(Optional.of(mockSection));
-        when(sessionRepo.findFirstByClassSectionIdAndStatusOrderByCreatedAtDesc(50L, "OPEN"))
+        when(sessionRepo.findFirstByClassSectionIdAndStatusInOrderByCreatedAtDesc(eq(50L), any()))
                 .thenReturn(Optional.of(mockSession));
         when(sessionRepo.save(any(AttendanceSession.class))).thenReturn(mockSession);
         when(recordRepo.findBySessionIdWithStudent(1L)).thenReturn(List.of());
@@ -299,7 +349,7 @@ class QrAttendanceServiceTest {
 
         assertThatThrownBy(() -> qrAttendanceService.studentCheckIn("sv20210001", new AttendanceCheckInRequest(token, "dev")))
                 .isInstanceOf(InvalidQrException.class)
-                .hasMessageContaining("Phiên điểm danh này đã kết thúc hoặc bị đóng");
+                .hasMessageContaining("Phiên điểm danh này đã kết thúc");
     }
 
     @Test
@@ -310,5 +360,20 @@ class QrAttendanceServiceTest {
 
         assertThatThrownBy(() -> qrAttendanceService.studentCheckIn("sv20210001", new AttendanceCheckInRequest("invalid.token", "dev")))
                 .isInstanceOf(InvalidQrException.class);
+    }
+
+    @Test
+    @DisplayName("TC-QR-10: Từ chối điểm danh nếu phiên có closedAt trong quá khứ")
+    void testStudentCheckIn_pastClosedAt_throwsInvalidQr() {
+        mockSession.setStatus("ACTIVE");
+        mockSession.setClosedAt(LocalDateTime.now().minusMinutes(5));
+
+        long currentWindow = System.currentTimeMillis() / 15000L;
+        String token = "1.50." + currentWindow + ".sig";
+        when(sessionRepo.findById(1L)).thenReturn(Optional.of(mockSession));
+
+        assertThatThrownBy(() -> qrAttendanceService.studentCheckIn("sv20210001", new AttendanceCheckInRequest(token, "dev")))
+                .isInstanceOf(InvalidQrException.class)
+                .hasMessageContaining("hết thời gian mở điểm danh");
     }
 }

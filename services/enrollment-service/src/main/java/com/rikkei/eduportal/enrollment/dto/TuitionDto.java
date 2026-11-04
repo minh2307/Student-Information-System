@@ -13,12 +13,30 @@ public class TuitionDto {
     private BigDecimal facilityFee;
     private BigDecimal totalAmount;
     private BigDecimal paidAmount;
+    private BigDecimal remainingAmount;
     private String status;
     private LocalDate dueDate;
     private LocalDateTime paymentDate;
     private String transactionCode;
     private String paymentMethod;
     private List<TuitionCourseItemDto> courses;
+
+    // Thông tin sinh viên (loại bỏ hoàn toàn hardcoded sv2024001)
+    private String studentCode;
+    private String studentName;
+
+    // Chuẩn thanh toán Napas247 VietQR QuickLink & Payload
+    private String bankBin;
+    private String bankName;
+    private String bankShortName;
+    private String accountNumber;
+    private String accountName;
+    private String transferContent;
+    private String vietQrPayload;
+    private String vietQrQuickLink;
+
+    // Danh sách ngân hàng hỗ trợ quét VietQR (VietinBank, MB Bank)
+    private List<BankOptionDto> supportedBanks;
 
     public TuitionDto() {}
 
@@ -39,6 +57,50 @@ public class TuitionDto {
         public String getCourseName() { return courseName; }
         public Integer getCredits() { return credits; }
         public BigDecimal getFee() { return fee; }
+    }
+
+    public static class BankOptionDto {
+        private String bankBin;
+        private String bankShortName;
+        private String bankName;
+        private String accountNumber;
+        private String accountName;
+        private String vietQrPayload;
+        private String vietQrQuickLink;
+
+        public BankOptionDto() {}
+
+        public BankOptionDto(String bankBin, String bankShortName, String bankName, String accountNumber,
+                             String accountName, String vietQrPayload, String vietQrQuickLink) {
+            this.bankBin = bankBin;
+            this.bankShortName = bankShortName;
+            this.bankName = bankName;
+            this.accountNumber = accountNumber;
+            this.accountName = accountName;
+            this.vietQrPayload = vietQrPayload;
+            this.vietQrQuickLink = vietQrQuickLink;
+        }
+
+        public String getBankBin() { return bankBin; }
+        public void setBankBin(String bankBin) { this.bankBin = bankBin; }
+
+        public String getBankShortName() { return bankShortName; }
+        public void setBankShortName(String bankShortName) { this.bankShortName = bankShortName; }
+
+        public String getBankName() { return bankName; }
+        public void setBankName(String bankName) { this.bankName = bankName; }
+
+        public String getAccountNumber() { return accountNumber; }
+        public void setAccountNumber(String accountNumber) { this.accountNumber = accountNumber; }
+
+        public String getAccountName() { return accountName; }
+        public void setAccountName(String accountName) { this.accountName = accountName; }
+
+        public String getVietQrPayload() { return vietQrPayload; }
+        public void setVietQrPayload(String vietQrPayload) { this.vietQrPayload = vietQrPayload; }
+
+        public String getVietQrQuickLink() { return vietQrQuickLink; }
+        public void setVietQrQuickLink(String vietQrQuickLink) { this.vietQrQuickLink = vietQrQuickLink; }
     }
 
     public Long getId() { return id; }
@@ -62,6 +124,9 @@ public class TuitionDto {
     public BigDecimal getPaidAmount() { return paidAmount; }
     public void setPaidAmount(BigDecimal paidAmount) { this.paidAmount = paidAmount; }
 
+    public BigDecimal getRemainingAmount() { return remainingAmount; }
+    public void setRemainingAmount(BigDecimal remainingAmount) { this.remainingAmount = remainingAmount; }
+
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 
@@ -79,4 +144,37 @@ public class TuitionDto {
 
     public List<TuitionCourseItemDto> getCourses() { return courses; }
     public void setCourses(List<TuitionCourseItemDto> courses) { this.courses = courses; }
+
+    public String getStudentCode() { return studentCode; }
+    public void setStudentCode(String studentCode) { this.studentCode = studentCode; }
+
+    public String getStudentName() { return studentName; }
+    public void setStudentName(String studentName) { this.studentName = studentName; }
+
+    public String getBankBin() { return bankBin; }
+    public void setBankBin(String bankBin) { this.bankBin = bankBin; }
+
+    public String getBankName() { return bankName; }
+    public void setBankName(String bankName) { this.bankName = bankName; }
+
+    public String getBankShortName() { return bankShortName; }
+    public void setBankShortName(String bankShortName) { this.bankShortName = bankShortName; }
+
+    public String getAccountNumber() { return accountNumber; }
+    public void setAccountNumber(String accountNumber) { this.accountNumber = accountNumber; }
+
+    public String getAccountName() { return accountName; }
+    public void setAccountName(String accountName) { this.accountName = accountName; }
+
+    public String getTransferContent() { return transferContent; }
+    public void setTransferContent(String transferContent) { this.transferContent = transferContent; }
+
+    public String getVietQrPayload() { return vietQrPayload; }
+    public void setVietQrPayload(String vietQrPayload) { this.vietQrPayload = vietQrPayload; }
+
+    public String getVietQrQuickLink() { return vietQrQuickLink; }
+    public void setVietQrQuickLink(String vietQrQuickLink) { this.vietQrQuickLink = vietQrQuickLink; }
+
+    public List<BankOptionDto> getSupportedBanks() { return supportedBanks; }
+    public void setSupportedBanks(List<BankOptionDto> supportedBanks) { this.supportedBanks = supportedBanks; }
 }

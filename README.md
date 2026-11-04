@@ -5,7 +5,7 @@
 > **Cơ sở dữ liệu**: PostgreSQL 16  
 > **Thời gian phát triển**: Sprint 3 ngày (5 thành viên)  
 > **Repository**: [minh2307/Student-Information-System](https://github.com/minh2307/Student-Information-System)  
-> 🌐 **Live Production Demo (VPS)**: [http://221.121.3.201](http://221.121.3.201)
+> 🌐 **Live Production Demo (VPS)**: [https://rikkeiportal.io.vn/](https://rikkeiportal.io.vn/) (IP: [http://221.121.3.201](http://221.121.3.201))
 
 ---
 
@@ -48,7 +48,8 @@ Hệ thống được thiết kế theo kiến trúc Microservices phân tách t
 Dự án đã được triển khai live trên máy chủ VPS đám mây độc lập với cấu hình tối ưu hóa tài nguyên phần cứng:
 
 ### 3.1. Thông số Máy chủ VPS
-- **Địa chỉ truy cập Web**: [http://221.121.3.201](http://221.121.3.201) (hoặc [http://221.121.3.201:3000](http://221.121.3.201:3000))
+- **Địa chỉ truy cập Web (Domain chính thức)**: [https://rikkeiportal.io.vn/](https://rikkeiportal.io.vn/)
+- **Địa chỉ IP trực tiếp VPS**: [http://221.121.3.201](http://221.121.3.201) (hoặc [http://221.121.3.201:3000](http://221.121.3.201:3000))
 - **Hệ điều hành**: Ubuntu 24.04 LTS (x86_64)
 - **Cấu hình phần cứng**:
   - **CPU**: 1 vCPU

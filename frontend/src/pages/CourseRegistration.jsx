@@ -1295,16 +1295,19 @@ export const CourseRegistration = () => {
       )}
 
       {/* AI Smart Schedule Optimizer Modal */}
-      <ScheduleOptimizerModal
-        open={optimizerModalOpen}
-        onClose={() => setOptimizerModalOpen(false)}
-        semester={semester}
-        availableSections={availableSections}
-        onReservationSuccess={(reservations) => {
-          fetchActiveReservations()
-          fetchSections()
-        }}
-      />
+      {optimizerModalOpen && (
+        <ScheduleOptimizerModal
+          open={optimizerModalOpen}
+          onClose={() => setOptimizerModalOpen(false)}
+          semester={semester}
+          availableSections={availableSections}
+          enrolledCredits={enrolledSummary.activeCredits || enrolledSummary.credits || 0}
+          onReservationSuccess={(reservations) => {
+            fetchActiveReservations()
+            fetchSections()
+          }}
+        />
+      )}
     </div>
   )
 }

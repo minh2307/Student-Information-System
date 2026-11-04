@@ -15,6 +15,7 @@ import {
   ChevronUp
 } from 'lucide-react'
 import api from '../../../services/api'
+import { toast } from '../../../store/toastStore'
 
 export function EarlyWarningModal({ open, onClose, sectionId, sectionCode, courseName }) {
   if (!open) return null
@@ -40,7 +41,7 @@ export function EarlyWarningModal({ open, onClose, sectionId, sectionCode, cours
       setReport(res.data?.data)
     } catch (err) {
       console.error('Lỗi tải báo cáo cảnh báo sớm:', err)
-      alert('Lỗi tải báo cáo cảnh báo sớm: ' + (err.response?.data?.message || err.message))
+      toast.error('Lỗi tải báo cáo cảnh báo sớm: ' + (err.response?.data?.message || err.message), 'Cảnh báo sớm')
     } finally {
       setLoading(false)
     }
@@ -48,7 +49,7 @@ export function EarlyWarningModal({ open, onClose, sectionId, sectionCode, cours
 
   const handleDispatchAll = async () => {
     if (!report || report.criticalCount + report.warningCount === 0) {
-      alert('Không có sinh viên nào trong diện nguy cơ để gửi cảnh báo.')
+      toast.warning('Không có sinh viên nào trong diện nguy cơ để gửi cảnh báo.', 'Thông báo')
       return
     }
 

@@ -1,6 +1,7 @@
 package com.rikkei.eduportal.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -10,11 +11,15 @@ import java.util.List;
 public class AcademicAdvisorResponse {
 
     private String reply;
+    private String mode; // GEMINI, FALLBACK, LIMITED
     private String category;
     private List<String> suggestions = new ArrayList<>();
     private String provider;
     private String model;
     private boolean fallbackUsed;
+    private StudentAcademicSummaryDto academicSummary;
+    private List<CourseRecommendationDto> recommendations = new ArrayList<>();
+    private List<String> limitations = new ArrayList<>();
     private LocalDateTime timestamp = LocalDateTime.now();
 
     public AcademicAdvisorResponse() {
@@ -31,6 +36,28 @@ public class AcademicAdvisorResponse {
 
     public void setReply(String reply) {
         this.reply = reply;
+    }
+
+    /**
+     * Dual compatibility getter for clients expecting message or reply
+     */
+    @JsonProperty("message")
+    public String getMessage() {
+        return reply;
+    }
+
+    public void setMessage(String message) {
+        if (this.reply == null || this.reply.isBlank()) {
+            this.reply = message;
+        }
+    }
+
+    public String getMode() {
+        return mode;
+    }
+
+    public void setMode(String mode) {
+        this.mode = mode;
     }
 
     public String getCategory() {
@@ -71,6 +98,30 @@ public class AcademicAdvisorResponse {
 
     public void setFallbackUsed(boolean fallbackUsed) {
         this.fallbackUsed = fallbackUsed;
+    }
+
+    public StudentAcademicSummaryDto getAcademicSummary() {
+        return academicSummary;
+    }
+
+    public void setAcademicSummary(StudentAcademicSummaryDto academicSummary) {
+        this.academicSummary = academicSummary;
+    }
+
+    public List<CourseRecommendationDto> getRecommendations() {
+        return recommendations;
+    }
+
+    public void setRecommendations(List<CourseRecommendationDto> recommendations) {
+        this.recommendations = recommendations;
+    }
+
+    public List<String> getLimitations() {
+        return limitations;
+    }
+
+    public void setLimitations(List<String> limitations) {
+        this.limitations = limitations;
     }
 
     public LocalDateTime getTimestamp() {
