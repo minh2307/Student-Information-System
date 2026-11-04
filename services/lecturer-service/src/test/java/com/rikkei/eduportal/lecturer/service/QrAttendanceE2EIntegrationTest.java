@@ -308,3 +308,4 @@ class QrAttendanceE2EIntegrationTest {
                 .hasMessageContaining("Phiên điểm danh này đã kết thúc hoặc bị đóng");
     }
 }
+

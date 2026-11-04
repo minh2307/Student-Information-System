@@ -189,8 +189,13 @@ export const StudentGrades = () => {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="md:hidden px-4 py-1.5 bg-stone-100/60 border-b border-stone-200 text-[10px] text-stone-500 flex items-center justify-between font-mono">
+            <span>Vuốt ngang để xem đủ cột điểm</span>
+            <span>👉</span>
+          </div>
+
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-left text-xs min-w-[700px]">
               <thead className="bg-stone-100/70 text-stone-600 text-[10px] uppercase font-mono tracking-wider border-b border-stone-200">
                 <tr>
                   <th className="px-4 py-3">Môn học</th>

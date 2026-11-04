@@ -430,7 +430,11 @@ export const StudentTimetable = () => {
       ) : viewMode === 'grid' ? (
         /* Visual Matrix Grid View */
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="md:hidden px-4 py-1.5 bg-slate-100/70 border-b border-slate-200 text-[10px] text-slate-500 flex items-center justify-between font-mono">
+            <span>Vuốt ngang để xem đủ các ngày trong tuần</span>
+            <span>👉</span>
+          </div>
+          <div className="overflow-x-auto touch-scroll">
             <table className="w-full border-collapse min-w-[900px]">
               {/* Header: Days of the week */}
               <thead>
