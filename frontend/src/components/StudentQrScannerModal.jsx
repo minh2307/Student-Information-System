@@ -359,9 +359,24 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
       }
     } catch (err) {
       const status = err.response?.status
-      const msg =
-        err.response?.data?.message ||
-        'Điểm danh không thành công. Mã QR có thể đã hết hạn hoặc phiên học đã đóng.'
+      const serverMsg = err.response?.data?.message || err.response?.data?.error
+
+      let msg = ''
+      if (serverMsg && typeof serverMsg === 'string') {
+        msg = serverMsg
+      } else if (!err.response) {
+        msg = 'Không thể kết nối đến máy chủ điểm danh. Vui lòng kiểm tra kết nối mạng Wi-Fi/4G hoặc địa chỉ máy chủ.'
+      } else if (status === 403) {
+        msg = 'Bạn không thuộc danh sách sinh viên hợp lệ của lớp học phần này để điểm danh.'
+      } else if (status === 404) {
+        msg = 'Không tìm thấy phiên điểm danh hoặc phiên học đã bị hủy.'
+      } else if (status === 401) {
+        msg = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại tài khoản sinh viên.'
+      } else if (status === 400) {
+        msg = 'Mã QR đã hết hạn (TOTP 15s) hoặc phiên điểm danh đã bị giảng viên đóng.'
+      } else {
+        msg = `Điểm danh thất bại (HTTP ${status || 'Error'}). Vui lòng thử lại.`
+      }
 
       const isDup = status === 409 || msg.includes('ĐÃ ĐIỂM DANH') || msg.includes('đã điểm danh thành công')
       if (isDup) {
