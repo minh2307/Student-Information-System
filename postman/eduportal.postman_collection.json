@@ -559,10 +559,10 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "",
-                  "pm.test(\"Total score formula: 0.1*10 + 0.3*8 + 0.6*9 = 8.80 (A)\", function () {",
+                  "pm.test(\"Total score formula: 0.1*10 + 0.4*8 + 0.5*9 = 8.70 (A)\", function () {",
                   "    var res = pm.response.json();",
                   "    pm.expect(res.status).to.eql(200);",
-                  "    pm.expect(Number(res.data.totalScore)).to.eql(8.8);",
+                  "    pm.expect(Number(res.data.totalScore)).to.eql(8.7);",
                   "    pm.expect(res.data.letterGrade).to.eql(\"A\");",
                   "});"
                 ]
@@ -692,10 +692,10 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "",
-                  "pm.test(\"Grade calculation: 0.1*9 + 0.3*7.5 + 0.6*8.0 = 7.95 (B)\", function () {",
+                  "pm.test(\"Grade calculation: 0.1*9 + 0.4*7.5 + 0.5*8.0 = 7.90 (B)\", function () {",
                   "    var res = pm.response.json();",
                   "    pm.expect(res.status).to.eql(200);",
-                  "    pm.expect(Number(res.data.totalScore)).to.eql(7.95);",
+                  "    pm.expect(Number(res.data.totalScore)).to.eql(7.9);",
                   "    pm.expect([\"B\", \"B+\"]).to.include(res.data.letterGrade);",
                   "});"
                 ]
