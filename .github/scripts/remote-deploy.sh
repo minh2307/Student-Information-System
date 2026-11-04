@@ -3,21 +3,13 @@ set -e
 
 cd /opt/eduportal
 
-# Ghi file .env từ biến môi trường (được truyền qua SSH AcceptEnv/SendEnv)
-{
-  echo "DB_PASSWORD=${DB_PASSWORD}"
-  echo "JWT_SECRET=${JWT_SECRET}"
-  echo "REGISTRY=${REGISTRY}"
-  echo "IMAGE_TAG=${IMAGE_TAG}"
-  echo "IMAGE_PREFIX=${IMAGE_PREFIX}"
-  echo "AI_API_KEY=${AI_API_KEY}"
-  echo "FRONTEND_PORT=${FRONTEND_PORT:-80}"
-  echo "FRONTEND_ALT_PORT=${FRONTEND_ALT_PORT:-3000}"
-} > .env
-
-# Pull images trước khi tắt container cũ để giảm tối đa downtime
-echo "=== Pulling images... ==="
-docker compose -f "${COMPOSE_FILE}" pull
+echo "=== Diagnostic: Checking ports 80 and 3000 on host ==="
+if command -v ss >/dev/null 2>&1; then
+  ss -tulpn 2>/dev/null | grep -E ':(80|3000)\b' || echo "No sockets listening on 80/3000 via ss"
+elif command -v netstat >/dev/null 2>&1; then
+  netstat -tulpn 2>/dev/null | grep -E ':(80|3000)\b' || echo "No sockets listening on 80/3000 via netstat"
+fi
+docker ps --filter "publish=80" --filter "publish=3000" --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}\t{{.Status}}" 2>/dev/null || true
 
 # Dừng và dọn sạch các container từ tất cả các file compose có thể tồn tại (prod/dev/staging/default)
 # Tránh trường hợp chuyển đổi giữa dev <-> prod nhưng stack kia vẫn chiếm port 80/3000/5432/8081/8085.
@@ -67,7 +59,41 @@ fi
 # Chờ 2 giây để Linux kernel TCP socket hoàn tất giải phóng
 sleep 2
 
-echo "=== Starting containers (${COMPOSE_FILE})... ==="
+# Xác định cổng frontend: dev/staging mặc định port 3000 (tránh hoàn toàn va chạm port 80); prod dùng port 80
+RESOLVED_FRONTEND_PORT="${FRONTEND_PORT}"
+if [ -z "${RESOLVED_FRONTEND_PORT}" ]; then
+  if [ "${ENV_NAME}" = "prod" ]; then
+    RESOLVED_FRONTEND_PORT="80"
+  else
+    RESOLVED_FRONTEND_PORT="3000"
+  fi
+fi
+
+# Fallback an toàn: nếu yêu cầu cổng 80 nhưng host vẫn đang bị chiếm dụng bởi tiến trình không hạ được, fallback về 3000
+if [ "${RESOLVED_FRONTEND_PORT}" = "80" ]; then
+  if command -v ss >/dev/null 2>&1 && ss -tulpn 2>/dev/null | grep -q ':80\b'; then
+    echo "⚠️ Warning: Port 80 is still in use on host. Falling back FRONTEND_PORT to 3000 to prevent deploy failure!"
+    RESOLVED_FRONTEND_PORT="3000"
+  fi
+fi
+
+# Ghi file .env từ biến môi trường (được truyền qua SSH)
+{
+  echo "DB_PASSWORD=${DB_PASSWORD}"
+  echo "JWT_SECRET=${JWT_SECRET}"
+  echo "REGISTRY=${REGISTRY}"
+  echo "IMAGE_TAG=${IMAGE_TAG}"
+  echo "IMAGE_PREFIX=${IMAGE_PREFIX}"
+  echo "AI_API_KEY=${AI_API_KEY}"
+  echo "FRONTEND_PORT=${RESOLVED_FRONTEND_PORT}"
+  echo "FRONTEND_ALT_PORT=${FRONTEND_ALT_PORT:-3000}"
+} > .env
+
+# Pull images trước khi tắt container cũ để giảm tối đa downtime
+echo "=== Pulling images... ==="
+docker compose -f "${COMPOSE_FILE}" pull
+
+echo "=== Starting containers (${COMPOSE_FILE}) with FRONTEND_PORT=${RESOLVED_FRONTEND_PORT}... ==="
 if ! docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans; then
   echo "⚠️ First start attempt failed, attempting emergency port release and retrying..."
   if command -v fuser >/dev/null 2>&1; then
