@@ -348,6 +348,18 @@ export const StudentTuition = () => {
     return `${studentCode} HP ${tuition?.semesterName || selectedSemester}`
   }, [studentCode, tuition, selectedSemester])
 
+  const activeBank = useMemo(() => {
+    return tuition?.supportedBanks?.find(b => b.bankBin === selectedBankBin) || {
+      bankBin: tuition?.bankBin || '970422',
+      bankShortName: tuition?.bankShortName || 'MB',
+      bankName: tuition?.bankName || 'MB Bank (Ngân hàng TMCP Quân đội)',
+      accountNumber: tuition?.accountNumber || '999988882025',
+      accountName: tuition?.accountName || 'HOC VIEN CONG NGHE RIKKEI',
+      vietQrPayload: tuition?.vietQrPayload || '',
+      vietQrQuickLink: tuition?.vietQrQuickLink || ''
+    }
+  }, [tuition, selectedBankBin])
+
   // URL VietQR Napas247 chuẩn quốc gia (fallback nếu backend không sinh QR)
   const vietQrUrl = useMemo(() => {
     const amt = tuition?.totalAmount || 0
@@ -355,14 +367,14 @@ export const StudentTuition = () => {
     const accName = activeBank?.accountName || 'HOC VIEN CONG NGHE RIKKEI'
     const transferContent = tuition?.transferContent || transferSyntax
     return `https://img.vietqr.io/image/MB-${accNum}-compact2.png?amount=${amt}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accName)}`
-  }, [tuition, transferSyntax])
+  }, [tuition, transferSyntax, activeBank])
 
   // Fallback QR generator nếu dịch vụ img.vietqr.io bị chậm/chặn
   const fallbackQrUrl = useMemo(() => {
     const transferContent = tuition?.transferContent || transferSyntax
     const rawData = `VIETQR_NAPAS247|MB|${activeBank?.accountNumber || '999988882025'}|${tuition?.totalAmount}|${transferContent}`
     return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(rawData)}`
-  }, [tuition, transferSyntax])
+  }, [tuition, transferSyntax, activeBank])
 
   // Sao chép thông tin chuyển khoản vào clipboard
   const handleCopy = (text, fieldName) => {
@@ -428,15 +440,7 @@ export const StudentTuition = () => {
   const isPaid = tuition?.status === 'PAID'
   const isPartial = tuition?.status === 'PARTIAL'
 
-  const activeBank = tuition?.supportedBanks?.find(b => b.bankBin === selectedBankBin) || {
-    bankBin: tuition?.bankBin || '970422',
-    bankShortName: tuition?.bankShortName || 'MB',
-    bankName: tuition?.bankName || 'MB Bank (Ngân hàng TMCP Quân đội)',
-    accountNumber: tuition?.accountNumber || '999988882025',
-    accountName: tuition?.accountName || 'HOC VIEN CONG NGHE RIKKEI',
-    vietQrPayload: tuition?.vietQrPayload || '',
-    vietQrQuickLink: tuition?.vietQrQuickLink || ''
-  }
+
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans pb-12">
