@@ -127,7 +127,7 @@ public class PayOSService {
             String mockCheckoutUrl = "https://pay.payos.vn/web/" + UUID.randomUUID().toString().replace("-", "");
             String mockQrCode = VietQrPayloadGenerator.generatePayload("970422", "999988882025", amount, description);
 
-            return new PayOSPaymentLinkResponse(
+            PayOSPaymentLinkResponse mockRes = new PayOSPaymentLinkResponse(
                     orderCode,
                     amount,
                     description,
@@ -139,6 +139,8 @@ public class PayOSService {
                     "PAYOS-LINK-" + orderCode,
                     "PENDING"
             );
+            mockRes.setIsMock(true);
+            return mockRes;
         }
 
         try {
@@ -163,7 +165,7 @@ public class PayOSService {
                 JsonNode root = objectMapper.readTree(response.getBody());
                 if ("00".equals(root.path("code").asText())) {
                     JsonNode data = root.path("data");
-                    return new PayOSPaymentLinkResponse(
+                    PayOSPaymentLinkResponse liveRes = new PayOSPaymentLinkResponse(
                             orderCode,
                             amount,
                             description,
@@ -175,6 +177,8 @@ public class PayOSService {
                             data.path("paymentLinkId").asText(),
                             data.path("status").asText("PENDING")
                     );
+                    liveRes.setIsMock(false);
+                    return liveRes;
                 }
             }
             log.warn("PayOS API response non-zero code, falling back to simulated link: {}", response.getBody());
@@ -186,7 +190,7 @@ public class PayOSService {
         String fallbackCheckoutUrl = "https://pay.payos.vn/web/" + UUID.randomUUID().toString().replace("-", "");
         String fallbackQr = VietQrPayloadGenerator.generatePayload("970422", "999988882025", amount, description);
 
-        return new PayOSPaymentLinkResponse(
+        PayOSPaymentLinkResponse fallbackRes = new PayOSPaymentLinkResponse(
                 orderCode,
                 amount,
                 description,
@@ -198,6 +202,8 @@ public class PayOSService {
                 "PAYOS-FALLBACK-" + orderCode,
                 "PENDING"
         );
+        fallbackRes.setIsMock(true);
+        return fallbackRes;
     }
 
     /**

@@ -45,6 +45,11 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-demo-client-id}
+      PAYOS_API_KEY: ${PAYOS_API_KEY:-demo-api-key}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-demo-checksum-key-32bytes-long!!}
+      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost:3000/student/tuition?status=PAID}
+      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost:3000/student/tuition?status=CANCELLED}
       SPRING_PROFILES_ACTIVE: staging
     depends_on:
       postgres:
