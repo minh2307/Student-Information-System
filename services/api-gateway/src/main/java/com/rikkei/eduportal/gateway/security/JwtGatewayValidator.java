@@ -58,7 +58,8 @@ public class JwtGatewayValidator {
         if ("GET".equalsIgnoreCase(method)) {
             if (path.equals("/api/v1/courses") || path.startsWith("/api/v1/courses/") ||
                 path.equals("/api/v1/semesters") || path.startsWith("/api/v1/semesters/") ||
-                path.equals("/api/v1/student/class-sections")) {
+                path.equals("/api/v1/student/class-sections") ||
+                path.startsWith("/api/v1/announcements")) {
                 return true;
             }
         }
@@ -70,7 +71,7 @@ public class JwtGatewayValidator {
         if (userRole == null) return false;
         String normalizedRole = userRole.toUpperCase().replace("ROLE_", "");
 
-        if (path.startsWith("/api/v1/admin")) {
+        if (path.startsWith("/api/v1/admin") || path.startsWith("/api/v1/announcements")) {
             return "ADMIN".equals(normalizedRole);
         }
         if (path.startsWith("/api/v1/lecturer")) {

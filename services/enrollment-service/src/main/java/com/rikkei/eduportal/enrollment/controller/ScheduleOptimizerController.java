@@ -48,7 +48,9 @@ public class ScheduleOptimizerController {
                 studentCode, request.getCourseIds().size());
 
         ScheduleOptimizerResponse response = scheduleOptimizerService.optimizeSchedule(studentCode, request);
-        String message = (response.getStatus() == OptimizationStatus.SUCCESS || response.getStatus() == null)
+        String message = (response.getStatus() == OptimizationStatus.SUCCESS
+                || response.getStatus() == OptimizationStatus.OPTIMAL
+                || response.getStatus() == null)
                 ? "AI đã tối ưu hóa thời khóa biểu thành công"
                 : response.getStatusMessage();
         return ResponseEntity.ok(ApiResponse.success(message, response));

@@ -28,6 +28,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
       SPRING_PROFILES_ACTIVE: dev
       JAVA_TOOL_OPTIONS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
@@ -45,6 +46,22 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      SPRING_PROFILES_ACTIVE: dev
+      JAVA_TOOL_OPTIONS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  course-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/course-service:${IMAGE_TAG:-dev}
+    container_name: eduportal-course-dev
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       SPRING_PROFILES_ACTIVE: dev
       JAVA_TOOL_OPTIONS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
@@ -72,7 +89,7 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/ai-service:${IMAGE_TAG:-dev}
     container_name: eduportal-ai-dev
     ports:
-      - "8084:8084"
+      - "${AI_PORT:-8084}:8084"
     environment:
       AI_API_KEY: ${AI_API_KEY:-demo-key}
       AI_BASE_URL: ${AI_BASE_URL:-https://openrouter.ai/api}
@@ -95,6 +112,7 @@ services:
       - auth-service
       - lecturer-service
       - enrollment-service
+      - course-service
     restart: unless-stopped
 
 volumes:

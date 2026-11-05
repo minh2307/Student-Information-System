@@ -36,7 +36,18 @@ const processQueue = (error, token = null) => {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const contentType = response.headers?.['content-type'] || ''
+    if (
+      contentType.includes('text/html') ||
+      (typeof response.data === 'string' && response.data.trim().startsWith('<!doctype'))
+    ) {
+      const err = new Error(`Phản hồi API không hợp lệ: Máy chủ trả về HTML thay vì JSON cho ${response.config?.url || ''}`)
+      err.response = response
+      return Promise.reject(err)
+    }
+    return response
+  },
   async (error) => {
     const originalRequest = error.config
 
