@@ -16,6 +16,10 @@ public class ExamScheduleDto {
     private String examType;
     private String notes;
     private String lecturerName;
+    private Long classSectionId;
+    private String semesterName;
+    private Integer currentEnrolled;
+    private Integer maxCapacity;
 
     public ExamScheduleDto() {}
 
@@ -54,4 +58,16 @@ public class ExamScheduleDto {
 
     public String getLecturerName() { return lecturerName; }
     public void setLecturerName(String lecturerName) { this.lecturerName = lecturerName; }
+
+    public Long getClassSectionId() { return classSectionId; }
+    public void setClassSectionId(Long classSectionId) { this.classSectionId = classSectionId; }
+
+    public String getSemesterName() { return semesterName; }
+    public void setSemesterName(String semesterName) { this.semesterName = semesterName; }
+
+    public Integer getCurrentEnrolled() { return currentEnrolled; }
+    public void setCurrentEnrolled(Integer currentEnrolled) { this.currentEnrolled = currentEnrolled; }
+
+    public Integer getMaxCapacity() { return maxCapacity; }
+    public void setMaxCapacity(Integer maxCapacity) { this.maxCapacity = maxCapacity; }
 }

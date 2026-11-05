@@ -8,6 +8,7 @@ import com.rikkei.eduportal.enrollment.dto.TuitionDto;
 import com.rikkei.eduportal.enrollment.entity.Notification;
 import com.rikkei.eduportal.enrollment.entity.StudentProfile;
 import com.rikkei.eduportal.enrollment.entity.TuitionFee;
+import com.rikkei.eduportal.enrollment.exception.BusinessException;
 import com.rikkei.eduportal.enrollment.repository.NotificationRepository;
 import com.rikkei.eduportal.enrollment.repository.StudentProfileRepository;
 import com.rikkei.eduportal.enrollment.repository.TuitionFeeRepository;
@@ -175,29 +176,29 @@ public class PayOSService {
                             data.path("paymentLinkId").asText(),
                             data.path("status").asText("PENDING")
                     );
+                } else {
+                    String desc = root.path("desc").asText("Giao dịch bị từ chối bởi cổng PayOS");
+                    log.error("PayOS API rejected creation: code={}, desc={}", root.path("code").asText(), desc);
+                    throw new BusinessException("PayOS từ chối yêu cầu thanh toán: " + desc);
                 }
             }
-            log.warn("PayOS API response non-zero code, falling back to simulated link: {}", response.getBody());
+            throw new BusinessException("Phản hồi không hợp lệ từ cổng thanh toán PayOS (HTTP " + response.getStatusCode().value() + ")");
+        } catch (BusinessException be) {
+            throw be;
+        } catch (org.springframework.web.client.HttpStatusCodeException httpEx) {
+            String desc = httpEx.getMessage();
+            try {
+                JsonNode errJson = objectMapper.readTree(httpEx.getResponseBodyAsString());
+                if (errJson.has("desc")) {
+                    desc = errJson.path("desc").asText();
+                }
+            } catch (Exception ignored) {}
+            log.error("PayOS HTTP error: status={}, desc={}", httpEx.getStatusCode(), desc);
+            throw new BusinessException("Cổng PayOS phản hồi lỗi: " + desc);
         } catch (Exception ex) {
-            log.warn("Could not reach PayOS live API ({}), activating seamless sandbox fallback", ex.getMessage());
+            log.error("Không thể kết nối tới PayOS API: {}", ex.getMessage(), ex);
+            throw new BusinessException("Lỗi kết nối cổng thanh toán PayOS: " + ex.getMessage());
         }
-
-        // Fallback an toàn cho local dev / testing
-        String fallbackCheckoutUrl = "https://pay.payos.vn/web/" + UUID.randomUUID().toString().replace("-", "");
-        String fallbackQr = VietQrPayloadGenerator.generatePayload("970422", "999988882025", amount, description);
-
-        return new PayOSPaymentLinkResponse(
-                orderCode,
-                amount,
-                description,
-                "999988882025",
-                "HOC VIEN CONG NGHE RIKKEI",
-                "970422",
-                fallbackCheckoutUrl,
-                fallbackQr,
-                "PAYOS-FALLBACK-" + orderCode,
-                "PENDING"
-        );
     }
 
     /**

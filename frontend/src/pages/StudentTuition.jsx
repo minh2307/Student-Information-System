@@ -178,6 +178,17 @@ export const StudentTuition = () => {
 
   const { open: openPayOs, exit: exitPayOs } = usePayOS(payOSConfig)
 
+  const safeExitPayOs = useCallback(() => {
+    try {
+      const container = document.getElementById('payos-checkout-container')
+      if (container && container.querySelector('iframe')) {
+        exitPayOs()
+      }
+    } catch (e) {
+      // Ignored
+    }
+  }, [exitPayOs])
+
   // ─────────────────────────────────────────
   // 7. Tất cả useEffect (sau mọi useMemo/useCallback)
   // ─────────────────────────────────────────
@@ -325,12 +336,10 @@ export const StudentTuition = () => {
       }, 150)
       return () => {
         clearTimeout(timer)
-        try {
-          exitPayOs()
-        } catch (ignored) {}
+        safeExitPayOs()
       }
     }
-  }, [showPayOsModal, activePayOsTab, payOsData?.checkoutUrl, openPayOs, exitPayOs])
+  }, [showPayOsModal, activePayOsTab, payOsData?.checkoutUrl, openPayOs, safeExitPayOs])
 
   // 7g. Lắng nghe postMessage từ PayOS Iframe
   useEffect(() => {
@@ -1093,11 +1102,9 @@ export const StudentTuition = () => {
 
               <button
                 onClick={() => {
+                  safeExitPayOs()
                   setShowPayOsModal(false)
                   setPollingActive(false)
-                  try {
-                    exitPayOs()
-                  } catch (ignored) {}
                 }}
                 className="text-stone-400 hover:text-stone-700 text-2xl leading-none p-1 rounded-lg hover:bg-stone-100 transition cursor-pointer"
                 title="Đóng cửa sổ"
@@ -1309,11 +1316,9 @@ export const StudentTuition = () => {
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   onClick={() => {
+                    safeExitPayOs()
                     setShowPayOsModal(false)
                     setPollingActive(false)
-                    try {
-                      exitPayOs()
-                    } catch (ignored) {}
                   }}
                   className="w-full sm:w-auto py-2 px-4 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-100 transition cursor-pointer"
                 >

@@ -236,6 +236,13 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
                       <span>Quản lý lớp học phần</span>
                     </div>
                   </NavLink>
+
+                  <NavLink to="/admin/exams" onClick={onClose} className={navItemClass}>
+                    <div className="flex items-center gap-2.5">
+                      <CalendarCheck size={16} className="text-stone-500 group-hover:text-red-700" />
+                      <span>Lịch thi & Phòng thi</span>
+                    </div>
+                  </NavLink>
                 </div>
               </div>
 
