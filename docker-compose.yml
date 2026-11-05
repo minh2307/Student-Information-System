@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d:ro
@@ -23,7 +23,7 @@ services:
       dockerfile: services/api-gateway/Dockerfile
     container_name: eduportal-gateway
     ports:
-      - "8080:8080"
+      - "${GATEWAY_PORT:-8080}:8080"
     environment:
       AUTH_SERVICE_URL: http://auth-service:8081
       COURSE_SERVICE_URL: http://course-service:8082
@@ -43,7 +43,7 @@ services:
       dockerfile: services/auth-service/Dockerfile
     container_name: eduportal-auth
     ports:
-      - "8081:8081"
+      - "${AUTH_PORT:-8081}:8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -59,7 +59,7 @@ services:
       dockerfile: services/course-service/Dockerfile
     container_name: eduportal-course
     ports:
-      - "8082:8082"
+      - "${COURSE_PORT:-8082}:8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -74,7 +74,7 @@ services:
       dockerfile: services/enrollment-service/Dockerfile
     container_name: eduportal-enrollment
     ports:
-      - "8083:8083"
+      - "${ENROLLMENT_PORT:-8083}:8083"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -89,7 +89,7 @@ services:
       dockerfile: services/ai-service/Dockerfile
     container_name: eduportal-ai
     ports:
-      - "8084:8084"
+      - "${AI_PORT:-8084}:8084"
     environment:
       AI_API_KEY: ${AI_API_KEY:-demo-key}
       AI_BASE_URL: ${AI_BASE_URL:-https://openrouter.ai/api}
@@ -104,7 +104,7 @@ services:
       dockerfile: Dockerfile
     container_name: eduportal-frontend
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - api-gateway
 
@@ -114,7 +114,7 @@ services:
       dockerfile: services/lecturer-service/Dockerfile
     container_name: eduportal-lecturer
     ports:
-      - "8085:8085"
+      - "${LECTURER_PORT:-8085}:8085"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}

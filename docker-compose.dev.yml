@@ -69,7 +69,7 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/ai-service:${IMAGE_TAG:-dev}
     container_name: eduportal-ai-dev
     ports:
-      - "8084:8084"
+      - "${AI_PORT:-8084}:8084"
     environment:
       AI_API_KEY: ${AI_API_KEY:-demo-key}
       AI_BASE_URL: ${AI_BASE_URL:-https://openrouter.ai/api}
