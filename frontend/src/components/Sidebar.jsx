@@ -265,12 +265,14 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
               Hệ thống & Tiện ích
             </div>
             <div className="space-y-0.5">
-              <NavLink to="/ai/advisor" onClick={onClose} className={navItemClass}>
-                <div className="flex items-center gap-2.5">
-                  <BotMessageSquare size={16} className="text-stone-500 group-hover:text-red-700" />
-                  <span>Cố vấn AI 24/7</span>
-                </div>
-              </NavLink>
+              {role === 'STUDENT' && (
+                <NavLink to="/ai/advisor" onClick={onClose} className={navItemClass}>
+                  <div className="flex items-center gap-2.5">
+                    <BotMessageSquare size={16} className="text-stone-500 group-hover:text-red-700" />
+                    <span>Cố vấn AI 24/7</span>
+                  </div>
+                </NavLink>
+              )}
               <NavLink to="/profile" onClick={onClose} className={navItemClass}>
                 <div className="flex items-center gap-2.5">
                   <UserCircle size={16} className="text-stone-500 group-hover:text-red-700" />
