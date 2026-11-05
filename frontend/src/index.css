@@ -39,12 +39,11 @@
   padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
 }
 
-/* Drawer Hardware Acceleration để trượt siêu mượt 60fps */
+/* Drawer Hardware Acceleration để trượt siêu mượt 60fps mà không đè cấu hình transform của Tailwind */
 .drawer-hardware-accelerated {
   will-change: transform;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  transform: translate3d(0, 0, 0);
 }
 
 /* Responsive Table Wrapper: chống vỡ dòng và hiển thị cuộn mượt mà */

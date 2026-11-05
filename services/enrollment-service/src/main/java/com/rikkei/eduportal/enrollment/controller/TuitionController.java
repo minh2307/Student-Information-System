@@ -61,7 +61,9 @@ public class TuitionController {
             HttpServletRequest request) {
         String studentIdentifier = extractUser(request);
         String targetSemester = (body != null && body.containsKey("semester")) ? body.get("semester") : semester;
-        PayOSPaymentLinkResponse response = payOSService.createPaymentLink(studentIdentifier, targetSemester);
+        String returnUrl = (body != null && body.containsKey("returnUrl")) ? body.get("returnUrl") : null;
+        String cancelUrl = (body != null && body.containsKey("cancelUrl")) ? body.get("cancelUrl") : null;
+        PayOSPaymentLinkResponse response = payOSService.createPaymentLink(studentIdentifier, targetSemester, returnUrl, cancelUrl);
         return ResponseEntity.ok(ApiResponse.success("Tạo liên kết thanh toán PayOS thành công", response));
     }
 

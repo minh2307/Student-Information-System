@@ -12,6 +12,7 @@
     "test:advisor": "node --test test/advisor-markdown.test.js"
   },
   "dependencies": {
+    "@payos/payos-checkout": "^1.0.8",
     "axios": "^1.7.9",
     "clsx": "^2.1.1",
     "html5-qrcode": "^2.3.8",
