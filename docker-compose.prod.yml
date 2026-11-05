@@ -116,7 +116,7 @@ services:
     container_name: eduportal-ai-prod
     restart: always
     ports:
-      - "8084:8084"
+      - "${AI_PORT:-8084}:8084"
     environment:
       AI_API_KEY: ${AI_API_KEY:-demo-key}
       AI_BASE_URL: ${AI_BASE_URL:-https://openrouter.ai/api}
