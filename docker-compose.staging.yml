@@ -51,6 +51,21 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  course-service:
+    image: ${IMAGE_PREFIX}/course-service:${IMAGE_TAG}
+    container_name: eduportal-course-staging
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_PROFILES_ACTIVE: staging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   enrollment-service:
     image: ${IMAGE_PREFIX}/enrollment-service:${IMAGE_TAG}
     container_name: eduportal-enrollment-staging
@@ -75,6 +90,7 @@ services:
       - auth-service
       - lecturer-service
       - enrollment-service
+      - course-service
     restart: unless-stopped
 
 volumes:

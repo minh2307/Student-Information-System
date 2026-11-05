@@ -50,6 +50,26 @@ services:
           cpus: '1.0'
           memory: 1024M
 
+  course-service:
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/course-service:${IMAGE_TAG:-prod}
+    container_name: eduportal-course-prod
+    restart: always
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SPRING_PROFILES_ACTIVE: prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+
   enrollment-service:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/enrollment-service:${IMAGE_TAG:-prod}
     container_name: eduportal-enrollment-prod
@@ -125,6 +145,7 @@ services:
       - lecturer-service
       - enrollment-service
       - ai-service
+      - course-service
     deploy:
       resources:
         limits:

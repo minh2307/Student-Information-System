@@ -79,6 +79,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
               alt="Rikkei Logo" 
               className="h-9 w-auto object-contain max-w-[125px]"
               onError={(e) => {
+                e.target.onerror = null
                 e.target.src = '/images/logo.svg'
               }}
             />
@@ -292,6 +293,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
                 alt={user?.fullName || 'Avatar'} 
                 className="w-8 h-8 rounded-full object-cover border border-stone-300 shadow-2xs shrink-0"
                 onError={(e) => {
+                  e.target.onerror = null
                   e.target.src = '/images/avatar-student.jpg'
                 }}
               />
