@@ -169,6 +169,13 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
+  // Rule 2.1: Ignore third-party cross-origin requests (e.g. Cloudflare Insights, analytics) unless whitelisted
+  const isSameOrigin = url.origin === self.location.origin;
+  const isAllowedExternal = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+  if (!isSameOrigin && !isAllowedExternal) {
+    return;
+  }
+
   // Rule 3: STRICT SECURITY - API & SENSITIVE DATA PASSTHROUGH
   // Never intercept or cache student records, auth, or transactional API endpoints
   if (isSensitiveOrApiRequest(url)) {
@@ -267,7 +274,11 @@ self.addEventListener('fetch', (event) => {
           })
           .catch(() => {
             // Network failure: cached response will serve as fallback
-            return cachedResponse;
+            return cachedResponse || new Response('Asset not found or offline', {
+              status: 404,
+              statusText: 'Not Found',
+              headers: { 'Content-Type': 'text/plain' }
+            });
           });
 
         // Return immediately from cache if available, else await network response

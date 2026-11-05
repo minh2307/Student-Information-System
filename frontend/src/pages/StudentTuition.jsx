@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import { usePayOS } from '@payos/payos-checkout'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -27,68 +28,27 @@ import {
   Maximize2,
   AlertTriangle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  X,
+  Radio,
+  Layers,
+  ArrowUpRight
 } from 'lucide-react'
 
-// Hàm chuyển đổi số tiền thành chữ Tiếng Việt chuẩn theo văn bản kế toán
-const defaultUnits = ['', 'nghìn', 'triệu', 'tỷ']
-const digits = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín']
-
-function readThreeDigits(threeDigits, isFull) {
-  const hundreds = Math.floor(threeDigits / 100)
-  const tens = Math.floor((threeDigits % 100) / 10)
-  const units = threeDigits % 10
-  let result = ''
-
-  if (isFull || hundreds > 0) {
-    result += digits[hundreds] + ' trăm '
-  }
-
-  if (tens > 1) {
-    result += digits[tens] + ' mươi '
-    if (units === 1) result += 'mốt '
-    else if (units === 5) result += 'lăm '
-    else if (units > 0) result += digits[units] + ' '
-  } else if (tens === 1) {
-    result += 'mười '
-    if (units === 1) result += 'một '
-    else if (units === 5) result += 'lăm '
-    else if (units > 0) result += digits[units] + ' '
-  } else {
-    if (isFull && units > 0) result += 'lẻ '
-    if (units > 0) result += digits[units] + ' '
-  }
-
-  return result
-}
-
-export function numberToVietnameseWords(num) {
-  if (!num || isNaN(num) || num === 0) return 'Không đồng'
-  let n = Math.abs(Math.round(num))
-  const groups = []
-  while (n > 0) {
-    groups.push(n % 1000)
-    n = Math.floor(n / 1000)
-  }
-
-  let result = ''
-  for (let i = groups.length - 1; i >= 0; i--) {
-    const group = groups[i]
-    if (group > 0) {
-      const isFull = i < groups.length - 1
-      result += readThreeDigits(group, isFull) + defaultUnits[i] + ' '
-    }
-  }
-
-  result = result.trim().replace(/\s+/g, ' ')
-  return result.charAt(0).toUpperCase() + result.slice(1) + ' đồng chẵn.'
-}
+import { numberToVietnameseWords } from '../utils/currencyWords'
+export { numberToVietnameseWords }
 
 export const StudentTuition = () => {
+  // ─────────────────────────────────────────
+  // 1. Store / Router hooks (gọi đầu tiên)
+  // ─────────────────────────────────────────
   const { user } = useAuthStore()
-  const studentCode = user?.studentCode || user?.username || 'SV2024001'
-  const studentName = user?.fullName || 'Nguyễn Văn C'
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
 
+  // ─────────────────────────────────────────
+  // 2. Tất cả useState (không phụ thuộc lẫn nhau)
+  // ─────────────────────────────────────────
   const [semesters, setSemesters] = useState([])
   const [selectedSemester, setSelectedSemester] = useState('')
   const [tuition, setTuition] = useState(null)
@@ -99,17 +59,141 @@ export const StudentTuition = () => {
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [copiedField, setCopiedField] = useState(null)
   const [qrImageError, setQrImageError] = useState(false)
-  const [simulatingStep, setSimulatingStep] = useState(0) // 0: Idle, 1: Connecting Napas, 2: Reconciling, 3: Settled
-  const [selectedBankBin, setSelectedBankBin] = useState('970422') // 970422 (MB) | 970415 (VietinBank)
+  const [simulatingStep, setSimulatingStep] = useState(0)
+  const [selectedBankBin, setSelectedBankBin] = useState('970422')
   const [showRawPayload, setShowRawPayload] = useState(false)
   const [showPayOsModal, setShowPayOsModal] = useState(false)
   const [payOsData, setPayOsData] = useState(null)
   const [creatingPayOs, setCreatingPayOs] = useState(false)
   const [pollingActive, setPollingActive] = useState(false)
-
-  // Đếm lùi phiên giao dịch QR 15 phút (900 giây)
+  const [activePayOsTab, setActivePayOsTab] = useState('embedded')
+  const [returnStatusInfo, setReturnStatusInfo] = useState(null)
   const [qrRemainingSeconds, setQrRemainingSeconds] = useState(900)
 
+  // ─────────────────────────────────────────
+  // 3. Giá trị dẫn xuất từ store (không phải hook)
+  // ─────────────────────────────────────────
+  const studentCode = user?.studentCode || user?.username || 'SV2024001'
+  const studentName = user?.fullName || 'Nguyễn Văn C'
+
+  // ─────────────────────────────────────────
+  // 4. useMemo – không phụ thuộc lẫn nhau
+  //    Thứ tự BẮT BUỘC: transferSyntax → activeBank → vietQrUrl → fallbackQrUrl
+  // ─────────────────────────────────────────
+  const transferSyntax = useMemo(() => {
+    return `${studentCode} HP ${tuition?.semesterName || selectedSemester}`
+  }, [studentCode, tuition, selectedSemester])
+
+  // activeBank PHẢI được khai báo trước vietQrUrl và fallbackQrUrl
+  const activeBank = useMemo(() => {
+    return tuition?.supportedBanks?.find((b) => b.bankBin === selectedBankBin) || {
+      bankBin: tuition?.bankBin || '970422',
+      bankShortName: tuition?.bankShortName || 'MB',
+      bankName: tuition?.bankName || 'MB Bank (Ngân hàng TMCP Quân đội)',
+      accountNumber: tuition?.accountNumber || '999988882025',
+      accountName: tuition?.accountName || 'HOC VIEN CONG NGHE RIKKEI',
+      vietQrPayload: tuition?.vietQrPayload || '',
+      vietQrQuickLink: tuition?.vietQrQuickLink || ''
+    }
+  }, [tuition, selectedBankBin])
+
+  // vietQrUrl PHỤ THUỘC vào activeBank – phải đứng SAU
+  const vietQrUrl = useMemo(() => {
+    const amt = tuition?.totalAmount || 0
+    const accNum = activeBank.accountNumber
+    const accName = activeBank.accountName
+    const transferContent = tuition?.transferContent || transferSyntax
+    return `https://img.vietqr.io/image/MB-${accNum}-compact2.png?amount=${amt}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accName)}`
+  }, [tuition, transferSyntax, activeBank])
+
+  // fallbackQrUrl PHỤ THUỘC vào activeBank – phải đứng SAU
+  const fallbackQrUrl = useMemo(() => {
+    const transferContent = tuition?.transferContent || transferSyntax
+    const rawData = `VIETQR_NAPAS247|MB|${activeBank.accountNumber}|${tuition?.totalAmount}|${transferContent}`
+    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(rawData)}`
+  }, [tuition, transferSyntax, activeBank])
+
+  // ─────────────────────────────────────────
+  // 5. useCallback handlers
+  // ─────────────────────────────────────────
+  const fetchTuition = useCallback(
+    async (semester, bankBin) => {
+      const sem = semester || selectedSemester
+      const bin = bankBin || selectedBankBin
+      if (!sem) return
+      setLoading(true)
+      try {
+        const res = await api.get(`/student/tuition?semester=${sem}&bank=${bin}`)
+        if (res.data?.data) {
+          setTuition(res.data.data)
+          if (res.data.data.bankBin) {
+            setSelectedBankBin(res.data.data.bankBin)
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi tải học phí:', err)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [selectedSemester, selectedBankBin]
+  )
+
+  const handlePayOsSuccess = useCallback(
+    (eventData) => {
+      setPollingActive(false)
+      setShowPayOsModal(false)
+      setShowReceiptModal(true)
+      toast.success('Học phí đã được quyết toán tự động qua cổng PayOS!')
+      fetchTuition(selectedSemester, selectedBankBin)
+    },
+    [selectedSemester, selectedBankBin, fetchTuition]
+  )
+
+  const handlePayOsCancel = useCallback((eventData) => {
+    setShowPayOsModal(false)
+    setPollingActive(false)
+    toast.info('Bạn đã hủy phiên thanh toán PayOS.')
+  }, [])
+
+  // ─────────────────────────────────────────
+  // 6. payOSConfig useMemo (phụ thuộc callbacks)
+  //    + usePayOS (phải gọi sau khi config ổn định)
+  // ─────────────────────────────────────────
+  const payOSConfig = useMemo(
+    () => ({
+      RETURN_URL: `${window.location.origin}/student/tuition`,
+      ELEMENT_ID: 'payos-checkout-container',
+      CHECKOUT_URL: payOsData?.checkoutUrl || '',
+      embedded: true,
+      onSuccess: (event) => handlePayOsSuccess(event),
+      onExit: () => {
+        setShowPayOsModal(false)
+        setPollingActive(false)
+      },
+      onCancel: (event) => handlePayOsCancel(event)
+    }),
+    [payOsData?.checkoutUrl, handlePayOsSuccess, handlePayOsCancel]
+  )
+
+  const { open: openPayOs, exit: exitPayOs } = usePayOS(payOSConfig)
+
+  const safeExitPayOs = useCallback(() => {
+    try {
+      const container = document.getElementById('payos-checkout-container')
+      if (container && container.querySelector('iframe')) {
+        exitPayOs()
+      }
+    } catch (e) {
+      // Ignored
+    }
+  }, [exitPayOs])
+
+  // ─────────────────────────────────────────
+  // 7. Tất cả useEffect (sau mọi useMemo/useCallback)
+  // ─────────────────────────────────────────
+
+  // 7a. Timer đếm lùi phiên VietQR 15 phút
   useEffect(() => {
     let timer = null
     if (showQrModal && !paymentSuccess) {
@@ -129,20 +213,14 @@ export const StudentTuition = () => {
     }
   }, [showQrModal, paymentSuccess])
 
-  const formatTimer = (seconds) => {
-    const m = Math.floor(seconds / 60)
-    const s = seconds % 60
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-  }
-
-  // Tải danh sách học kỳ
+  // 7b. Tải danh sách học kỳ
   useEffect(() => {
     const loadSemesters = async () => {
       try {
         const res = await api.get('/semesters')
         if (res.data?.data && res.data.data.length > 0) {
           setSemesters(res.data.data)
-          const active = res.data.data.find(s => s.isActive) || res.data.data[0]
+          const active = res.data.data.find((s) => s.isActive) || res.data.data[0]
           setSelectedSemester(active.semesterCode)
         }
       } catch (err) {
@@ -153,29 +231,72 @@ export const StudentTuition = () => {
     loadSemesters()
   }, [])
 
-  // Tải học phí theo kỳ và ngân hàng
+  // 7c. Tải học phí khi học kỳ / ngân hàng thay đổi
   useEffect(() => {
-    if (!selectedSemester) return
-    const fetchTuition = async () => {
-      setLoading(true)
-      try {
-        const res = await api.get(`/student/tuition?semester=${selectedSemester}&bank=${selectedBankBin}`)
-        if (res.data?.data) {
-          setTuition(res.data.data)
-          if (res.data.data.bankBin) {
-            setSelectedBankBin(res.data.data.bankBin)
-          }
-        }
-      } catch (err) {
-        console.error('Lỗi tải học phí:', err)
-      } finally {
-        setLoading(false)
-      }
+    if (selectedSemester) {
+      fetchTuition(selectedSemester, selectedBankBin)
     }
-    fetchTuition()
-  }, [selectedSemester, selectedBankBin])
+  }, [selectedSemester, selectedBankBin, fetchTuition])
 
-  // Polling tự động kiểm tra trạng thái quyết toán khi mở cổng PayOS
+  // 7d. Xử lý Return URL từ cổng PayOS Checkout
+  useEffect(() => {
+    const statusParam = searchParams.get('status')
+    const codeParam = searchParams.get('code')
+    const cancelParam = searchParams.get('cancel')
+    const orderCodeParam = searchParams.get('orderCode')
+    const paymentLinkId = searchParams.get('id')
+
+    if (statusParam || codeParam || cancelParam) {
+      const activeSem = selectedSemester || '2024-25_SEM2'
+      if ((statusParam === 'PAID' || codeParam === '00') && cancelParam !== 'true') {
+        setReturnStatusInfo({
+          type: 'SUCCESS',
+          orderCode: orderCodeParam,
+          paymentLinkId,
+          title: 'Quyết Toán Học Phí PayOS Thành Công!',
+          message: `Giao dịch đơn hàng #${orderCodeParam || 'N/A'} đã được cổng PayOS xác thực thành công. Nghĩa vụ học phí của bạn đã được gạch nợ hoàn tất.`
+        })
+        toast.success(
+          `Học phí đã được quyết toán thành công qua cổng PayOS! ${orderCodeParam ? `(Mã ĐH: ${orderCodeParam})` : ''}`
+        )
+        // Chủ động đối soát trực tiếp với Backend để cập nhật trạng thái học phí ngay
+        if (orderCodeParam) {
+          api.get(`/student/tuition/payos/status?orderCode=${orderCodeParam}&semester=${activeSem}`)
+            .then((res) => {
+              if (res.data?.data) {
+                setTuition(res.data.data)
+              }
+            })
+            .catch(() => {})
+        }
+        setShowReceiptModal(true)
+        fetchTuition(activeSem, selectedBankBin)
+      } else if (statusParam === 'CANCELLED' || cancelParam === 'true') {
+        setReturnStatusInfo({
+          type: 'CANCELLED',
+          orderCode: orderCodeParam,
+          paymentLinkId,
+          title: 'Phiên Thanh Toán PayOS Đã Hủy',
+          message: `Bạn vừa hủy phiên giao dịch thanh toán đơn hàng #${orderCodeParam || 'N/A'}. Bạn có thể thử lại bất cứ lúc nào.`
+        })
+        toast.info(`Bạn đã hủy phiên thanh toán PayOS. ${orderCodeParam ? `(Mã ĐH: ${orderCodeParam})` : ''}`)
+      } else {
+        setReturnStatusInfo({
+          type: 'ERROR',
+          orderCode: orderCodeParam,
+          paymentLinkId,
+          title: 'Giao Dịch PayOS Không Hoàn Tất',
+          message: `Giao dịch thanh toán chưa thể hoàn tất (Mã phản hồi: ${codeParam || 'ERROR'}). Vui lòng kiểm tra lại số dư hoặc quét lại mã VietQR.`
+        })
+        toast.error(`Giao dịch PayOS không thành công (Mã: ${codeParam || 'ERR'})`)
+      }
+
+      // Xóa các tham số query trên URL không làm tải lại trang
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, selectedSemester, selectedBankBin, fetchTuition, setSearchParams])
+
+  // 7e. Polling tự động kiểm tra trạng thái khi mở modal PayOS
   useEffect(() => {
     let timer = null
     const isPaidStatus = tuition?.status === 'PAID'
@@ -200,17 +321,98 @@ export const StudentTuition = () => {
     }
   }, [pollingActive, tuition?.status, selectedSemester, selectedBankBin])
 
+  // 7f. Khởi tạo PayOS Embedded Iframe khi modal mở
+  useEffect(() => {
+    if (showPayOsModal && activePayOsTab === 'embedded' && payOsData?.checkoutUrl) {
+      const timer = setTimeout(() => {
+        const container = document.getElementById('payos-checkout-container')
+        if (container && !container.querySelector('iframe')) {
+          try {
+            openPayOs()
+          } catch (err) {
+            console.warn('PayOS openIframe error', err)
+          }
+        }
+      }, 150)
+      return () => {
+        clearTimeout(timer)
+        safeExitPayOs()
+      }
+    }
+  }, [showPayOsModal, activePayOsTab, payOsData?.checkoutUrl, openPayOs, safeExitPayOs])
+
+  // 7g. Lắng nghe postMessage từ PayOS Iframe
+  useEffect(() => {
+    const handlePayOsMessage = (event) => {
+      const allowedOrigins = [
+        'https://dev.pay.payos.vn',
+        'https://next.dev.pay.payos.vn',
+        'https://pay.payos.vn'
+      ]
+      if (allowedOrigins.includes(event.origin)) {
+        try {
+          const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+          if (payload?.data?.status === 'PAID') {
+            handlePayOsSuccess(payload.data)
+          } else if (payload?.data?.status === 'CANCELLED') {
+            handlePayOsCancel(payload.data)
+          }
+        } catch (e) {
+          // Bỏ qua tin nhắn không phải JSON
+        }
+      }
+    }
+    window.addEventListener('message', handlePayOsMessage)
+    return () => window.removeEventListener('message', handlePayOsMessage)
+  }, [handlePayOsSuccess, handlePayOsCancel])
+
+  // ─────────────────────────────────────────
+  // 8. Hàm thông thường (không phải hook)
+  // ─────────────────────────────────────────
+
+  const formatVnd = (num) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0)
+  }
+
+  const formatTimer = (seconds) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
+
+  const handleCopy = (text, fieldName) => {
+    try {
+      navigator.clipboard.writeText(text)
+      setCopiedField(fieldName)
+      toast.success(`Đã sao chép ${fieldName} vào bộ nhớ tạm!`)
+      setTimeout(() => setCopiedField(null), 2200)
+    } catch (err) {
+      console.warn('Clipboard write error', err)
+    }
+  }
+
   const handleOpenPayOs = async () => {
     setCreatingPayOs(true)
     try {
-      const res = await api.post('/student/tuition/payos/create-payment-link', { semester: selectedSemester })
+      const returnUrl = `${window.location.origin}/student/tuition`
+      const cancelUrl = `${window.location.origin}/student/tuition?status=CANCELLED`
+
+      const res = await api.post('/student/tuition/payos/create-payment-link', {
+        semester: selectedSemester,
+        returnUrl,
+        cancelUrl
+      })
+
       if (res.data?.data) {
         setPayOsData(res.data.data)
+        setActivePayOsTab('embedded')
         setShowPayOsModal(true)
         setPollingActive(true)
       }
     } catch (err) {
-      toast.error('Không thể tạo liên kết thanh toán PayOS: ' + (err.response?.data?.message || err.message))
+      toast.error(
+        'Không thể tạo liên kết thanh toán PayOS: ' + (err.response?.data?.message || err.message)
+      )
     } finally {
       setCreatingPayOs(false)
     }
@@ -233,48 +435,19 @@ export const StudentTuition = () => {
         signature: 'demo-signature'
       })
       toast.success('Đã gửi tín hiệu Webhook PayOS mô phỏng thành công!')
+      await fetchTuition(selectedSemester, selectedBankBin)
+      setShowPayOsModal(false)
+      setPollingActive(false)
+      setShowReceiptModal(true)
     } catch (err) {
       toast.error('Lỗi gửi webhook mô phỏng: ' + (err.response?.data?.message || err.message))
     }
   }
 
-  const transferSyntax = useMemo(() => {
-    return `${studentCode} HP ${tuition?.semesterName || selectedSemester}`
-  }, [studentCode, tuition, selectedSemester])
-
-  // URL VietQR Napas247 chuẩn quốc gia (fallback nếu backend không sinh QR)
-  const vietQrUrl = useMemo(() => {
-    const amt = tuition?.totalAmount || 0
-    const accNum = activeBank?.accountNumber || '999988882025'
-    const accName = activeBank?.accountName || 'HOC VIEN CONG NGHE RIKKEI'
-    const transferContent = tuition?.transferContent || transferSyntax
-    return `https://img.vietqr.io/image/MB-${accNum}-compact2.png?amount=${amt}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accName)}`
-  }, [tuition, transferSyntax])
-
-  // Fallback QR generator nếu dịch vụ img.vietqr.io bị chậm/chặn
-  const fallbackQrUrl = useMemo(() => {
-    const transferContent = tuition?.transferContent || transferSyntax
-    const rawData = `VIETQR_NAPAS247|MB|${activeBank?.accountNumber || '999988882025'}|${tuition?.totalAmount}|${transferContent}`
-    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(rawData)}`
-  }, [tuition, transferSyntax])
-
-  // Sao chép thông tin chuyển khoản vào clipboard
-  const handleCopy = (text, fieldName) => {
-    try {
-      navigator.clipboard.writeText(text)
-      setCopiedField(fieldName)
-      toast.success(`Đã sao chép ${fieldName} vào bộ nhớ tạm!`)
-      setTimeout(() => setCopiedField(null), 2200)
-    } catch (err) {
-      console.warn('Clipboard write error', err)
-    }
-  }
-
-  // Xử lý quyết toán E2E: Gọi API gạch nợ học phí và sinh mã giao dịch
   const handleConfirmPayment = async (methodName = 'VietQR Napas247') => {
     setPaying(true)
     try {
-      const activeB = tuition?.supportedBanks?.find(b => b.bankBin === selectedBankBin)
+      const activeB = tuition?.supportedBanks?.find((b) => b.bankBin === selectedBankBin)
       const bankLabel = activeB ? `${activeB.bankShortName} (BIN ${activeB.bankBin})` : 'VietQR Napas247'
 
       const res = await api.post('/student/tuition/pay', {
@@ -300,51 +473,49 @@ export const StudentTuition = () => {
     }
   }
 
-  // Mô phỏng thanh toán trực tiếp qua App Ngân hàng (E2E Mock Banking Webhook)
   const handleSimulateBankingPayment = async () => {
     setPaying(true)
-    setSimulatingStep(1) // Kết nối Napas247
+    setSimulatingStep(1)
 
     setTimeout(() => {
-      setSimulatingStep(2) // Đối soát số tiền & MSSV
+      setSimulatingStep(2)
 
       setTimeout(async () => {
-        setSimulatingStep(3) // Quyết toán gạch nợ
+        setSimulatingStep(3)
         await handleConfirmPayment('VietQR Napas247 (Mobile Banking App)')
       }, 900)
     }, 900)
   }
 
-  const formatVnd = (num) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0)
-  }
-
+  // ─────────────────────────────────────────
+  // 9. Giá trị Boolean dẫn xuất (không phải hook)
+  // ─────────────────────────────────────────
   const isPaid = tuition?.status === 'PAID'
   const isPartial = tuition?.status === 'PARTIAL'
 
-  const activeBank = tuition?.supportedBanks?.find(b => b.bankBin === selectedBankBin) || {
-    bankBin: tuition?.bankBin || '970422',
-    bankShortName: tuition?.bankShortName || 'MB',
-    bankName: tuition?.bankName || 'MB Bank (Ngân hàng TMCP Quân đội)',
-    accountNumber: tuition?.accountNumber || '999988882025',
-    accountName: tuition?.accountName || 'HOC VIEN CONG NGHE RIKKEI',
-    vietQrPayload: tuition?.vietQrPayload || '',
-    vietQrQuickLink: tuition?.vietQrQuickLink || ''
-  }
-
+  // ─────────────────────────────────────────
+  // 10. JSX Render
+  // ─────────────────────────────────────────
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans pb-12">
       {/* 1. Official Header & Semester Switcher */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl border border-stone-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700">
-            Học Viện Công Nghệ Rikkei • Phòng Kế Hoạch - Tài Chính
-          </span>
-          <h1 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700">
+              Học Viện Công Nghệ Rikkei • Phòng Kế Hoạch - Tài Chính
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300">
+              Cổng PayOS Napas247
+            </span>
+          </div>
+          <h1 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight mt-1">
             Biểu Kê Học Phí &amp; Quyết Toán Nghĩa Vụ Tài Chính
           </h1>
           <p className="text-xs text-stone-600 mt-0.5">
-            Cổng thanh toán tự động VietQR Napas247 • Sinh viên: <strong className="text-stone-900">{tuition?.studentName || 'Đang xác thực'}</strong> ({tuition?.studentCode || '...'})
+            Cổng thanh toán tự động VietQR Napas247 &amp; PayOS Checkout • Sinh viên:{' '}
+            <strong className="text-stone-900">{tuition?.studentName || studentName}</strong> (
+            {tuition?.studentCode || studentCode})
           </p>
         </div>
 
@@ -376,40 +547,92 @@ export const StudentTuition = () => {
         </div>
       </div>
 
+      {/* 1.5. Return URL Notification Banner */}
+      {returnStatusInfo && (
+        <div
+          className={`p-4 rounded-2xl border flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-2 ${
+            returnStatusInfo.type === 'SUCCESS'
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-950 shadow-2xs'
+              : returnStatusInfo.type === 'CANCELLED'
+              ? 'bg-amber-50 border-amber-300 text-amber-950 shadow-2xs'
+              : 'bg-red-50 border-red-300 text-red-950 shadow-2xs'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            {returnStatusInfo.type === 'SUCCESS' ? (
+              <CheckCircle2 size={22} className="text-emerald-700 shrink-0 mt-0.5" />
+            ) : returnStatusInfo.type === 'CANCELLED' ? (
+              <AlertTriangle size={22} className="text-amber-700 shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle size={22} className="text-red-700 shrink-0 mt-0.5" />
+            )}
+            <div>
+              <h4 className="font-bold text-sm">{returnStatusInfo.title}</h4>
+              <p className="text-xs mt-0.5 opacity-90">{returnStatusInfo.message}</p>
+              {returnStatusInfo.type === 'SUCCESS' && (
+                <div className="mt-2.5 flex items-center gap-2">
+                  <button
+                    onClick={() => setShowReceiptModal(true)}
+                    className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                  >
+                    <FileText size={13} />
+                    <span>Xem &amp; In Biên Lai Điện Tử</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setReturnStatusInfo(null)}
+            className="text-stone-400 hover:text-stone-700 p-1 rounded-lg text-lg leading-none cursor-pointer"
+            title="Đóng thông báo"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="bg-white rounded-2xl p-16 border border-stone-200/90 text-center">
           <div className="inline-block w-8 h-8 border-3 border-red-700 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-3 text-xs text-stone-600 font-mono">Đang đối soát công nợ tín chỉ từ Cổng Tài chính...</p>
+          <p className="mt-3 text-xs text-stone-600 font-mono">
+            Đang đối soát công nợ tín chỉ từ Cổng Tài chính...
+          </p>
         </div>
       ) : !tuition ? (
         <div className="bg-white rounded-2xl p-12 border border-dashed border-stone-300 text-center">
           <AlertCircle size={32} className="mx-auto text-stone-400 mb-2" />
-          <p className="text-xs text-stone-600">Không tìm thấy biểu phí học phần cho kỳ đào tạo này.</p>
+          <p className="text-xs text-stone-600">
+            Không tìm thấy biểu phí học phần cho kỳ đào tạo này.
+          </p>
         </div>
       ) : (
         <>
-          {/* 2. Official Financial Standing Card */}
-          <div className={`rounded-2xl p-6 border shadow-2xs relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 ${
-            isPaid
-              ? 'bg-stone-50 border-stone-200/90'
-              : isPartial
-              ? 'bg-amber-50/40 border-amber-200/80'
-              : 'bg-stone-50 border-stone-200/90'
-          }`}>
-            {/* Watermark Seal */}
+          {/* 2. Financial Standing Card */}
+          <div
+            className={`rounded-2xl p-6 border shadow-2xs relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 ${
+              isPaid
+                ? 'bg-stone-50 border-stone-200/90'
+                : isPartial
+                ? 'bg-amber-50/40 border-amber-200/80'
+                : 'bg-stone-50 border-stone-200/90'
+            }`}
+          >
             <div className="absolute right-4 -bottom-4 opacity-5 pointer-events-none w-52 h-52">
               <img src="/images/stamp-seal.svg" alt="Seal" className="w-full h-full" />
             </div>
 
             <div className="space-y-3 relative z-10">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 ${
-                  isPaid
-                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs'
-                    : isPartial
-                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                    : 'bg-red-100 text-red-800 border border-red-300 animate-pulse'
-                }`}>
+                <span
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                    isPaid
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs'
+                      : isPartial
+                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                      : 'bg-red-100 text-red-800 border border-red-300 animate-pulse'
+                  }`}
+                >
                   {isPaid ? (
                     <>
                       <CheckCircle2 size={13} className="text-emerald-700" />
@@ -442,11 +665,19 @@ export const StudentTuition = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-600 font-mono pt-0.5">
-                <span>Tổng số tín chỉ: <strong className="text-stone-900">{tuition.totalCredits} TC</strong></span>
+                <span>
+                  Tổng số tín chỉ: <strong className="text-stone-900">{tuition.totalCredits} TC</strong>
+                </span>
                 <span>•</span>
-                <span>Định mức chuẩn: <strong className="text-stone-900">{formatVnd(tuition.creditUnitPrice)} / TC</strong></span>
+                <span>
+                  Định mức chuẩn:{' '}
+                  <strong className="text-stone-900">{formatVnd(tuition.creditUnitPrice)} / TC</strong>
+                </span>
                 <span>•</span>
-                <span>Hạn quyết toán (BR-07): <strong className="text-red-700">{tuition.dueDate || '30 ngày sau chốt ĐK'}</strong></span>
+                <span>
+                  Hạn quyết toán (BR-07):{' '}
+                  <strong className="text-red-700">{tuition.dueDate || '30 ngày sau chốt ĐK'}</strong>
+                </span>
               </div>
             </div>
 
@@ -456,10 +687,10 @@ export const StudentTuition = () => {
                   <button
                     onClick={handleOpenPayOs}
                     disabled={creatingPayOs}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-bold bg-gradient-to-r from-red-700 via-rose-700 to-amber-700 hover:from-red-800 hover:to-amber-800 text-white transition shadow-sm hover:shadow cursor-pointer disabled:opacity-50"
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-bold bg-gradient-to-r from-red-700 via-rose-700 to-amber-700 hover:from-red-800 hover:to-amber-800 text-white transition shadow-sm hover:shadow cursor-pointer disabled:opacity-50 ring-2 ring-red-400/30"
                   >
-                    <CreditCard size={16} />
-                    <span>{creatingPayOs ? 'Đang kết nối PayOS...' : 'Thanh Toán Online (PayOS)'}</span>
+                    <Zap size={16} className="text-amber-200" />
+                    <span>{creatingPayOs ? 'Đang kết nối PayOS...' : 'Thanh Toán PayOS Checkout'}</span>
                   </button>
                   <button
                     onClick={() => setShowQrModal(true)}
@@ -475,8 +706,13 @@ export const StudentTuition = () => {
                     <CheckCircle2 size={14} className="text-emerald-700" />
                     <span>Giao dịch thành công</span>
                   </div>
-                  <div>Mã biên lai: <strong className="text-stone-900 font-bold">{tuition.transactionCode}</strong></div>
-                  <div>Phương thức: <span className="text-stone-800">{tuition.paymentMethod || 'VietQR Napas247'}</span></div>
+                  <div>
+                    Mã biên lai: <strong className="text-stone-900 font-bold">{tuition.transactionCode}</strong>
+                  </div>
+                  <div>
+                    Phương thức:{' '}
+                    <span className="text-stone-800">{tuition.paymentMethod || 'PayOS VietQR (Tự động)'}</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -520,28 +756,44 @@ export const StudentTuition = () => {
                       <td className="py-3.5 px-4 font-mono text-stone-500 text-center">{idx + 1}</td>
                       <td className="py-3.5 px-4 font-mono font-bold text-red-800">{c.courseCode}</td>
                       <td className="py-3.5 px-4 font-medium text-stone-900">{c.courseName}</td>
-                      <td className="py-3.5 px-4 text-center font-mono font-bold text-stone-800">{c.credits} TC</td>
-                      <td className="py-3.5 px-4 text-right font-mono text-stone-600">{formatVnd(tuition.creditUnitPrice)}</td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-stone-900">{formatVnd(c.fee)}</td>
+                      <td className="py-3.5 px-4 text-center font-mono font-bold text-stone-800">
+                        {c.credits} TC
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono text-stone-600">
+                        {formatVnd(tuition.creditUnitPrice)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-stone-900">
+                        {formatVnd(c.fee)}
+                      </td>
                     </tr>
                   ))}
                   {tuition.totalCredits > 0 && (
                     <tr className="bg-stone-50/40">
                       <td className="py-3.5 px-4 font-mono text-stone-400 text-center">-</td>
                       <td className="py-3.5 px-4 font-mono text-stone-500 font-bold">FEE-LAB-LIB</td>
-                      <td className="py-3.5 px-4 text-stone-700">Phí duy trì cơ sở vật chất, thư viện số &amp; phòng lab thực hành</td>
+                      <td className="py-3.5 px-4 text-stone-700">
+                        Phí duy trì cơ sở vật chất, thư viện số &amp; phòng lab thực hành
+                      </td>
                       <td className="py-3.5 px-4 text-center font-mono text-stone-400">-</td>
                       <td className="py-3.5 px-4 text-right font-mono text-stone-500">Định mức kỳ</td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-stone-900">{formatVnd(tuition.facilityFee)}</td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-stone-900">
+                        {formatVnd(tuition.facilityFee)}
+                      </td>
                     </tr>
                   )}
                 </tbody>
                 <tfoot>
                   <tr className="bg-stone-100/90 border-t-2 border-stone-200 text-xs font-bold font-mono">
-                    <td colSpan="3" className="py-4 px-4 text-stone-900 uppercase">TỔNG CỘNG HỌC PHÍ PHẢI QUYẾT TOÁN</td>
-                    <td className="py-4 px-4 text-center text-red-800 font-bold">{tuition.totalCredits} TC</td>
+                    <td colSpan="3" className="py-4 px-4 text-stone-900 uppercase">
+                      TỔNG CỘNG HỌC PHÍ PHẢI QUYẾT TOÁN
+                    </td>
+                    <td className="py-4 px-4 text-center text-red-800 font-bold">
+                      {tuition.totalCredits} TC
+                    </td>
                     <td className="py-4 px-4"></td>
-                    <td className="py-4 px-4 text-right text-base text-red-800 font-bold">{formatVnd(tuition.totalAmount)}</td>
+                    <td className="py-4 px-4 text-right text-base text-red-800 font-bold">
+                      {formatVnd(tuition.totalAmount)}
+                    </td>
                   </tr>
                 </tfoot>
               </table>
@@ -550,7 +802,7 @@ export const StudentTuition = () => {
         </>
       )}
 
-      {/* 4. MODAL THANH TOÁN VIETQR NAPAS247 (INTERACTIVE PAYMENT MODAL) */}
+      {/* 4. MODAL THANH TOÁN VIETQR NAPAS247 */}
       {showQrModal && (
         <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 my-8">
@@ -583,7 +835,7 @@ export const StudentTuition = () => {
 
             {/* Modal Body */}
             <div className="mt-4 space-y-4">
-              {/* Payment Session Timer */}
+              {/* Timer */}
               <div className="flex items-center justify-between bg-stone-50 p-2.5 rounded-xl border border-stone-200 text-xs">
                 <span className="text-stone-600 flex items-center gap-1.5">
                   <Clock size={13} className="text-amber-600" />
@@ -594,7 +846,7 @@ export const StudentTuition = () => {
                 </span>
               </div>
 
-              {/* Bank Selector Switcher */}
+              {/* Bank Selector */}
               {tuition?.supportedBanks && tuition.supportedBanks.length > 1 && (
                 <div className="flex items-center justify-center p-1 bg-stone-100 rounded-xl border border-stone-200 gap-1">
                   {tuition.supportedBanks.map((bank) => (
@@ -608,16 +860,20 @@ export const StudentTuition = () => {
                           : 'text-stone-600 hover:text-stone-900'
                       }`}
                     >
-                      <Building size={13} className={selectedBankBin === bank.bankBin ? 'text-red-700' : 'text-stone-400'} />
-                      <span>{bank.bankShortName} ({bank.bankBin})</span>
+                      <Building
+                        size={13}
+                        className={selectedBankBin === bank.bankBin ? 'text-red-700' : 'text-stone-400'}
+                      />
+                      <span>
+                        {bank.bankShortName} ({bank.bankBin})
+                      </span>
                     </button>
                   ))}
                 </div>
               )}
 
-              {/* VietQR Display Frame with Napas247 Banner */}
+              {/* QR Display */}
               <div className="relative mx-auto w-64 bg-gradient-to-b from-stone-50 to-white border-2 border-stone-300 rounded-2xl p-4 flex flex-col items-center justify-center shadow-sm">
-                {/* Napas 247 Banner Badge */}
                 <div className="w-full flex items-center justify-between pb-2 mb-2 border-b border-stone-200 text-[10px] font-mono font-bold">
                   <span className="text-red-700 font-bold uppercase">VietQR</span>
                   <span className="text-blue-700 font-bold uppercase">Napas 247</span>
@@ -637,7 +893,6 @@ export const StudentTuition = () => {
                       alt="VietQR Napas247"
                       className="w-52 h-52 object-contain rounded-lg shadow-2xs"
                     />
-                    {/* Simulated laser scan line */}
                     <div className="absolute inset-x-0 top-0 h-0.5 bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.8)] opacity-60 animate-pulse pointer-events-none" />
                   </div>
                 )}
@@ -647,7 +902,7 @@ export const StudentTuition = () => {
                 </p>
               </div>
 
-              {/* Banking Transfer Details with 1-Click Copy */}
+              {/* Transfer Details */}
               <div className="bg-stone-50/80 p-3.5 rounded-xl border border-stone-200 text-xs space-y-2 font-mono">
                 <div className="flex items-center justify-between pb-1 border-b border-stone-200">
                   <span className="text-stone-500 font-sans">Ngân hàng:</span>
@@ -669,7 +924,11 @@ export const StudentTuition = () => {
                       className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
                       title="Sao chép số tài khoản"
                     >
-                      {copiedField === 'Số tài khoản' ? <CheckCheck size={13} className="text-emerald-700" /> : <Copy size={13} />}
+                      {copiedField === 'Số tài khoản' ? (
+                        <CheckCheck size={13} className="text-emerald-700" />
+                      ) : (
+                        <Copy size={13} />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -677,14 +936,25 @@ export const StudentTuition = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-stone-500 font-sans">Số tiền cần nộp:</span>
                   <div className="flex items-center gap-2">
-                    <strong className="text-stone-900 text-sm font-bold">{formatVnd(tuition?.remainingAmount || tuition?.totalAmount)}</strong>
+                    <strong className="text-stone-900 text-sm font-bold">
+                      {formatVnd(tuition?.remainingAmount || tuition?.totalAmount)}
+                    </strong>
                     <button
                       type="button"
-                      onClick={() => handleCopy(String(tuition?.remainingAmount || tuition?.totalAmount || 0), 'Số tiền')}
+                      onClick={() =>
+                        handleCopy(
+                          String(tuition?.remainingAmount || tuition?.totalAmount || 0),
+                          'Số tiền'
+                        )
+                      }
                       className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
                       title="Sao chép số tiền"
                     >
-                      {copiedField === 'Số tiền' ? <CheckCheck size={13} className="text-emerald-700" /> : <Copy size={13} />}
+                      {copiedField === 'Số tiền' ? (
+                        <CheckCheck size={13} className="text-emerald-700" />
+                      ) : (
+                        <Copy size={13} />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -697,17 +967,26 @@ export const StudentTuition = () => {
                     </strong>
                     <button
                       type="button"
-                      onClick={() => handleCopy(tuition?.transferContent || transferSyntax, 'Nội dung chuyển khoản')}
+                      onClick={() =>
+                        handleCopy(
+                          tuition?.transferContent || transferSyntax,
+                          'Nội dung chuyển khoản'
+                        )
+                      }
                       className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
                       title="Sao chép cú pháp chuyển khoản"
                     >
-                      {copiedField === 'Nội dung chuyển khoản' ? <CheckCheck size={13} className="text-emerald-700" /> : <Copy size={13} />}
+                      {copiedField === 'Nội dung chuyển khoản' ? (
+                        <CheckCheck size={13} className="text-emerald-700" />
+                      ) : (
+                        <Copy size={13} />
+                      )}
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Collapsible Raw EMVCo VietQR Payload */}
+              {/* Raw VietQR Payload */}
               {activeBank.vietQrPayload && (
                 <div className="border border-stone-200 rounded-lg p-2 text-left bg-stone-50/50">
                   <button
@@ -738,7 +1017,7 @@ export const StudentTuition = () => {
                 </div>
               )}
 
-              {/* Warning Notice */}
+              {/* Warning */}
               <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-center gap-2">
                 <Info size={15} className="text-amber-700 shrink-0" />
                 <span>
@@ -747,7 +1026,7 @@ export const StudentTuition = () => {
               </div>
             </div>
 
-            {/* Modal Actions & E2E Simulation Button */}
+            {/* Modal Actions */}
             <div className="mt-5 space-y-2">
               <button
                 disabled={paying || paymentSuccess}
@@ -794,112 +1073,264 @@ export const StudentTuition = () => {
         </div>
       )}
 
-      {/* 4.5. PayOS Online Payment Modal (Dynamic QR & Webhook Auto-Settlement) */}
+      {/* 4.5. PAYOS CHECKOUT MODAL */}
       {showPayOsModal && payOsData && (
-        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
-              <div className="flex items-center gap-2">
-                <CreditCard size={18} className="text-red-700" />
-                <h3 className="text-sm font-bold text-stone-900 uppercase font-mono tracking-wider">
-                  Cổng Thanh Toán Trực Tuyến PayOS
-                </h3>
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 my-6 flex flex-col max-h-[92vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-stone-200 flex items-center justify-between bg-stone-50/70 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-red-700 via-rose-700 to-amber-600 text-white flex items-center justify-center shadow-xs">
+                  <Zap size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-bold text-stone-900 font-mono tracking-tight">
+                      Cổng Thanh Toán Trực Tuyến PayOS
+                    </h3>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      Live / Sandbox
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Mã đơn hàng:{' '}
+                    <strong className="text-red-700 font-mono font-bold">#{payOsData.orderCode}</strong>{' '}
+                    • Tự động gạch nợ tức thì
+                  </p>
+                </div>
               </div>
+
               <button
                 onClick={() => {
+                  safeExitPayOs()
                   setShowPayOsModal(false)
                   setPollingActive(false)
                 }}
-                className="text-stone-400 hover:text-stone-600 text-xl leading-none cursor-pointer"
+                className="text-stone-400 hover:text-stone-700 text-2xl leading-none p-1 rounded-lg hover:bg-stone-100 transition cursor-pointer"
+                title="Đóng cửa sổ"
               >
                 &times;
               </button>
             </div>
 
-            <div className="mt-4 text-center space-y-4">
-              <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl text-left flex items-start gap-2.5">
+            {/* Tab Navigation */}
+            <div className="px-5 pt-3 border-b border-stone-200 bg-white flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActivePayOsTab('embedded')}
+                className={`py-2 px-3.5 text-xs font-bold rounded-t-xl transition flex items-center gap-1.5 border-b-2 cursor-pointer ${
+                  activePayOsTab === 'embedded'
+                    ? 'border-red-700 text-red-700 bg-red-50/50'
+                    : 'border-transparent text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                <Layers size={14} />
+                <span>Nhúng PayOS Checkout (Khung Thanh Toán)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActivePayOsTab('qr')}
+                className={`py-2 px-3.5 text-xs font-bold rounded-t-xl transition flex items-center gap-1.5 border-b-2 cursor-pointer ${
+                  activePayOsTab === 'qr'
+                    ? 'border-red-700 text-red-700 bg-red-50/50'
+                    : 'border-transparent text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                <QrCode size={14} />
+                <span>Mã VietQR &amp; Chi Tiết Đơn Hàng</span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+              {/* Status Note */}
+              <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl flex items-start gap-2.5 text-[11px] text-emerald-950">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping mt-1 shrink-0" />
-                <div className="text-[11px] text-emerald-900">
-                  <span className="font-bold">Luồng Quyết Toán Tự Động (Webhook IPN):</span> Sau khi bạn quét QR hoặc thanh toán trên cổng PayOS, hệ thống sẽ tự động cập nhật trạng thái học phí sang <strong>ĐÃ THANH TOÁN</strong> tức thời mà không cần xác nhận thủ công.
+                <div>
+                  <span className="font-bold">Luồng Quyết Toán Tự Động (PayOS IPN):</span> Sau khi giao
+                  dịch hoàn tất trên giao diện PayOS hoặc qua App Ngân hàng, trạng thái học phí sẽ được
+                  tự động đổi sang <strong>ĐÃ HOÀN TẤT</strong> ngay lập tức.
                 </div>
               </div>
 
-              {/* Dynamic VietQR code from PayOS */}
-              <div className="relative mx-auto w-56 h-auto min-h-56 bg-white border-2 border-dashed border-red-200 rounded-2xl p-3 flex flex-col items-center justify-center shadow-xs">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payOsData.qrCode || '')}`}
-                  alt="PayOS VietQR Code"
-                  className="w-full h-auto object-contain rounded-lg shadow-2xs"
-                />
-              </div>
-
-              {/* Order Details Box */}
-              <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 text-xs text-left space-y-2 font-mono">
-                <div className="flex justify-between items-center">
-                  <span className="text-stone-500 font-sans">Mã đơn hàng PayOS:</span>
-                  <strong className="text-red-800 text-sm tracking-wide">{payOsData.orderCode}</strong>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-stone-500 font-sans">Số tiền cần đóng:</span>
-                  <strong className="text-stone-900 text-sm">{formatVnd(payOsData.amount)}</strong>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-stone-500 font-sans">Nội dung thanh toán:</span>
-                  <strong className="text-stone-900 bg-white px-2 py-0.5 rounded border border-stone-200">{payOsData.description}</strong>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-stone-500 font-sans">Tài khoản thụ hưởng:</span>
-                  <span className="text-stone-700">{payOsData.accountNumber} ({payOsData.accountName})</span>
-                </div>
-              </div>
-
-              {/* Link to PayOS Checkout Page */}
-              {payOsData.checkoutUrl && (
-                <div className="pt-1">
-                  <a
-                    href={payOsData.checkoutUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold transition"
+              {/* Tab 1: Embedded */}
+              {activePayOsTab === 'embedded' && (
+                <div className="space-y-3">
+                  <div
+                    id="payos-checkout-container"
+                    className="w-full h-[540px] rounded-2xl overflow-hidden border border-stone-200 bg-stone-50 relative flex flex-col items-center justify-center shadow-inner"
                   >
-                    <ExternalLink size={14} />
-                    <span>Mở Giao Diện Thanh Toán PayOS (Tab mới)</span>
-                  </a>
+                    {!payOsData.checkoutUrl && (
+                      <div className="text-center p-6 space-y-2">
+                        <RefreshCw size={24} className="animate-spin mx-auto text-stone-400" />
+                        <p className="text-xs text-stone-500 font-mono">
+                          Đang tải giao diện thanh toán PayOS Checkout...
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-stone-500 text-center font-sans">
+                    Nếu khung thanh toán bị chặn do bảo mật trình duyệt, bạn có thể chuyển qua tab{' '}
+                    <strong>Mã VietQR</strong> hoặc bấm nút mở tab mới bên dưới.
+                  </p>
                 </div>
               )}
 
-              {/* Simulation test helper */}
-              <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
-                <span className="text-[10px] text-stone-500 font-mono">Chế độ kiểm thử (Sandbox):</span>
+              {/* Tab 2: QR + Details */}
+              {activePayOsTab === 'qr' && (
+                <div className="space-y-4">
+                  <div className="relative mx-auto w-60 h-auto min-h-60 bg-gradient-to-b from-stone-50 to-white border-2 border-stone-300 rounded-2xl p-4 flex flex-col items-center justify-center shadow-sm">
+                    <div className="w-full flex items-center justify-between pb-2 mb-2 border-b border-stone-200 text-[10px] font-mono font-bold">
+                      <span className="text-red-700 uppercase">PayOS VietQR</span>
+                      <span className="text-emerald-700 uppercase">Tự động gạch nợ</span>
+                    </div>
+
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                        payOsData.qrCode || ''
+                      )}`}
+                      alt="PayOS VietQR Code"
+                      className="w-48 h-48 object-contain rounded-lg shadow-2xs"
+                    />
+
+                    <p className="text-[10px] text-stone-500 text-center mt-2.5 font-medium">
+                      Mở App Ngân hàng bất kỳ &gt; Quét QR &gt; Bấm chuyển tiền
+                    </p>
+                  </div>
+
+                  <div className="bg-stone-50/80 p-3.5 rounded-xl border border-stone-200 text-xs space-y-2 font-mono">
+                    <div className="flex justify-between items-center pb-1 border-b border-stone-200">
+                      <span className="text-stone-500 font-sans">Mã đơn hàng PayOS:</span>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-red-800 text-sm tracking-wide">
+                          #{payOsData.orderCode}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(String(payOsData.orderCode), 'Mã đơn hàng PayOS')}
+                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
+                          title="Sao chép mã đơn hàng"
+                        >
+                          {copiedField === 'Mã đơn hàng PayOS' ? (
+                            <CheckCheck size={13} className="text-emerald-700" />
+                          ) : (
+                            <Copy size={13} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-500 font-sans">Số tiền cần nộp:</span>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-stone-900 text-sm font-bold">
+                          {formatVnd(payOsData.amount)}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(String(payOsData.amount), 'Số tiền')}
+                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
+                          title="Sao chép số tiền"
+                        >
+                          {copiedField === 'Số tiền' ? (
+                            <CheckCheck size={13} className="text-emerald-700" />
+                          ) : (
+                            <Copy size={13} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-500 font-sans">Nội dung chuyển:</span>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-stone-900 bg-white px-2 py-0.5 rounded border border-stone-200">
+                          {payOsData.description}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleCopy(payOsData.description, 'Nội dung chuyển khoản PayOS')
+                          }
+                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
+                          title="Sao chép nội dung"
+                        >
+                          {copiedField === 'Nội dung chuyển khoản PayOS' ? (
+                            <CheckCheck size={13} className="text-emerald-700" />
+                          ) : (
+                            <Copy size={13} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-1 border-t border-stone-200">
+                      <span className="text-stone-500 font-sans">Tài khoản nhận:</span>
+                      <span className="text-stone-700">
+                        {payOsData.accountNumber} ({payOsData.accountName})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sandbox Testing Helper */}
+              <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                <div>
+                  <span className="font-bold text-amber-900 font-mono text-[11px] block">
+                    Kiểm thử Sandbox / Developer IPN:
+                  </span>
+                  <span className="text-amber-800 text-[11px]">
+                    Gửi tín hiệu Webhook tức thì để mô phỏng sinh viên đã chuyển khoản thành công.
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={handleSimulatePayOsWebhook}
-                  className="px-2.5 py-1 text-[11px] font-medium bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-md transition cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-400 rounded-lg transition cursor-pointer flex items-center gap-1.5 shrink-0 shadow-2xs"
                 >
-                  ⚡ Mô phỏng Webhook thành công
+                  <Sparkles size={13} className="text-amber-700" />
+                  <span>⚡ Mô Phỏng PayOS Webhook</span>
                 </button>
               </div>
             </div>
 
-            <div className="mt-5 flex gap-2">
-              <button
-                onClick={() => {
-                  setShowPayOsModal(false)
-                  setPollingActive(false)
-                }}
-                className="w-full py-2 rounded-lg border border-stone-300 text-xs font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
-              >
-                Đóng cửa sổ
-              </button>
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 border-t border-stone-200 bg-stone-50/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+              {payOsData.checkoutUrl ? (
+                <a
+                  href={payOsData.checkoutUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-stone-900 hover:bg-black text-white text-xs font-semibold transition cursor-pointer shadow-2xs"
+                >
+                  <ExternalLink size={14} />
+                  <span>Mở PayOS Checkout Tab Mới</span>
+                </a>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => {
+                    safeExitPayOs()
+                    setShowPayOsModal(false)
+                    setPollingActive(false)
+                  }}
+                  className="w-full sm:w-auto py-2 px-4 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                >
+                  Đóng cửa sổ
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* 5. OFFICIAL ELECTRONIC RECEIPT MODAL (BIÊN LAI ĐIỆN TỬ) */}
+      {/* 5. ELECTRONIC RECEIPT MODAL */}
       {showReceiptModal && (
         <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-stone-200 relative animate-in fade-in zoom-in-95 my-8">
@@ -926,39 +1357,43 @@ export const StudentTuition = () => {
               </div>
             </div>
 
-            {/* Official University Receipt Certificate Printable Container */}
+            {/* Receipt Content */}
             <div className="mt-4 p-6 sm:p-8 rounded-2xl border border-stone-300 bg-stone-50/40 relative overflow-hidden space-y-5 print:border-none print:p-0 print:m-0">
-              {/* Circular Red University Stamp Watermark */}
               <div className="absolute right-6 top-32 opacity-20 pointer-events-none w-48 h-48 rotate-[-15deg]">
                 <img src="/images/stamp-seal.svg" alt="Official Stamp" className="w-full h-full" />
               </div>
 
-              {/* University Header */}
               <div className="text-center border-b border-stone-200 pb-4">
                 <p className="text-[10px] font-mono font-bold text-stone-500 uppercase tracking-wider">
                   BỘ GIÁO DỤC VÀ ĐÀO TẠO • HỌC VIỆN CÔNG NGHỆ RIKKEI
                 </p>
                 <p className="text-[10px] font-mono text-stone-500 uppercase">
-                  PHÒNG KẾ HOẠCH - TÀI CHÍNH • CỔNG THANH TOÁN VIETQR
+                  PHÒNG KẾ HOẠCH - TÀI CHÍNH • CỔNG THANH TOÁN PAYOS
                 </p>
                 <h3 className="font-serif font-bold text-base sm:text-lg text-stone-900 uppercase mt-1 tracking-tight">
                   PHIẾU XÁC NHẬN NỘP HỌC PHÍ ĐIỆN TỬ
                 </h3>
                 <p className="text-[11px] font-mono text-stone-500 mt-1">
-                  Mã giao dịch / Transaction Ref: <strong className="text-stone-900">{tuition?.transactionCode || 'TXN-2025'}</strong>
+                  Mã giao dịch / Transaction Ref:{' '}
+                  <strong className="text-stone-900">
+                    {tuition?.transactionCode || 'TXN-PAYOS-' + Date.now()}
+                  </strong>
                 </p>
               </div>
 
-              {/* Student & Payment Breakdown */}
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between py-1 border-b border-stone-100">
                   <span className="text-stone-500">Sinh viên nộp phí:</span>
-                  <span className="font-bold text-stone-900">{tuition?.studentName || studentName} (MSSV: {tuition?.studentCode || studentCode})</span>
+                  <span className="font-bold text-stone-900">
+                    {tuition?.studentName || studentName} (MSSV: {tuition?.studentCode || studentCode})
+                  </span>
                 </div>
 
                 <div className="flex justify-between py-1 border-b border-stone-100">
                   <span className="text-stone-500">Mã số sinh viên (MSSV):</span>
-                  <strong className="font-mono text-stone-900 font-bold">{tuition?.studentCode || studentCode}</strong>
+                  <strong className="font-mono text-stone-900 font-bold">
+                    {tuition?.studentCode || studentCode}
+                  </strong>
                 </div>
 
                 <div className="flex justify-between py-1 border-b border-stone-100">
@@ -973,7 +1408,9 @@ export const StudentTuition = () => {
 
                 <div className="flex justify-between py-1.5 border-b border-stone-200 text-sm">
                   <span className="font-bold text-stone-900">Số tiền đã quyết toán:</span>
-                  <strong className="font-mono text-red-800 text-base font-bold">{formatVnd(tuition?.totalAmount)}</strong>
+                  <strong className="font-mono text-red-800 text-base font-bold">
+                    {formatVnd(tuition?.totalAmount)}
+                  </strong>
                 </div>
 
                 <div className="py-1 text-xs">
@@ -985,18 +1422,21 @@ export const StudentTuition = () => {
 
                 <div className="flex justify-between py-1 border-b border-stone-100">
                   <span className="text-stone-500">Phương thức thanh toán:</span>
-                  <span className="font-medium text-stone-800 font-mono">{tuition?.paymentMethod || 'VietQR Napas247'}</span>
+                  <span className="font-medium text-stone-800 font-mono">
+                    {tuition?.paymentMethod || 'PayOS VietQR (Tự động)'}
+                  </span>
                 </div>
 
                 <div className="flex justify-between py-1">
                   <span className="text-stone-500">Thời điểm ghi nhận hệ thống:</span>
                   <span className="font-mono text-stone-700">
-                    {tuition?.paymentDate ? new Date(tuition.paymentDate).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN')}
+                    {tuition?.paymentDate
+                      ? new Date(tuition.paymentDate).toLocaleString('vi-VN')
+                      : new Date().toLocaleString('vi-VN')}
                   </span>
                 </div>
               </div>
 
-              {/* Digital Signature & Stamp Footer */}
               <div className="pt-4 border-t border-stone-200 flex justify-between items-center text-xs">
                 <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
                   <ShieldCheck size={18} />
@@ -1009,7 +1449,6 @@ export const StudentTuition = () => {
               </div>
             </div>
 
-            {/* Modal Bottom Close */}
             <div className="mt-5 flex justify-end print:hidden">
               <button
                 onClick={() => setShowReceiptModal(false)}

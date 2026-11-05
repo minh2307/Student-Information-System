@@ -378,6 +378,11 @@ jobs:
             file: services/auth-service/Dockerfile
             artifact: backend-jars
             build_args: JAR_FILE=services/auth-service/build/libs/auth-service-0.0.1-SNAPSHOT.jar
+          - name: course-service
+            context: .
+            file: services/course-service/Dockerfile
+            artifact: backend-jars
+            build_args: JAR_FILE=services/course-service/build/libs/course-service-0.0.1-SNAPSHOT.jar
           - name: lecturer-service
             context: .
             file: services/lecturer-service/Dockerfile

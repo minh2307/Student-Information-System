@@ -77,6 +77,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
               alt="Rikkei Logo" 
               className="h-9 w-auto object-contain max-w-[125px]"
               onError={(e) => {
+                e.target.onerror = null
                 e.target.src = '/images/logo.svg'
               }}
             />
@@ -235,6 +236,13 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
                       <span>Quản lý lớp học phần</span>
                     </div>
                   </NavLink>
+
+                  <NavLink to="/admin/exams" onClick={onClose} className={navItemClass}>
+                    <div className="flex items-center gap-2.5">
+                      <CalendarCheck size={16} className="text-stone-500 group-hover:text-red-700" />
+                      <span>Lịch thi & Phòng thi</span>
+                    </div>
+                  </NavLink>
                 </div>
               </div>
 
@@ -267,12 +275,14 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
               Hệ thống & Tiện ích
             </div>
             <div className="space-y-0.5">
-              <NavLink to="/ai/advisor" onClick={onClose} className={navItemClass}>
-                <div className="flex items-center gap-2.5">
-                  <BotMessageSquare size={16} className="text-stone-500 group-hover:text-red-700" />
-                  <span>Cố vấn AI 24/7</span>
-                </div>
-              </NavLink>
+              {role === 'STUDENT' && (
+                <NavLink to="/ai/advisor" onClick={onClose} className={navItemClass}>
+                  <div className="flex items-center gap-2.5">
+                    <BotMessageSquare size={16} className="text-stone-500 group-hover:text-red-700" />
+                    <span>Cố vấn AI 24/7</span>
+                  </div>
+                </NavLink>
+              )}
               <NavLink to="/profile" onClick={onClose} className={navItemClass}>
                 <div className="flex items-center gap-2.5">
                   <UserCircle size={16} className="text-stone-500 group-hover:text-red-700" />
@@ -292,6 +302,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
                 alt={user?.fullName || 'Avatar'} 
                 className="w-8 h-8 rounded-full object-cover border border-stone-300 shadow-2xs shrink-0"
                 onError={(e) => {
+                  e.target.onerror = null
                   e.target.src = '/images/avatar-student.jpg'
                 }}
               />

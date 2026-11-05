@@ -17,6 +17,7 @@ import { AnnouncementsPage } from './pages/AnnouncementsPage'
 import { AdminUsers } from './pages/AdminUsers'
 import { AdminCourses } from './pages/AdminCourses'
 import { AdminSections } from './pages/AdminSections'
+import { AdminExams } from './pages/AdminExams'
 import { AiAdvisor } from './pages/AiAdvisor'
 import { ToastContainer } from './components/ui/ToastContainer'
 import { GlobalConfirmModal } from './components/ui/GlobalConfirmModal'
@@ -133,6 +134,7 @@ export default function App() {
               <Route path="/admin/users"    element={<AdminUsers />} />
               <Route path="/admin/courses"  element={<AdminCourses />} />
               <Route path="/admin/sections" element={<AdminSections />} />
+              <Route path="/admin/exams"    element={<AdminExams />} />
             </Route>
           </Route>
         </Route>

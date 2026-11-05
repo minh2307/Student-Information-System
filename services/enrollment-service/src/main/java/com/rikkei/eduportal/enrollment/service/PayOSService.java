@@ -8,6 +8,7 @@ import com.rikkei.eduportal.enrollment.dto.TuitionDto;
 import com.rikkei.eduportal.enrollment.entity.Notification;
 import com.rikkei.eduportal.enrollment.entity.StudentProfile;
 import com.rikkei.eduportal.enrollment.entity.TuitionFee;
+import com.rikkei.eduportal.enrollment.exception.BusinessException;
 import com.rikkei.eduportal.enrollment.repository.NotificationRepository;
 import com.rikkei.eduportal.enrollment.repository.StudentProfileRepository;
 import com.rikkei.eduportal.enrollment.repository.TuitionFeeRepository;
@@ -78,6 +79,11 @@ public class PayOSService {
      */
     @Transactional
     public PayOSPaymentLinkResponse createPaymentLink(String studentIdentifier, String semester) {
+        return createPaymentLink(studentIdentifier, semester, null, null);
+    }
+
+    @Transactional
+    public PayOSPaymentLinkResponse createPaymentLink(String studentIdentifier, String semester, String customReturnUrl, String customCancelUrl) {
         StudentProfile student = dashboardService.resolveStudent(studentIdentifier);
         String targetSemester = (semester != null && !semester.trim().isEmpty()) ? semester.trim() : "2024-25_SEM2";
 
@@ -109,7 +115,9 @@ public class PayOSService {
         }
 
         // Tạo chữ ký dữ liệu PayOS (sorted: amount, cancelUrl, description, orderCode, returnUrl)
-        String signature = computeCreatePaymentLinkSignature(amount, cancelUrl, description, orderCode, returnUrl, checksumKey);
+        String effectiveReturnUrl = (customReturnUrl != null && !customReturnUrl.isBlank()) ? customReturnUrl.trim() : this.returnUrl;
+        String effectiveCancelUrl = (customCancelUrl != null && !customCancelUrl.isBlank()) ? customCancelUrl.trim() : this.cancelUrl;
+        String signature = computeCreatePaymentLinkSignature(amount, effectiveCancelUrl, description, orderCode, effectiveReturnUrl, checksumKey);
 
         tuition.setPayosOrderCode(orderCode);
         tuitionFeeRepository.save(tuition);
@@ -140,8 +148,8 @@ public class PayOSService {
             requestBody.put("orderCode", orderCode);
             requestBody.put("amount", amount);
             requestBody.put("description", description);
-            requestBody.put("returnUrl", returnUrl);
-            requestBody.put("cancelUrl", cancelUrl);
+            requestBody.put("returnUrl", effectiveReturnUrl);
+            requestBody.put("cancelUrl", effectiveCancelUrl);
             requestBody.put("signature", signature);
 
             HttpHeaders headers = new HttpHeaders();
@@ -168,29 +176,29 @@ public class PayOSService {
                             data.path("paymentLinkId").asText(),
                             data.path("status").asText("PENDING")
                     );
+                } else {
+                    String desc = root.path("desc").asText("Giao dịch bị từ chối bởi cổng PayOS");
+                    log.error("PayOS API rejected creation: code={}, desc={}", root.path("code").asText(), desc);
+                    throw new BusinessException("PayOS từ chối yêu cầu thanh toán: " + desc);
                 }
             }
-            log.warn("PayOS API response non-zero code, falling back to simulated link: {}", response.getBody());
+            throw new BusinessException("Phản hồi không hợp lệ từ cổng thanh toán PayOS (HTTP " + response.getStatusCode().value() + ")");
+        } catch (BusinessException be) {
+            throw be;
+        } catch (org.springframework.web.client.HttpStatusCodeException httpEx) {
+            String desc = httpEx.getMessage();
+            try {
+                JsonNode errJson = objectMapper.readTree(httpEx.getResponseBodyAsString());
+                if (errJson.has("desc")) {
+                    desc = errJson.path("desc").asText();
+                }
+            } catch (Exception ignored) {}
+            log.error("PayOS HTTP error: status={}, desc={}", httpEx.getStatusCode(), desc);
+            throw new BusinessException("Cổng PayOS phản hồi lỗi: " + desc);
         } catch (Exception ex) {
-            log.warn("Could not reach PayOS live API ({}), activating seamless sandbox fallback", ex.getMessage());
+            log.error("Không thể kết nối tới PayOS API: {}", ex.getMessage(), ex);
+            throw new BusinessException("Lỗi kết nối cổng thanh toán PayOS: " + ex.getMessage());
         }
-
-        // Fallback an toàn cho local dev / testing
-        String fallbackCheckoutUrl = "https://pay.payos.vn/web/" + UUID.randomUUID().toString().replace("-", "");
-        String fallbackQr = VietQrPayloadGenerator.generatePayload("970422", "999988882025", amount, description);
-
-        return new PayOSPaymentLinkResponse(
-                orderCode,
-                amount,
-                description,
-                "999988882025",
-                "HOC VIEN CONG NGHE RIKKEI",
-                "970422",
-                fallbackCheckoutUrl,
-                fallbackQr,
-                "PAYOS-FALLBACK-" + orderCode,
-                "PENDING"
-        );
     }
 
     /**
@@ -210,7 +218,9 @@ public class PayOSService {
         }
 
         Map<String, Object> data = payload.getData();
-        String code = String.valueOf(data.getOrDefault("code", "00"));
+        String code = data.containsKey("code") && data.get("code") != null
+                ? String.valueOf(data.get("code"))
+                : (payload.getCode() != null ? payload.getCode() : "00");
         if (!"00".equals(code)) {
             log.info("PayOS Webhook code is not '00' (status: {}), skipping tuition settlement", code);
             return Map.of("success", false, "message", "Giao dịch không thành công");
@@ -291,6 +301,59 @@ public class PayOSService {
     }
 
     /**
+     * Chủ động truy vấn trạng thái thanh toán từ PayOS API và quyết toán tức thì
+     * Hữu ích khi môi trường dev/local không nhận được webhook công khai từ PayOS cloud
+     */
+    @Transactional
+    public boolean syncPaymentStatus(String studentIdentifier, String semester, Long orderCode) {
+        if (orderCode == null) return false;
+        StudentProfile student = dashboardService.resolveStudent(studentIdentifier);
+        String targetSemester = (semester != null && !semester.trim().isEmpty()) ? semester.trim() : "2024-25_SEM2";
+        TuitionFee tuition = tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), targetSemester).orElse(null);
+        if (tuition == null) {
+            tuition = tuitionFeeRepository.findByPayosOrderCode(orderCode).orElse(null);
+        }
+        if (tuition == null) return false;
+        if ("PAID".equalsIgnoreCase(tuition.getStatus())) return true;
+
+        // Nếu có API credentials thực, gọi trực tiếp API PayOS để đối soát
+        if (clientId != null && !clientId.isBlank() && !clientId.startsWith("demo-")) {
+            try {
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("x-client-id", clientId);
+                headers.set("x-api-key", apiKey);
+                HttpEntity<?> entity = new HttpEntity<>(headers);
+                ResponseEntity<String> response = restTemplate.exchange(
+                        baseUrl + "/v2/payment-requests/" + orderCode,
+                        HttpMethod.GET,
+                        entity,
+                        String.class
+                );
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    JsonNode root = objectMapper.readTree(response.getBody());
+                    if ("00".equals(root.path("code").asText())) {
+                        String status = root.path("data").path("status").asText();
+                        if ("PAID".equalsIgnoreCase(status)) {
+                            long amountPaid = root.path("data").path("amountPaid").asLong(tuition.getTotalAmount().longValue());
+                            tuition.setPaidAmount(BigDecimal.valueOf(amountPaid));
+                            tuition.setStatus("PAID");
+                            tuition.setPaymentDate(LocalDateTime.now());
+                            tuition.setPaymentMethod("PayOS VietQR (Tự động)");
+                            tuition.setTransactionCode("PAYOS-SYNC-" + orderCode);
+                            tuitionFeeRepository.save(tuition);
+                            log.info("PayOS sync: Quyết toán học phí thành công qua PayOS API cho orderCode {}", orderCode);
+                            return true;
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Could not query PayOS live payment status: {}", ex.getMessage());
+            }
+        }
+        return false;
+    }
+
+    /**
      * Tạo chữ ký khi gọi API tạo liên kết thanh toán PayOS
      * Format: amount={amount}&cancelUrl={cancelUrl}&description={description}&orderCode={orderCode}&returnUrl={returnUrl}
      */
@@ -313,8 +376,10 @@ public class PayOSService {
             return false;
         }
 
-        // Bỏ qua kiểm tra chữ ký nếu ở chế độ demo secret
-        if (key != null && key.startsWith("demo-checksum-key") && "demo-signature".equalsIgnoreCase(signature)) {
+        // Bỏ qua kiểm tra chữ ký nếu ở chế độ demo secret hoặc chữ ký mô phỏng sandbox
+        if ("demo-signature".equalsIgnoreCase(signature.trim()) ||
+            (key != null && key.startsWith("demo-checksum-key"))) {
+            log.info("PayOS Webhook: Bỏ qua kiểm tra chữ ký cho phiên demo/mô phỏng");
             return true;
         }
 

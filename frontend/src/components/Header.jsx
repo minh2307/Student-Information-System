@@ -274,6 +274,7 @@ export const Header = ({ onToggleMobileMenu }) => {
               alt="Avatar"
               className="w-7 h-7 rounded-full object-cover border border-stone-300 shadow-2xs"
               onError={(e) => {
+                e.target.onerror = null
                 e.target.src = '/images/avatar-student.jpg'
               }}
             />
@@ -303,6 +304,7 @@ export const Header = ({ onToggleMobileMenu }) => {
                     alt="Avatar"
                     className="w-10 h-10 rounded-full object-cover border border-stone-300 shadow-2xs shrink-0"
                     onError={(e) => {
+                      e.target.onerror = null
                       e.target.src = '/images/avatar-student.jpg'
                     }}
                   />

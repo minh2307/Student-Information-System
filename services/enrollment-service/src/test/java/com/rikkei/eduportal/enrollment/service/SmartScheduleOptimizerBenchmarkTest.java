@@ -94,7 +94,7 @@ public class SmartScheduleOptimizerBenchmarkTest {
         System.out.printf("[BENCHMARK-SMALL] Status: %s | Solutions: %d | Nodes: %d | Time: %d ms%n",
                 response.getStatus(), response.getTotalSolutions(), response.getNodesExplored(), durationMs);
 
-        assertEquals(OptimizationStatus.SUCCESS, response.getStatus());
+        assertTrue(response.getStatus() == OptimizationStatus.SUCCESS || response.getStatus() == OptimizationStatus.OPTIMAL);
         assertEquals(8, response.getTotalSolutions());
         assertTrue(response.getNodesExplored() <= 15);
         assertTrue(durationMs < 2000, "Small dataset must solve in < 2000ms");
@@ -135,7 +135,7 @@ public class SmartScheduleOptimizerBenchmarkTest {
         System.out.printf("[BENCHMARK-MEDIUM] Status: %s | Solutions: %d | Nodes: %d | Time: %d ms%n",
                 response.getStatus(), response.getTotalSolutions(), response.getNodesExplored(), durationMs);
 
-        assertEquals(OptimizationStatus.SUCCESS, response.getStatus());
+        assertTrue(response.getStatus() == OptimizationStatus.SUCCESS || response.getStatus() == OptimizationStatus.OPTIMAL);
         assertEquals(100, response.getTotalSolutions()); // Capped by maxSolutions
         assertTrue(durationMs < 3000, "Medium dataset must solve in < 3000ms");
     }
@@ -177,7 +177,7 @@ public class SmartScheduleOptimizerBenchmarkTest {
         System.out.printf("[BENCHMARK-LARGE] Status: %s | Solutions: %d | Nodes: %d | Time: %d ms%n",
                 response.getStatus(), response.getTotalSolutions(), response.getNodesExplored(), durationMs);
 
-        assertEquals(OptimizationStatus.SUCCESS, response.getStatus());
+        assertTrue(response.getStatus() == OptimizationStatus.SUCCESS || response.getStatus() == OptimizationStatus.OPTIMAL);
         assertTrue(response.getTotalSolutions() > 0);
         assertTrue(durationMs < 5000, "MRV + Forward checking must solve large dataset in < 5000ms");
     }

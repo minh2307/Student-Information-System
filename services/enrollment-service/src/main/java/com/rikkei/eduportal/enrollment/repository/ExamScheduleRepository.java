@@ -26,4 +26,17 @@ public interface ExamScheduleRepository extends JpaRepository<ExamSchedule, Long
            "AND (:semester IS NULL OR cs.semesterName = :semester) " +
            "ORDER BY es.examDate ASC, es.startTime ASC")
     List<ExamSchedule> findExamSchedulesByLecturer(@Param("lecturerId") Long lecturerId, @Param("semester") String semester);
+
+    boolean existsByClassSectionId(Long classSectionId);
+
+    List<ExamSchedule> findByClassSectionId(Long classSectionId);
+
+    @Query("SELECT es FROM ExamSchedule es " +
+           "JOIN FETCH es.classSection cs " +
+           "JOIN FETCH cs.course c " +
+           "LEFT JOIN FETCH cs.lecturer lp " +
+           "LEFT JOIN FETCH lp.user u " +
+           "WHERE (:semester IS NULL OR cs.semesterName = :semester) " +
+           "ORDER BY es.examDate ASC, es.startTime ASC")
+    List<ExamSchedule> findAllWithDetails(@Param("semester") String semester);
 }

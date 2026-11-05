@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import api from '../services/api'
+import { useAdvisorStore } from '../store/advisorStore'
+import { MarkdownRenderer } from './MarkdownRenderer'
 import { confirmDialog } from '../store/confirmStore'
 import { toast } from '../store/toastStore'
 import {
@@ -13,28 +14,9 @@ import {
   RotateCcw,
   User,
   Loader2,
-  ChevronRight,
-  MessageSquare,
   FastForward,
   GripVertical,
 } from 'lucide-react'
-
-const SESSION_STORAGE_KEY = 'eduportal_student_advisor_history'
-
-const DEFAULT_GREETING = {
-  id: 'greeting',
-  role: 'assistant',
-  content:
-    'Chào bạn! Mình là **Trợ lý Cố vấn Học tập AI** của Rikkei EduPortal. 🎓\n\nMình có thể hỗ trợ bạn:\n- Giải đáp quy chế đào tạo tín chỉ (tối đa/tối thiểu tín chỉ, điều kiện tốt nghiệp).\n- Tư vấn đăng ký học phần và xử lý khi bị **trùng thời khóa biểu**.\n- Kiểm tra chuỗi môn học tiên quyết và gợi ý lộ trình học tập tối ưu.\n\nBạn có thể chọn nhanh các câu hỏi gợi ý bên dưới hoặc nhắn tin trực tiếp nhé!',
-  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-}
-
-const DEFAULT_SUGGESTIONS = [
-  'Một kỳ được đăng ký tối đa bao nhiêu tín chỉ?',
-  'Bị trùng lịch học giữa 2 môn thì xử lý thế nào?',
-  'Điều kiện tiên quyết của môn CS401 là gì?',
-  'Gợi ý lộ trình học tập ngành CNTT?',
-]
 
 export const StudentAdvisorWidget = () => {
   const { user } = useAuthStore()
@@ -43,8 +25,20 @@ export const StudentAdvisorWidget = () => {
   // Only show for STUDENT role
   const isStudentPortal = user?.role === 'STUDENT'
 
+  const {
+    messages,
+    suggestions,
+    loading,
+    isStreaming,
+    streamingText,
+    sendMessage,
+    skipStreaming,
+    clearHistory,
+  } = useAdvisorStore()
+
   const [isOpen, setIsOpen] = useState(false)
   const [isDismissed, setIsDismissed] = useState(false)
+  const [input, setInput] = useState('')
   const [position, setPosition] = useState(() => {
     try {
       const saved = localStorage.getItem('eduportal_advisor_pos')
@@ -56,6 +50,8 @@ export const StudentAdvisorWidget = () => {
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef({ mouseX: 0, mouseY: 0, elemX: 0, elemY: 0 })
   const hasMovedRef = useRef(false)
+  const messagesEndRef = useRef(null)
+  const inputRef = useRef(null)
 
   const handleDragStart = (e) => {
     if (e.button !== undefined && e.button !== 0 && e.type !== 'touchstart') return
@@ -66,14 +62,16 @@ export const StudentAdvisorWidget = () => {
     isDraggingRef.current = true
     hasMovedRef.current = false
 
-    const currentX = position.x !== null ? position.x : (window.innerWidth - (isOpen ? 440 : 80))
-    const currentY = position.y !== null ? position.y : (window.innerHeight - (isOpen ? 580 : 80))
+    const currentX =
+      position.x !== null ? position.x : window.innerWidth - (isOpen ? 440 : 80)
+    const currentY =
+      position.y !== null ? position.y : window.innerHeight - (isOpen ? 580 : 80)
 
     dragStartRef.current = {
       mouseX: clientX,
       mouseY: clientY,
       elemX: currentX,
-      elemY: currentY
+      elemY: currentY,
     }
 
     const handleMouseMove = (moveEvent) => {
@@ -120,42 +118,8 @@ export const StudentAdvisorWidget = () => {
 
   const handleButtonClick = () => {
     if (hasMovedRef.current) return
-    setIsOpen(prev => !prev)
+    setIsOpen((prev) => !prev)
   }
-  const [messages, setMessages] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem(SESSION_STORAGE_KEY)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed
-      }
-    } catch (e) {
-      console.warn('Failed to restore advisor chat history from session', e)
-    }
-    return [DEFAULT_GREETING]
-  })
-
-  const [suggestions, setSuggestions] = useState(DEFAULT_SUGGESTIONS)
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  // Typing / streaming simulation state
-  const [streamingText, setStreamingText] = useState('')
-  const [isStreaming, setIsStreaming] = useState(false)
-  const streamingFullRef = useRef('')
-  const streamTimerRef = useRef(null)
-
-  const messagesEndRef = useRef(null)
-  const inputRef = useRef(null)
-
-  // Persist messages to sessionStorage
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(messages))
-    } catch (e) {
-      console.warn('Failed to save advisor chat history to session', e)
-    }
-  }, [messages])
 
   // Scroll to bottom when messages or streaming text change
   const scrollToBottom = () => {
@@ -177,265 +141,31 @@ export const StudentAdvisorWidget = () => {
     }
   }, [isOpen, isStreaming])
 
-  // Clean up streaming timer on unmount
-  useEffect(() => {
-    return () => {
-      if (streamTimerRef.current) clearInterval(streamTimerRef.current)
-    }
-  }, [])
-
   if (!isStudentPortal) {
     return null
   }
 
-  // Typewriter / Streaming animation
-  const startTypewriter = (fullReply, onComplete) => {
-    setIsStreaming(true)
-    setStreamingText('')
-    streamingFullRef.current = fullReply
-
-    let index = 0
-    const totalLen = fullReply.length
-    // Dynamic chunk speed
-    const chunkSize = totalLen > 300 ? 4 : 2
-    const intervalMs = 20
-
-    if (streamTimerRef.current) clearInterval(streamTimerRef.current)
-
-    streamTimerRef.current = setInterval(() => {
-      index += chunkSize
-      if (index >= totalLen) {
-        setStreamingText(fullReply)
-        setIsStreaming(false)
-        clearInterval(streamTimerRef.current)
-        streamTimerRef.current = null
-        if (onComplete) onComplete()
-      } else {
-        setStreamingText(fullReply.slice(0, index))
-      }
-    }, intervalMs)
-  }
-
-  // Skip typing effect immediately
-  const handleSkipTyping = () => {
-    if (!isStreaming) return
-    if (streamTimerRef.current) {
-      clearInterval(streamTimerRef.current)
-      streamTimerRef.current = null
-    }
-    const full = streamingFullRef.current
-    setIsStreaming(false)
-    setStreamingText('')
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: String(Date.now()),
-        role: 'assistant',
-        content: full,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      },
-    ])
-  }
-
-  const handleSendMessage = async (textToSend) => {
+  const handleSendMessage = (textToSend) => {
     const query = (textToSend || input).trim()
     if (!query || loading || isStreaming) return
 
     setInput('')
-
-    const userMsg = {
-      id: String(Date.now()),
-      role: 'user',
-      content: query,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }
-
-    const updated = [...messages, userMsg]
-    setMessages(updated)
-    setLoading(true)
-
-    // Build history payload (last 6 turns)
-    const historyPayload = updated
-      .filter((m) => m.id !== 'greeting')
-      .slice(-6)
-      .map((m) => ({
-        role: m.role,
-        content: m.content,
-      }))
-
-    try {
-      const res = await api.post('/ai/academic-advisor', {
-        message: query,
-        history: historyPayload,
-        studentCode: user?.studentCode || user?.username || 'STUDENT_PORTAL',
-        currentSemester: user?.currentSemester || 4,
-        major: user?.major || 'Công nghệ Thông tin',
-      })
-
-      const reply =
-        res.data?.data?.reply ||
-        'Tôi đã nhận được câu hỏi của bạn. Vui lòng kiểm tra lại quy chế đào tạo nhé!'
-
-      if (res.data?.data?.suggestions && res.data.data.suggestions.length > 0) {
-        setSuggestions(res.data.data.suggestions)
-      }
-
-      setLoading(false)
-
-      // Start typewriter streaming effect for the assistant reply
-      startTypewriter(reply, () => {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: String(Date.now()),
-            role: 'assistant',
-            content: reply,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ])
-        setStreamingText('')
-      })
-    } catch (err) {
-      console.error('Advisor widget API call error:', err)
-      setLoading(false)
-
-      let fallbackReply =
-        'Theo quy chế đào tạo tín chỉ, bạn được phép đăng ký tối đa 24 tín chỉ trong một học kỳ chính và tối thiểu 12 tín chỉ. Bạn nên ưu tiên hoàn thành các môn tiên quyết để đảm bảo lộ trình chuẩn nhé!'
-
-      const lower = query.toLowerCase()
-      if (lower.includes('trùng') || lower.includes('lịch') || lower.includes('conflict')) {
-        fallbackReply =
-          '**Xử lý trùng thời khóa biểu:**\n1. Kiểm tra và chuyển sang Section khác của môn học mở ở thứ/khung giờ khác.\n2. Ưu tiên giữ môn học tiên quyết trước.\n3. Đổi sang môn tự chọn tương đương hoặc hoãn sang kỳ tiếp theo/kỳ hè.'
-      } else if (lower.includes('tiên quyết') || lower.includes('cs401')) {
-        fallbackReply =
-          'Môn `CS401 (Phát triển ứng dụng Web)` yêu cầu điều kiện tiên quyết là phải tích lũy và đạt môn `CS201 (Cấu trúc dữ liệu và giải thuật)` (điểm >= D / 4.0).'
-      }
-
-      startTypewriter(fallbackReply, () => {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: String(Date.now()),
-            role: 'assistant',
-            content: fallbackReply,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ])
-        setStreamingText('')
-      })
-    }
+    sendMessage(query, user)
   }
 
   const handleClearHistory = async () => {
     const confirmed = await confirmDialog({
       title: 'Làm mới phiên hội thoại AI',
-      message: 'Bạn có chắc chắn muốn xóa toàn bộ lịch sử tư vấn trong phiên hiện tại không?\nHộp thoại sẽ được đặt lại về lời chào ban đầu.',
+      message:
+        'Bạn có chắc chắn muốn xóa toàn bộ lịch sử tư vấn trong phiên hiện tại không?\nHộp thoại sẽ được đặt lại về lời chào ban đầu.',
       confirmText: 'Làm mới hội thoại',
       cancelText: 'Hủy bỏ',
       variant: 'warning',
     })
     if (!confirmed) return
 
-    if (streamTimerRef.current) clearInterval(streamTimerRef.current)
-    setIsStreaming(false)
-    setStreamingText('')
-    setMessages([DEFAULT_GREETING])
-    setSuggestions(DEFAULT_SUGGESTIONS)
-    try {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY)
-    } catch (e) {}
+    clearHistory()
     toast.info('Đã làm mới lịch sử tư vấn AI!')
-  }
-
-  // Format content with basic markdown (bold, lists, code)
-  const renderMessageContent = (text) => {
-    if (!text) return null
-    return text.split('\n').map((line, idx) => {
-      // Heading 3
-      if (line.startsWith('### ')) {
-        return (
-          <h4 key={idx} className="font-bold text-slate-900 mt-2 mb-1 text-xs">
-            {line.replace('### ', '')}
-          </h4>
-        )
-      }
-      // Blockquote
-      if (line.startsWith('> ')) {
-        return (
-          <blockquote
-            key={idx}
-            className="border-l-2 border-indigo-400 pl-2.5 my-1 text-slate-600 italic bg-indigo-50/40 py-1 rounded-r text-[11px]"
-          >
-            {line.replace('> ', '')}
-          </blockquote>
-        )
-      }
-      // List items
-      if (line.startsWith('- ') || line.startsWith('* ')) {
-        return (
-          <div key={idx} className="flex items-start gap-1.5 my-0.5 pl-1">
-            <span className="text-indigo-500 font-bold">•</span>
-            <span className="flex-1">{parseInlineStyles(line.slice(2))}</span>
-          </div>
-        )
-      }
-      // Numbered list
-      const numMatch = line.match(/^(\d+)\.\s+(.*)$/)
-      if (numMatch) {
-        return (
-          <div key={idx} className="flex items-start gap-1.5 my-0.5 pl-1">
-            <span className="text-indigo-600 font-semibold text-[11px]">{numMatch[1]}.</span>
-            <span className="flex-1">{parseInlineStyles(numMatch[2])}</span>
-          </div>
-        )
-      }
-      if (line.trim() === '') {
-        return <div key={idx} className="h-1.5" />
-      }
-      return (
-        <p key={idx} className="my-0.5">
-          {parseInlineStyles(line)}
-        </p>
-      )
-    })
-  }
-
-  const parseInlineStyles = (str) => {
-    // Regex for bold **text** and code `code`
-    const parts = []
-    let lastIdx = 0
-    const regex = /(\*\*[^*]+\*\*|`[^`]+`)/g
-    let match
-
-    while ((match = regex.exec(str)) !== null) {
-      if (match.index > lastIdx) {
-        parts.push(str.substring(lastIdx, match.index))
-      }
-      const token = match[0]
-      if (token.startsWith('**') && token.endsWith('**')) {
-        parts.push(
-          <strong key={match.index} className="font-semibold text-slate-900">
-            {token.slice(2, -2)}
-          </strong>
-        )
-      } else if (token.startsWith('`') && token.endsWith('`')) {
-        parts.push(
-          <code
-            key={match.index}
-            className="px-1 py-0.5 bg-slate-200/70 text-indigo-700 font-mono text-[11px] rounded"
-          >
-            {token.slice(1, -1)}
-          </code>
-        )
-      }
-      lastIdx = regex.lastIndex
-    }
-
-    if (lastIdx < str.length) {
-      parts.push(str.substring(lastIdx))
-    }
-
-    return parts.length > 0 ? parts : str
   }
 
   if (isDismissed) {
@@ -445,8 +175,13 @@ export const StudentAdvisorWidget = () => {
         className="fixed right-0 bottom-24 z-50 bg-red-700 hover:bg-red-800 text-white p-2.5 rounded-l-2xl shadow-xl cursor-pointer hover:pl-3.5 transition-all flex items-center gap-1.5 border-y border-l border-red-500/40 group print:hidden select-none"
         title="Mở lại Cố vấn AI"
       >
-        <Bot size={18} className="text-white group-hover:scale-110 transition-transform animate-pulse" />
-        <span className="text-[11px] font-mono font-bold hidden group-hover:inline-block">AI</span>
+        <Bot
+          size={18}
+          className="text-white group-hover:scale-110 transition-transform animate-pulse"
+        />
+        <span className="text-[11px] font-mono font-bold hidden group-hover:inline-block">
+          AI
+        </span>
       </div>
     )
   }
@@ -470,7 +205,7 @@ export const StudentAdvisorWidget = () => {
               e.stopPropagation()
               setIsDismissed(true)
             }}
-            className="absolute -top-1 -left-1 w-4.5 h-4.5 bg-stone-800/90 hover:bg-red-700 text-stone-200 hover:text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-sm border border-stone-600 text-[10px]"
+            className="absolute -top-1 -left-1 w-4.5 h-4.5 bg-stone-800/90 hover:bg-red-700 text-stone-200 hover:text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-sm border border-stone-600 text-[10px] cursor-pointer"
             title="Ẩn Cố vấn AI"
           >
             <X size={10} />
@@ -506,7 +241,7 @@ export const StudentAdvisorWidget = () => {
 
       {/* Floating Chat Window with Draggable Header */}
       {isOpen && (
-        <div className="w-[calc(100vw-2rem)] max-w-[370px] sm:max-w-[420px] h-[540px] max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-stone-200/90 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="w-[calc(100vw-2rem)] max-w-[370px] sm:max-w-[440px] h-[550px] max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-stone-200/90 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           {/* Header - Kéo thả cửa sổ */}
           <div
             onMouseDown={handleDragStart}
@@ -541,7 +276,7 @@ export const StudentAdvisorWidget = () => {
                     setPosition({ x: null, y: null })
                     localStorage.removeItem('eduportal_advisor_pos')
                   }}
-                  className="px-1.5 py-1 text-red-100 hover:text-white hover:bg-white/10 rounded text-[10px] font-mono transition-colors"
+                  className="px-1.5 py-1 text-red-100 hover:text-white hover:bg-white/10 rounded text-[10px] font-mono transition-colors cursor-pointer"
                   title="Đặt lại vị trí mặc định"
                 >
                   Reset
@@ -552,7 +287,7 @@ export const StudentAdvisorWidget = () => {
                   e.stopPropagation()
                   handleClearHistory()
                 }}
-                className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                 title="Xóa lịch sử hội thoại"
               >
                 <RotateCcw size={14} />
@@ -562,7 +297,7 @@ export const StudentAdvisorWidget = () => {
                   e.stopPropagation()
                   setIsOpen(false)
                 }}
-                className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                 title="Thu nhỏ"
               >
                 <Minus size={15} />
@@ -573,7 +308,7 @@ export const StudentAdvisorWidget = () => {
                   setIsOpen(false)
                   setIsDismissed(true)
                 }}
-                className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                className="p-1.5 text-red-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                 title="Ẩn nút"
               >
                 <X size={15} />
@@ -585,8 +320,10 @@ export const StudentAdvisorWidget = () => {
           <div className="flex-1 p-3.5 space-y-3 overflow-y-auto bg-stone-50/60 text-xs">
             {messages.map((msg) => (
               <div
-                key={msg.id}
-                className={`flex gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                key={msg.id || msg.content}
+                className={`flex gap-2.5 ${
+                  msg.role === 'user' ? 'justify-end' : 'justify-start'
+                }`}
               >
                 {msg.role === 'assistant' && (
                   <div className="w-7 h-7 rounded-lg bg-stone-800 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
@@ -603,7 +340,7 @@ export const StudentAdvisorWidget = () => {
                 >
                   <div className="break-words">
                     {msg.role === 'assistant' ? (
-                      renderMessageContent(msg.content)
+                      <MarkdownRenderer content={msg.content} />
                     ) : (
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     )}
@@ -634,12 +371,12 @@ export const StudentAdvisorWidget = () => {
                 <div className="max-w-[85%] bg-white border border-red-200 text-stone-800 rounded-2xl rounded-tl-none px-3.5 py-2.5 shadow-2xs leading-relaxed relative">
                   <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-red-50">
                     <span className="text-[10px] text-red-700 font-semibold flex items-center gap-1 font-mono">
-                      <Sparkles size={11} className="animate-spin" />
+                      <Sparkles size={11} className="animate-spin text-amber-500" />
                       AI đang trả lời...
                     </span>
                     <button
-                      onClick={handleSkipTyping}
-                      className="text-[10px] text-red-700 hover:text-red-900 font-medium flex items-center gap-0.5 hover:underline"
+                      onClick={skipStreaming}
+                      className="text-[10px] text-red-700 hover:text-red-900 font-medium flex items-center gap-0.5 hover:underline cursor-pointer"
                       title="Hiện đầy đủ ngay lập tức"
                     >
                       <FastForward size={11} />
@@ -647,7 +384,7 @@ export const StudentAdvisorWidget = () => {
                     </button>
                   </div>
                   <div className="break-words">
-                    {renderMessageContent(streamingText)}
+                    <MarkdownRenderer content={streamingText} />
                     <span className="inline-block w-1.5 h-3.5 bg-red-700 ml-0.5 animate-pulse align-middle" />
                   </div>
                 </div>
@@ -683,7 +420,7 @@ export const StudentAdvisorWidget = () => {
                 <button
                   key={i}
                   onClick={() => handleSendMessage(item)}
-                  className="px-2.5 py-1 text-[11px] bg-stone-100 hover:bg-red-50 hover:text-red-800 text-stone-700 rounded-lg whitespace-nowrap transition-colors border border-stone-200/80 shrink-0 font-medium"
+                  className="px-2.5 py-1 text-[11px] bg-stone-100 hover:bg-red-50 hover:text-red-800 text-stone-700 rounded-lg whitespace-nowrap transition-colors border border-stone-200/80 shrink-0 font-medium cursor-pointer"
                 >
                   {item}
                 </button>
@@ -715,7 +452,7 @@ export const StudentAdvisorWidget = () => {
             <button
               type="submit"
               disabled={!input.trim() || loading || isStreaming}
-              className="p-2 bg-red-700 hover:bg-red-800 disabled:opacity-40 text-white rounded-lg shadow-2xs transition-all shrink-0 active:scale-95"
+              className="p-2 bg-red-700 hover:bg-red-800 disabled:opacity-40 text-white rounded-lg shadow-2xs transition-all shrink-0 active:scale-95 cursor-pointer"
               title="Gửi câu hỏi"
             >
               <Send size={14} />

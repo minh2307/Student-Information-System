@@ -122,7 +122,10 @@ export const Login = () => {
               src="/images/logo.png" 
               alt="Rikkei Logo" 
               className="h-9 w-auto object-contain max-w-[130px]"
-              onError={(e) => { e.target.src = '/images/logo.svg'; }}
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/images/logo.svg';
+              }}
             />
             <div>
               <h1 className="font-serif font-bold text-sm sm:text-base text-stone-900 leading-tight uppercase tracking-tight">
