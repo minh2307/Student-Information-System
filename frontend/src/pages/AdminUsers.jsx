@@ -25,6 +25,49 @@ export const AdminUsers = () => {
   const [loadingAudit, setLoadingAudit] = useState(false)
   const [auditActionFilter, setAuditActionFilter] = useState('')
 
+  const renderAuditDelta = (valueStr) => {
+    if (!valueStr) return null
+    try {
+      const parsed = typeof valueStr === 'string' ? JSON.parse(valueStr) : valueStr
+      if (parsed && parsed.diff && typeof parsed.diff === 'object') {
+        const diffEntries = Object.entries(parsed.diff)
+        return (
+          <div className="mt-1 space-y-1">
+            <div className="flex flex-wrap gap-1">
+              {diffEntries.map(([field, change]) => (
+                <span
+                  key={field}
+                  className="inline-flex items-center gap-1 text-[10px] font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200"
+                >
+                  <span className="font-semibold text-slate-800">{field}:</span>
+                  <span className="text-rose-600 line-through">
+                    {change?.from !== undefined && change?.from !== null ? String(change.from) : 'null'}
+                  </span>
+                  <span>→</span>
+                  <span className="text-emerald-600 font-bold">
+                    {change?.to !== undefined && change?.to !== null ? String(change.to) : 'null'}
+                  </span>
+                </span>
+              ))}
+            </div>
+            {parsed.metadata?.reason && (
+              <div className="text-[10px] text-slate-500 italic">
+                Lý do: {parsed.metadata.reason}
+              </div>
+            )}
+          </div>
+        )
+      }
+    } catch (e) {
+      // ignore
+    }
+    return (
+      <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-xs" title={valueStr}>
+        Giá trị: {valueStr}
+      </div>
+    )
+  }
+
   const fetchAuditLogs = async (action = '') => {
     setLoadingAudit(true)
     try {
@@ -843,7 +886,9 @@ export const AdminUsers = () => {
                 { key: 'USER_LOCKED', label: 'Khóa tài khoản' },
                 { key: 'USER_STATUS_CHANGED', label: 'Đổi trạng thái' },
                 { key: 'PASSWORD_RESET', label: 'Đặt lại mật khẩu' },
-                { key: 'USER_DELETED', label: 'Xóa tài khoản' }
+                { key: 'USER_DELETED', label: 'Xóa tài khoản' },
+                { key: 'GRADE_UPDATED', label: 'Chấm điểm' },
+                { key: 'GRADE_LOCKED', label: 'Chốt điểm' }
               ].map(f => (
                 <button
                   key={f.key}
@@ -889,6 +934,8 @@ export const AdminUsers = () => {
                       const isLock = log.action === 'USER_LOCKED'
                       const isPass = log.action === 'PASSWORD_RESET'
                       const isDel = log.action === 'USER_DELETED'
+                      const isGrade = log.action === 'GRADE_UPDATED' || log.action === 'GRADE_ADJUSTMENT'
+                      const isGradeLock = log.action === 'GRADE_LOCKED'
 
                       return (
                         <tr key={log.id} className="hover:bg-slate-50/60 transition">
@@ -906,6 +953,10 @@ export const AdminUsers = () => {
                                   ? 'bg-amber-100 text-amber-800'
                                   : isDel
                                   ? 'bg-red-100 text-red-800'
+                                  : isGrade
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : isGradeLock
+                                  ? 'bg-indigo-100 text-indigo-800'
                                   : 'bg-blue-100 text-blue-800'
                               }`}
                             >
@@ -920,11 +971,7 @@ export const AdminUsers = () => {
                           </td>
                           <td className="py-2.5 px-3 text-slate-600">
                             <div>{log.summary}</div>
-                            {log.newValue && (
-                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                Giá trị: {log.newValue}
-                              </div>
-                            )}
+                            {renderAuditDelta(log.newValue)}
                           </td>
                         </tr>
                       )

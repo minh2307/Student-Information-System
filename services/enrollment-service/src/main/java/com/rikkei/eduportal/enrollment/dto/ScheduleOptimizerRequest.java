@@ -11,6 +11,11 @@ public class ScheduleOptimizerRequest {
     private String optimizationGoal = "COMPACT"; // "COMPACT", "BALANCED", "MAX_FREE_DAYS"
     private Boolean onlyAvailableSeats = true;
 
+    // Optional client-defined resource limits / constraints overrides
+    private Integer maxSolutions;
+    private Long maxExecutionTimeMs;
+    private Integer maxSearchNodes;
+
     public ScheduleOptimizerRequest() {}
 
     public ScheduleOptimizerRequest(List<Long> courseIds, String semesterName, List<String> avoidDays,
@@ -40,4 +45,13 @@ public class ScheduleOptimizerRequest {
 
     public Boolean getOnlyAvailableSeats() { return onlyAvailableSeats; }
     public void setOnlyAvailableSeats(Boolean onlyAvailableSeats) { this.onlyAvailableSeats = onlyAvailableSeats; }
+
+    public Integer getMaxSolutions() { return maxSolutions; }
+    public void setMaxSolutions(Integer maxSolutions) { this.maxSolutions = maxSolutions; }
+
+    public Long getMaxExecutionTimeMs() { return maxExecutionTimeMs; }
+    public void setMaxExecutionTimeMs(Long maxExecutionTimeMs) { this.maxExecutionTimeMs = maxExecutionTimeMs; }
+
+    public Integer getMaxSearchNodes() { return maxSearchNodes; }
+    public void setMaxSearchNodes(Integer maxSearchNodes) { this.maxSearchNodes = maxSearchNodes; }
 }

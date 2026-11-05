@@ -128,9 +128,12 @@ CREATE TABLE IF NOT EXISTS tuition_fees (
     payment_date TIMESTAMP,
     transaction_code VARCHAR(100),
     payment_method VARCHAR(50),
+    payos_order_code BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_student_semester_tuition UNIQUE (student_id, semester_name)
 );
+
+CREATE INDEX IF NOT EXISTS idx_tuition_payos_order_code ON tuition_fees(payos_order_code);
 
 -- 9. Table announcements (Bảng tin Đào tạo)
 CREATE TABLE IF NOT EXISTS announcements (
@@ -231,4 +234,18 @@ CREATE TABLE IF NOT EXISTS slot_reservations (
 CREATE INDEX IF NOT EXISTS idx_slot_section_status ON slot_reservations(class_section_id, status);
 CREATE INDEX IF NOT EXISTS idx_slot_student_status ON slot_reservations(student_id, status);
 CREATE INDEX IF NOT EXISTS idx_slot_expires_at ON slot_reservations(expires_at);
+
+-- 16. Table refresh_tokens (Refresh Token cho xác thực OAuth2 & Rotation - auth-service)
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expiry_date TIMESTAMP NOT NULL,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_token ON refresh_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_refresh_user_id ON refresh_tokens(user_id);
+
 

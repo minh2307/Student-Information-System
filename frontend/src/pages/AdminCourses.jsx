@@ -221,8 +221,8 @@ export const AdminCourses = () => {
             Không tìm thấy môn học nào phù hợp.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-left text-sm min-w-[720px]">
               <thead className="bg-slate-50 text-slate-600 text-xs uppercase font-semibold border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-4">Mã môn</th>

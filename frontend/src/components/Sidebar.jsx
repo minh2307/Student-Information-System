@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { getRealAvatar } from '../utils/avatarUtils'
@@ -17,43 +17,65 @@ import {
   ExternalLink,
   ChevronRight,
   Bell,
-  X
+  X,
+  CalendarCheck
 } from 'lucide-react'
 
 export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
   const { user } = useAuthStore()
   const role = user?.role || 'STUDENT'
 
+  // Khoá cuộn body trang web khi mở Drawer trên mobile (Safari iOS & Chrome Android)
+  useEffect(() => {
+    if (mobileOpen) {
+      const originalOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') onClose()
+      }
+      window.addEventListener('keydown', handleKeyDown)
+
+      return () => {
+        document.body.style.overflow = originalOverflow
+        window.removeEventListener('keydown', handleKeyDown)
+      }
+    }
+  }, [mobileOpen, onClose])
+
   const navItemClass = ({ isActive }) =>
-    `group flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-medium transition-all ${
+    `group flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-medium transition-all min-h-[42px] touch-manipulation ${
       isActive
         ? 'bg-red-50 text-red-800 font-semibold border-l-3 border-red-700 shadow-2xs'
-        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70'
+        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70 active:bg-stone-200/60'
     }`
 
   return (
     <>
-      {/* Mobile Backdrop */}
+      {/* Mobile Backdrop with Smooth Fade & Touch Dismiss */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-xs md:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs md:hidden animate-in fade-in duration-200 touch-manipulation"
           onClick={onClose}
+          aria-hidden="true"
         />
       )}
 
-      {/* Sidebar (Static on desktop, off-canvas drawer on mobile) */}
+      {/* Sidebar: Static on Desktop, Off-Canvas Drawer with 100dvh & Safe-Area on Mobile */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-stone-200/90 flex flex-col shrink-0 min-h-screen transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
-          mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 w-72 sm:w-64 bg-white border-r border-stone-200/90 flex flex-col shrink-0 h-screen h-[100dvh] max-h-[100dvh] transition-transform duration-300 ease-in-out md:static md:translate-x-0 md:h-auto md:min-h-screen transform-gpu drawer-hardware-accelerated ${
+          mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full pointer-events-none md:pointer-events-auto'
         }`}
+        aria-label="Thanh điều hướng chính"
+        aria-hidden={!mobileOpen}
       >
-        {/* 1. Official University Brand Header */}
-        <div className="p-4 border-b border-stone-200/80 bg-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        {/* 1. Official University Brand Header (with iOS Notch Safe Area) */}
+        <div className="px-4 py-3.5 pt-[max(0.875rem,env(safe-area-inset-top,0.875rem))] border-b border-stone-200/80 bg-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
             <img 
               src="/images/logo.png" 
               alt="Rikkei Logo" 
-              className="h-9 w-auto object-contain max-w-[130px]"
+              className="h-9 w-auto object-contain max-w-[125px]"
               onError={(e) => {
                 e.target.src = '/images/logo.svg'
               }}
@@ -67,18 +89,23 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
               </span>
             </div>
           </div>
-          {/* Close button for mobile */}
+
+          {/* Close button for mobile with 44x44px touch target */}
           <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 md:hidden"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onClose()
+            }}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 active:bg-stone-200 md:hidden transition-colors touch-manipulation cursor-pointer"
             aria-label="Đóng Menu"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
-        {/* 2. Navigation List */}
-        <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
+        {/* 2. Navigation List with Momentum Scrolling */}
+        <nav className="flex-1 p-3 space-y-4 overflow-y-auto overscroll-contain touch-pan-y touch-scroll">
           {/* Student Navigation */}
           {role === 'STUDENT' && (
             <>
@@ -128,6 +155,13 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
                       <span>Học phí & VietQR</span>
                     </div>
                   </NavLink>
+
+                  <NavLink to="/student/exams" onClick={onClose} className={navItemClass}>
+                    <div className="flex items-center gap-2.5">
+                      <CalendarCheck size={16} className="text-stone-500 group-hover:text-red-700" />
+                      <span>Lịch thi học kỳ</span>
+                    </div>
+                  </NavLink>
                 </div>
               </div>
 
@@ -159,6 +193,13 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
                     <div className="flex items-center gap-2.5">
                       <FolderKanban size={16} className="text-stone-500 group-hover:text-red-700" />
                       <span>Lớp giảng dạy</span>
+                    </div>
+                  </NavLink>
+
+                  <NavLink to="/lecturer/timetable" onClick={onClose} className={navItemClass}>
+                    <div className="flex items-center gap-2.5">
+                      <CalendarDays size={16} className="text-stone-500 group-hover:text-red-700" />
+                      <span>Lịch giảng dạy tuần</span>
                     </div>
                   </NavLink>
 
@@ -194,13 +235,6 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
                       <span>Quản lý lớp học phần</span>
                     </div>
                   </NavLink>
-
-                  <NavLink to="/admin/semesters" onClick={onClose} className={navItemClass}>
-                    <div className="flex items-center gap-2.5">
-                      <FolderKanban size={16} className="text-stone-500 group-hover:text-red-700" />
-                      <span>Quản lý học kỳ</span>
-                    </div>
-                  </NavLink>
                 </div>
               </div>
 
@@ -230,10 +264,10 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
           {/* Common Account Section */}
           <div>
             <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
-              Hệ thống
+              Hệ thống & Tiện ích
             </div>
             <div className="space-y-0.5">
-              <NavLink to="/ai-advisor" onClick={onClose} className={navItemClass}>
+              <NavLink to="/ai/advisor" onClick={onClose} className={navItemClass}>
                 <div className="flex items-center gap-2.5">
                   <BotMessageSquare size={16} className="text-stone-500 group-hover:text-red-700" />
                   <span>Cố vấn AI 24/7</span>
@@ -249,9 +283,9 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
           </div>
         </nav>
 
-        {/* 3. Footer Compact Status Card */}
-        <div className="p-3 border-t border-stone-200/80 bg-stone-50/70">
-          <div className="bg-white border border-stone-200/90 rounded-lg p-2.5 shadow-2xs">
+        {/* 3. Footer Compact Status Card (with iOS Home Indicator Safe Area) */}
+        <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] border-t border-stone-200/80 bg-stone-50/80 shrink-0">
+          <div className="bg-white border border-stone-200/90 rounded-xl p-2.5 shadow-2xs">
             <div className="flex items-center gap-2.5">
               <img 
                 src={getRealAvatar(user)} 
@@ -283,3 +317,5 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
     </>
   )
 }
+
+export default Sidebar

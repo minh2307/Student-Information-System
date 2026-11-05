@@ -2,6 +2,7 @@ package com.rikkei.eduportal.auth.service;
 
 import com.rikkei.eduportal.auth.dto.*;
 import com.rikkei.eduportal.auth.entity.LecturerProfile;
+import com.rikkei.eduportal.auth.entity.RefreshToken;
 import com.rikkei.eduportal.auth.entity.StudentProfile;
 import com.rikkei.eduportal.auth.entity.User;
 import com.rikkei.eduportal.auth.exception.BadRequestException;
@@ -11,6 +12,7 @@ import com.rikkei.eduportal.auth.repository.UserRepository;
 import com.rikkei.eduportal.auth.security.JwtTokenProvider;
 import com.rikkei.eduportal.common.Role;
 import com.rikkei.eduportal.common.UserStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,20 +26,32 @@ public class AuthService {
     private final LecturerProfileRepository lecturerProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenService refreshTokenService;
+
+    @Autowired
+    public AuthService(UserRepository userRepository,
+                       StudentProfileRepository studentProfileRepository,
+                       LecturerProfileRepository lecturerProfileRepository,
+                       PasswordEncoder passwordEncoder,
+                       JwtTokenProvider jwtTokenProvider,
+                       RefreshTokenService refreshTokenService) {
+        this.userRepository = userRepository;
+        this.studentProfileRepository = studentProfileRepository;
+        this.lecturerProfileRepository = lecturerProfileRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.refreshTokenService = refreshTokenService;
+    }
 
     public AuthService(UserRepository userRepository,
                        StudentProfileRepository studentProfileRepository,
                        LecturerProfileRepository lecturerProfileRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenProvider jwtTokenProvider) {
-        this.userRepository = userRepository;
-        this.studentProfileRepository = studentProfileRepository;
-        this.lecturerProfileRepository = lecturerProfileRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtTokenProvider = jwtTokenProvider;
+        this(userRepository, studentProfileRepository, lecturerProfileRepository, passwordEncoder, jwtTokenProvider, null);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByUsernameOrEmail(request.getUsername(), request.getUsername())
                 .orElseThrow(() -> new BadCredentialsException("Tên đăng nhập hoặc mật khẩu không chính xác"));
@@ -55,6 +69,11 @@ public class AuthService {
 
         AuthResponse response = new AuthResponse(token, userDto);
 
+        if (refreshTokenService != null) {
+            RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+            response.setRefreshToken(refreshToken.getToken());
+        }
+
         if (user.getRole() == Role.STUDENT) {
             studentProfileRepository.findByUserId(user.getId())
                     .ifPresent(sp -> response.setStudentProfile(toStudentProfileDto(sp)));
@@ -64,6 +83,42 @@ public class AuthService {
         }
 
         return response;
+    }
+
+    @Transactional
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+        if (refreshTokenService == null) {
+            throw new BadRequestException("Dịch vụ refresh token chưa sẵn sàng.");
+        }
+
+        RefreshToken newRefreshToken = refreshTokenService.verifyAndRotate(request.getRefreshToken());
+        User user = newRefreshToken.getUser();
+
+        if (user.getStatus() == UserStatus.LOCKED) {
+            throw new BadRequestException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Ban Đào tạo!");
+        }
+
+        String newAccessToken = jwtTokenProvider.generateToken(user);
+        UserDto userDto = toUserDto(user);
+
+        AuthResponse response = new AuthResponse(newAccessToken, newRefreshToken.getToken(), userDto);
+
+        if (user.getRole() == Role.STUDENT) {
+            studentProfileRepository.findByUserId(user.getId())
+                    .ifPresent(sp -> response.setStudentProfile(toStudentProfileDto(sp)));
+        } else if (user.getRole() == Role.LECTURER) {
+            lecturerProfileRepository.findByUserId(user.getId())
+                    .ifPresent(lp -> response.setLecturerProfile(toLecturerProfileDto(lp)));
+        }
+
+        return response;
+    }
+
+    @Transactional
+    public void logout(String refreshTokenString) {
+        if (refreshTokenService != null && refreshTokenString != null && !refreshTokenString.isBlank()) {
+            refreshTokenService.revokeToken(refreshTokenString);
+        }
     }
 
     public static UserDto toUserDto(User user) {

@@ -1,0 +1,9 @@
+.git
+.github
+.gradle
+logs
+*.md
+*.docx
+jira_import*.csv
+init-db
+frontend/node_modules

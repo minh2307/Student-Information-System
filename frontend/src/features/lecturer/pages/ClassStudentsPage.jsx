@@ -255,8 +255,8 @@ export function ClassStudentsPage() {
               {[
                 { label: 'Sinh viên', cls: 'px-5 py-3.5 text-left' },
                 { label: 'Chuyên cần %', cls: 'px-3 py-3.5 text-center w-28' },
-                { label: 'Giữa kỳ (30%)', cls: 'px-3 py-3.5 text-center w-28' },
-                { label: 'Cuối kỳ (60%)', cls: 'px-3 py-3.5 text-center w-28' },
+                { label: 'Giữa kỳ (40%)', cls: 'px-3 py-3.5 text-center w-28' },
+                { label: 'Cuối kỳ (50%)', cls: 'px-3 py-3.5 text-center w-28' },
                 { label: 'Tổng kết', cls: 'px-3 py-3.5 text-center w-24' },
                 { label: 'Xếp loại', cls: 'px-3 py-3.5 text-center w-20' },
                 { label: '', cls: 'px-4 py-3.5 w-24' },

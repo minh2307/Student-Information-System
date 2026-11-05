@@ -12,20 +12,26 @@ public class AiConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AiConfig.class);
 
-    @Value("${ai.provider:openai}")
+    @Value("${ai.provider:gemini}")
     private String provider;
 
-    @Value("${ai.api-key:${spring.ai.openai.api-key:demo-key}}")
+    @Value("${gemini.api-key:${ai.api-key:${spring.ai.openai.api-key:demo-key}}}")
     private String apiKey;
 
-    @Value("${ai.base-url:${spring.ai.openai.base-url:https://api.openai.com}}")
+    @Value("${gemini.base-url:${ai.base-url:${spring.ai.openai.base-url:https://generativelanguage.googleapis.com/v1beta/openai/}}}")
     private String baseUrl;
 
-    @Value("${ai.model:${spring.ai.openai.chat.options.model:gpt-4o-mini}}")
+    @Value("${gemini.model:${ai.model:${spring.ai.openai.chat.options.model:gemini-1.5-flash}}}")
     private String model;
 
     @Value("${ai.timeout-seconds:15}")
     private int timeoutSeconds;
+
+    @Value("${services.enrollment.url:http://localhost:8083}")
+    private String enrollmentServiceUrl;
+
+    @Value("${services.enrollment.timeout-seconds:5}")
+    private int enrollmentTimeoutSeconds;
 
     @Bean
     public ChatClient chatClient(ChatClient.Builder chatClientBuilder) {
@@ -60,7 +66,20 @@ public class AiConfig {
         return timeoutSeconds;
     }
 
+    public String getEnrollmentServiceUrl() {
+        return enrollmentServiceUrl;
+    }
+
+    public int getEnrollmentTimeoutSeconds() {
+        return enrollmentTimeoutSeconds;
+    }
+
     public boolean isConfiguredWithRealKey() {
-        return apiKey != null && !apiKey.isBlank() && !apiKey.equalsIgnoreCase("demo-key") && !apiKey.startsWith("your_");
+        return apiKey != null
+                && !apiKey.isBlank()
+                && !apiKey.equalsIgnoreCase("demo-key")
+                && !apiKey.equalsIgnoreCase("null")
+                && !apiKey.equalsIgnoreCase("none")
+                && !apiKey.startsWith("your_");
     }
 }

@@ -14,6 +14,7 @@ import {
   GraduationCap
 } from 'lucide-react'
 import api from '../services/api'
+import { toast } from '../store/toastStore'
 
 export function VerifiableTranscriptModal({ open, onClose }) {
   if (!open) return null
@@ -34,7 +35,7 @@ export function VerifiableTranscriptModal({ open, onClose }) {
       setCredential(res.data?.data)
     } catch (err) {
       console.error('Lỗi sinh chứng thực số:', err)
-      alert('Không thể tạo bảng điểm số xác thực: ' + (err.response?.data?.message || err.message))
+      toast.error('Không thể tạo bảng điểm số xác thực: ' + (err.response?.data?.message || err.message), 'Lỗi chứng chỉ số')
     } finally {
       setLoading(false)
     }

@@ -31,3 +31,17 @@ management:
     health:
       show-details: always
 
+schedule:
+  optimizer:
+    max-search-nodes: 50000
+    max-execution-time-ms: 3000
+    max-solutions: 100
+
+payos:
+  client-id: ${PAYOS_CLIENT_ID:demo-client-id}
+  api-key: ${PAYOS_API_KEY:demo-api-key}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:demo-checksum-key-32bytes-long!!}
+  base-url: ${PAYOS_BASE_URL:https://api-merchant.payos.vn}
+  return-url: ${PAYOS_RETURN_URL:http://localhost:5173/student/tuition?status=PAID}
+  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5173/student/tuition?status=CANCELLED}
+
