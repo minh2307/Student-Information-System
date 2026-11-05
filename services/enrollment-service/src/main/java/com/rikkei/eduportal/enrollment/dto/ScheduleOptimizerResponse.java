@@ -83,7 +83,7 @@ public class ScheduleOptimizerResponse {
         this.executionTimeMs = executionTimeMs;
         this.conflictDetails = conflictDetails;
         this.plans = plans != null ? plans : new ArrayList<>();
-        this.success = (status == OptimizationStatus.SUCCESS);
+        this.success = (status == OptimizationStatus.SUCCESS || status == OptimizationStatus.OPTIMAL || status == OptimizationStatus.FEASIBLE_TIMEOUT);
         this.isComplete = (totalSolutions > 0);
     }
 
@@ -118,7 +118,12 @@ public class ScheduleOptimizerResponse {
     }
 
     // Getters and Setters
-    public boolean isSuccess() { return success; }
+    public boolean isSuccess() {
+        return success && (status == null
+                || status == OptimizationStatus.SUCCESS
+                || status == OptimizationStatus.OPTIMAL
+                || status == OptimizationStatus.FEASIBLE_TIMEOUT);
+    }
     public void setSuccess(boolean success) { this.success = success; }
 
     public boolean getIsComplete() { return isComplete; }

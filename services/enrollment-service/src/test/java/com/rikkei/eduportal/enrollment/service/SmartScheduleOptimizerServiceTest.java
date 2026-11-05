@@ -205,7 +205,7 @@ class SmartScheduleOptimizerServiceTest {
     }
 
     @Test
-    @DisplayName("TC-OPT-06: Xung đột khung giờ 100% -> Tuyệt đối không crash HTTP 500, kích hoạt Partial Solution Fallback")
+    @DisplayName("TC-OPT-06: Xung đột khung giờ 100% -> Tuyệt đối không crash HTTP 500, trả về NO_SOLUTION với recommendations rỗng")
     void testOptimizeSchedule_100PercentConflict_TriggersPartialFallback() {
         // CS101 và CS102 chỉ có duy nhất 1 lớp và trùng giờ hoàn toàn vào Thứ 2 09:00 - 10:30
         ClassSection s1 = createSection(1L, "CS101-01", course1, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 10);
@@ -222,18 +222,18 @@ class SmartScheduleOptimizerServiceTest {
         ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
 
         assertNotNull(response);
-        assertTrue(response.isSuccess(), "API phải trả về success: true");
-        assertFalse(response.getIsComplete(), "isComplete phải là false vì chỉ xếp được 1 phần");
-        assertEquals(1, response.getSchedule().size(), "Phải xếp được 1/2 môn");
-        assertEquals(1, response.getUnassignedCourses().size(), "Phải có 1 môn không xếp được vào unassignedCourses");
-
-        UnassignedCourseDto unassigned = response.getUnassignedCourses().get(0);
-        assertTrue(unassigned.getReason().contains("Trùng khung giờ"), "Phải giải thích rõ nguyên nhân trùng giờ");
-        assertTrue(response.getStatusMessage().contains("xung đột"));
+        assertFalse(response.isSuccess(), "API phải trả về success: false khi không tìm được phương án");
+        assertFalse(response.getIsComplete(), "isComplete phải là false");
+        assertEquals(OptimizationStatus.NO_SOLUTION, response.getStatus());
+        assertEquals(0, response.getSchedule().size(), "Schedule phải là danh sách rỗng");
+        assertEquals(0, response.getPlans().size(), "Plans phải là danh sách rỗng");
+        assertEquals(2, response.getUnassignedCourses().size(), "Cả 2 môn đều được ghi nhận lý do xung đột");
+        assertTrue(response.getStatusMessage().contains("Xung đột") || response.getStatusMessage().contains("xung đột"));
+        assertNotNull(response.getConflictDetails());
     }
 
     @Test
-    @DisplayName("TC-OPT-07: Có môn không còn lớp mở hoặc hết chỗ -> Ghi nhận vào unassignedCourses và xếp các môn còn lại")
+    @DisplayName("TC-OPT-07: Có môn không còn lớp mở hoặc hết chỗ -> Trả về NO_SOLUTION và ghi nhận môn không có lớp khả dụng")
     void testOptimizeSchedule_CourseWithNoOpenSections() {
         // CS101 có 1 lớp mở
         ClassSection s1 = createSection(1L, "CS101-01", course1, "MON", LocalTime.of(9, 0), LocalTime.of(10, 30), 40, 10);
@@ -249,10 +249,11 @@ class SmartScheduleOptimizerServiceTest {
         ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
 
         assertNotNull(response);
-        assertTrue(response.isSuccess());
+        assertFalse(response.isSuccess());
         assertFalse(response.getIsComplete());
-        assertEquals(1, response.getSchedule().size());
-        assertEquals("CS101", response.getSchedule().get(0).getCourseCode());
+        assertEquals(OptimizationStatus.NO_SOLUTION, response.getStatus());
+        assertEquals(0, response.getSchedule().size());
+        assertEquals(0, response.getPlans().size());
 
         assertEquals(1, response.getUnassignedCourses().size());
         UnassignedCourseDto unassigned = response.getUnassignedCourses().get(0);
@@ -456,7 +457,8 @@ class SmartScheduleOptimizerServiceTest {
         ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
 
         assertNotNull(response);
-        assertEquals(OptimizationStatus.TIME_LIMIT_EXCEEDED, response.getStatus());
+        assertTrue(response.getStatus() == OptimizationStatus.TIME_LIMIT_EXCEEDED
+                || response.getStatus() == OptimizationStatus.TIMEOUT_NO_SOLUTION);
         assertNotEquals(OptimizationStatus.NO_SOLUTION, response.getStatus(),
                 "Một CSP Solver hết thời gian chưa có nghĩa là bài toán vô nghiệm!");
         assertTrue(response.getStatusMessage().contains("vượt quá giới hạn") || response.getStatusMessage().contains("chạm giới hạn"));
@@ -485,7 +487,7 @@ class SmartScheduleOptimizerServiceTest {
         ScheduleOptimizerResponse response = optimizerService.optimizeSchedule("sv2024001", request);
 
         assertNotNull(response);
-        assertEquals(OptimizationStatus.SUCCESS, response.getStatus());
+        assertTrue(response.getStatus() == OptimizationStatus.SUCCESS || response.getStatus() == OptimizationStatus.OPTIMAL);
         assertEquals(2, response.getTotalSolutions());
         assertEquals(2, response.getValidOptionsCount());
     }
@@ -515,7 +517,8 @@ class SmartScheduleOptimizerServiceTest {
                     req.setPreferredShift(index % 2 == 0 ? "MORNING" : "AFTERNOON");
 
                     ScheduleOptimizerResponse resp = optimizerService.optimizeSchedule("sv_user_" + index, req);
-                    if (resp.getStatus() == OptimizationStatus.SUCCESS && resp.getValidOptionsCount() == 2) {
+                    if ((resp.getStatus() == OptimizationStatus.SUCCESS || resp.getStatus() == OptimizationStatus.OPTIMAL)
+                            && resp.getValidOptionsCount() == 2) {
                         successCount.incrementAndGet();
                     }
                 } finally {

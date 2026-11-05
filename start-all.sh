@@ -80,7 +80,7 @@ sleep 5
 
 echo "=========================================================="
 echo " All services launched successfully!"
-echo " - Frontend:     http://localhost:5173"
+echo " - Frontend:     https://localhost:5173 (Note: accept self-signed SSL cert in browser)"
 echo " - API Gateway:  http://localhost:8080/api/v1"
 echo " - Logs dir:     $DIR/logs"
 echo " Run ./stop-all.sh to terminate all background services."
