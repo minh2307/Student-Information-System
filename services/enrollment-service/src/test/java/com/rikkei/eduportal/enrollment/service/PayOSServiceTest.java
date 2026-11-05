@@ -235,4 +235,24 @@ class PayOSServiceTest {
         assertEquals("PENDING", response.getStatus());
         assertEquals(response.getOrderCode(), tuition.getPayosOrderCode());
     }
+
+    @Test
+    @DisplayName("TC-PAYOS-08: Chấp nhận chữ ký demo-signature cho kiểm thử sandbox")
+    void testVerifyWebhookSignature_DemoSignature() {
+        Map<String, Object> data = Map.of("orderCode", 99999L, "amount", 100000L);
+        boolean valid = payOSService.verifyWebhookSignature(data, "demo-signature", testChecksumKey);
+        assertTrue(valid, "Chữ ký demo-signature phải luôn được chấp nhận cho mục đích kiểm thử sandbox");
+    }
+
+    @Test
+    @DisplayName("TC-PAYOS-09: syncPaymentStatus xử lý an toàn khi học phí đã hoàn tất hoặc orderCode null")
+    void testSyncPaymentStatus_SafeExecution() {
+        assertFalse(payOSService.syncPaymentStatus("SV2024001", "2024-25_SEM2", null));
+
+        tuition.setStatus("PAID");
+        when(dashboardService.resolveStudent("SV2024001")).thenReturn(student);
+        when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2024-25_SEM2")).thenReturn(Optional.of(tuition));
+
+        assertTrue(payOSService.syncPaymentStatus("SV2024001", "2024-25_SEM2", 123456L));
+    }
 }

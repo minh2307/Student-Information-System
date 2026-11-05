@@ -48,7 +48,9 @@ public class JwtGatewayValidator {
             path.startsWith("/api/v1/public") ||
             path.startsWith("/actuator") ||
             path.equals("/error") ||
-            path.equals("/api/v1/student/class-sections/live-seats")) {
+            path.equals("/api/v1/student/class-sections/live-seats") ||
+            path.startsWith("/api/v1/student/calendar/feed") ||
+            path.startsWith("/api/v1/calendar/feed")) {
             return true;
         }
 

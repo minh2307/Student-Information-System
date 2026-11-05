@@ -236,6 +236,7 @@ export const StudentTuition = () => {
     const paymentLinkId = searchParams.get('id')
 
     if (statusParam || codeParam || cancelParam) {
+      const activeSem = selectedSemester || '2024-25_SEM2'
       if ((statusParam === 'PAID' || codeParam === '00') && cancelParam !== 'true') {
         setReturnStatusInfo({
           type: 'SUCCESS',
@@ -247,10 +248,18 @@ export const StudentTuition = () => {
         toast.success(
           `Học phí đã được quyết toán thành công qua cổng PayOS! ${orderCodeParam ? `(Mã ĐH: ${orderCodeParam})` : ''}`
         )
-        setShowReceiptModal(true)
-        if (selectedSemester) {
-          fetchTuition(selectedSemester, selectedBankBin)
+        // Chủ động đối soát trực tiếp với Backend để cập nhật trạng thái học phí ngay
+        if (orderCodeParam) {
+          api.get(`/student/tuition/payos/status?orderCode=${orderCodeParam}&semester=${activeSem}`)
+            .then((res) => {
+              if (res.data?.data) {
+                setTuition(res.data.data)
+              }
+            })
+            .catch(() => {})
         }
+        setShowReceiptModal(true)
+        fetchTuition(activeSem, selectedBankBin)
       } else if (statusParam === 'CANCELLED' || cancelParam === 'true') {
         setReturnStatusInfo({
           type: 'CANCELLED',
@@ -1145,16 +1154,7 @@ export const StudentTuition = () => {
                     id="payos-checkout-container"
                     className="w-full h-[540px] rounded-2xl overflow-hidden border border-stone-200 bg-stone-50 relative flex flex-col items-center justify-center shadow-inner"
                   >
-                    {payOsData.checkoutUrl ? (
-                      <iframe
-                        src={`${payOsData.checkoutUrl.replace('/web/', '/embedded/')}?redirect_uri=${encodeURIComponent(
-                          window.location.origin + '/student/tuition'
-                        )}`}
-                        title="PayOS Checkout Embedded"
-                        className="w-full h-full border-none"
-                        allow="clipboard-write"
-                      />
-                    ) : (
+                    {!payOsData.checkoutUrl && (
                       <div className="text-center p-6 space-y-2">
                         <RefreshCw size={24} className="animate-spin mx-auto text-stone-400" />
                         <p className="text-xs text-stone-500 font-mono">

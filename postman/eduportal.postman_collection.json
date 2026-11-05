@@ -969,6 +969,148 @@
           ]
         }
       ]
+    },
+    {
+      "name": "06. Calendar Sync & WebCal Feed (RFC 5545)",
+      "item": [
+        {
+          "name": "6.1 Lấy thông tin Subscription URL & feedToken",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_student}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_enrollment_url}}{{api_prefix}}/student/calendar/subscription-info"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains feedToken and URLs\", function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.data).to.have.property(\"feedToken\");",
+                  "    pm.expect(res.data).to.have.property(\"subscriptionUrl\");",
+                  "    pm.expect(res.data).to.have.property(\"webcalUrl\");",
+                  "    pm.environment.set(\"calendar_feed_token\", res.data.feedToken);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.2 Gọi Public WebCal Feed với Token hợp lệ -> 200 text/calendar",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_enrollment_url}}{{api_prefix}}/student/calendar/feed/sv2024001?token={{calendar_feed_token}}"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Content-Type is text/calendar\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"text/calendar\");",
+                  "});",
+                  "",
+                  "pm.test(\"Response body complies with RFC 5545 iCalendar\", function () {",
+                  "    var text = pm.response.text();",
+                  "    pm.expect(text).to.include(\"BEGIN:VCALENDAR\");",
+                  "    pm.expect(text).to.include(\"VERSION:2.0\");",
+                  "    pm.expect(text).to.include(\"X-WR-TIMEZONE:Asia/Ho_Chi_Minh\");",
+                  "    pm.expect(text).to.include(\"END:VCALENDAR\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.3 Gọi Public WebCal Feed với Token sai -> 403 Forbidden",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_enrollment_url}}{{api_prefix}}/student/calendar/feed/sv2024001?token=invalid_forged_token_999"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"Returns error VCALENDAR notice\", function () {",
+                  "    var text = pm.response.text();",
+                  "    pm.expect(text).to.include(\"X-WR-CALNAME:Lỗi Xác thực Token\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.4 Tải file .ics attachment -> 200 text/calendar",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_student}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{base_enrollment_url}}{{api_prefix}}/student/calendar/export.ics"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Content-Type is text/calendar and attachment\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"text/calendar\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Disposition\")).to.include(\"attachment\");",
+                  "});",
+                  "",
+                  "pm.test(\"Contains VCALENDAR and PRODID\", function () {",
+                  "    var text = pm.response.text();",
+                  "    pm.expect(text).to.include(\"BEGIN:VCALENDAR\");",
+                  "    pm.expect(text).to.include(\"PRODID:-//Rikkei Academy//Rikkei EduPortal SIS//VI\");",
+                  "    pm.expect(text).to.include(\"END:VCALENDAR\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

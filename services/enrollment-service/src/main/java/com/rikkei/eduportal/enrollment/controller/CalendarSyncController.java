@@ -21,7 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/v1/student/calendar")
+@RequestMapping({"/api/v1/student/calendar", "/api/v1/calendar"})
 public class CalendarSyncController {
 
     private static final Logger log = LoggerFactory.getLogger(CalendarSyncController.class);
@@ -130,6 +130,11 @@ public class CalendarSyncController {
         String studentCodeHeader = request.getHeader("X-Student-Code");
         if (studentCodeHeader != null && !studentCodeHeader.trim().isEmpty()) {
             return studentCodeHeader.trim();
+        }
+
+        String userHeader = request.getHeader("X-User-Username");
+        if (userHeader != null && !userHeader.trim().isEmpty()) {
+            return userHeader.trim();
         }
 
         String authHeader = request.getHeader("Authorization");
