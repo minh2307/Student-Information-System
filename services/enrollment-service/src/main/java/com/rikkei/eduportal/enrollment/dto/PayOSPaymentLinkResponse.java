@@ -12,6 +12,7 @@ public class PayOSPaymentLinkResponse {
     private String qrCode;
     private String paymentLinkId;
     private String status;
+    private Boolean isMock = false;
 
     public PayOSPaymentLinkResponse() {}
 
@@ -59,4 +60,7 @@ public class PayOSPaymentLinkResponse {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public Boolean getIsMock() { return isMock; }
+    public void setIsMock(Boolean isMock) { this.isMock = isMock; }
 }
