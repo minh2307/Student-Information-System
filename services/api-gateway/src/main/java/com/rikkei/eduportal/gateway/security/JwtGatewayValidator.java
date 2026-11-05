@@ -72,6 +72,9 @@ public class JwtGatewayValidator {
         if (path.startsWith("/api/v1/admin") || path.startsWith("/api/v1/announcements")) {
             return "ADMIN".equals(normalizedRole);
         }
+        if (path.startsWith("/api/v1/lecturer/early-warnings/my-alerts")) {
+            return "STUDENT".equals(normalizedRole) || "LECTURER".equals(normalizedRole) || "ADMIN".equals(normalizedRole);
+        }
         if (path.startsWith("/api/v1/lecturer")) {
             return "LECTURER".equals(normalizedRole) || "ADMIN".equals(normalizedRole);
         }
