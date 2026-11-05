@@ -78,6 +78,11 @@ public class PayOSService {
      */
     @Transactional
     public PayOSPaymentLinkResponse createPaymentLink(String studentIdentifier, String semester) {
+        return createPaymentLink(studentIdentifier, semester, null, null);
+    }
+
+    @Transactional
+    public PayOSPaymentLinkResponse createPaymentLink(String studentIdentifier, String semester, String customReturnUrl, String customCancelUrl) {
         StudentProfile student = dashboardService.resolveStudent(studentIdentifier);
         String targetSemester = (semester != null && !semester.trim().isEmpty()) ? semester.trim() : "2024-25_SEM2";
 
@@ -109,7 +114,9 @@ public class PayOSService {
         }
 
         // Tạo chữ ký dữ liệu PayOS (sorted: amount, cancelUrl, description, orderCode, returnUrl)
-        String signature = computeCreatePaymentLinkSignature(amount, cancelUrl, description, orderCode, returnUrl, checksumKey);
+        String effectiveReturnUrl = (customReturnUrl != null && !customReturnUrl.isBlank()) ? customReturnUrl.trim() : this.returnUrl;
+        String effectiveCancelUrl = (customCancelUrl != null && !customCancelUrl.isBlank()) ? customCancelUrl.trim() : this.cancelUrl;
+        String signature = computeCreatePaymentLinkSignature(amount, effectiveCancelUrl, description, orderCode, effectiveReturnUrl, checksumKey);
 
         tuition.setPayosOrderCode(orderCode);
         tuitionFeeRepository.save(tuition);
@@ -140,8 +147,8 @@ public class PayOSService {
             requestBody.put("orderCode", orderCode);
             requestBody.put("amount", amount);
             requestBody.put("description", description);
-            requestBody.put("returnUrl", returnUrl);
-            requestBody.put("cancelUrl", cancelUrl);
+            requestBody.put("returnUrl", effectiveReturnUrl);
+            requestBody.put("cancelUrl", effectiveCancelUrl);
             requestBody.put("signature", signature);
 
             HttpHeaders headers = new HttpHeaders();

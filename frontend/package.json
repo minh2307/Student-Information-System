@@ -7,10 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test test/pwa.test.js",
+    "test": "node --test test/*.test.js",
     "test:pwa": "node --test test/pwa.test.js"
   },
   "dependencies": {
+    "@payos/payos-checkout": "^1.0.8",
     "axios": "^1.7.9",
     "clsx": "^2.1.1",
     "html5-qrcode": "^2.3.8",
