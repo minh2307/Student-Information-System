@@ -483,7 +483,7 @@ jobs:
         id: resolve
         run: |
           case "${GITHUB_REF_NAME}" in
-            main)    ENV_NAME="prod"    ; COMPOSE_FILE="docker-compose.prod.yml"    ; FRONTEND_PORT="80"   ;;
+            main)    ENV_NAME="prod"    ; COMPOSE_FILE="docker-compose.prod.yml"    ; FRONTEND_PORT="3000" ;;
             staging) ENV_NAME="staging" ; COMPOSE_FILE="docker-compose.staging.yml" ; FRONTEND_PORT="3000" ;;
             *)       ENV_NAME="dev"     ; COMPOSE_FILE="docker-compose.dev.yml"     ; FRONTEND_PORT="3000" ;;
           esac

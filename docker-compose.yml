@@ -80,12 +80,15 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
-      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-demo-client-id}
-      PAYOS_API_KEY: ${PAYOS_API_KEY:-demo-api-key}
-      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-demo-checksum-key-32bytes-long!!}
-      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost:5173/student/tuition?status=PAID}
-      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost:5173/student/tuition?status=CANCELLED}
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-57fb1006-9ba1-472c-ba21-8536efcda5aa}
+      PAYOS_API_KEY: ${PAYOS_API_KEY:-22f2d865-a236-4f93-9f66-e845a1dae134}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a}
+      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost:3000/student/tuition?status=PAID}
+      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost:3000/student/tuition?status=CANCELLED}
     depends_on:
       postgres:
         condition: service_healthy

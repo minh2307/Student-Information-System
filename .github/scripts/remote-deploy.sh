@@ -61,7 +61,12 @@ fi
 sleep 2
 
 # Frontend port mặc định là 3000 (được host nginx reverse proxy từ 80 & 443 SSL)
-RESOLVED_FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+# Nếu host Nginx đang chạy chiếm port 80, container frontend bắt buộc phải chạy ở port 3000
+if ss -tulpn 2>/dev/null | grep -q 'nginx.*:80\b' || netstat -tulpn 2>/dev/null | grep -q 'nginx.*:80\b'; then
+  RESOLVED_FRONTEND_PORT="3000"
+else
+  RESOLVED_FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+fi
 
 # Ghi file .env từ biến môi trường (được truyền qua SSH)
 {
