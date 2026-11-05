@@ -7,8 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test test/pwa.test.js",
-    "test:pwa": "node --test test/pwa.test.js"
+    "test": "node --test test/*.test.js",
+    "test:pwa": "node --test test/pwa.test.js",
+    "test:advisor": "node --test test/advisor-markdown.test.js"
   },
   "dependencies": {
     "axios": "^1.7.9",
