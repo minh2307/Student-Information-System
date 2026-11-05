@@ -155,6 +155,7 @@ export const StudentDashboard = () => {
                   alt="Rikkei Logo" 
                   className="h-7 w-auto object-contain"
                   onError={(e) => {
+                    e.target.onerror = null
                     e.target.src = '/images/logo.svg'
                   }}
                 />
@@ -190,6 +191,7 @@ export const StudentDashboard = () => {
                     alt={studentFullName}
                     className="w-full h-full object-cover"
                     onError={(e) => {
+                      e.target.onerror = null
                       e.target.src = '/images/avatar-student.jpg'
                     }}
                   />

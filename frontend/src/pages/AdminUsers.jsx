@@ -427,6 +427,7 @@ export const AdminUsers = () => {
                           alt="avatar"
                           className="w-10 h-10 rounded-xl bg-stone-100 border border-stone-200 object-cover shadow-2xs"
                           onError={(e) => {
+                            e.target.onerror = null
                             e.target.src = '/images/avatar-student.jpg'
                           }}
                         />

@@ -126,6 +126,7 @@ export function GradeRow({ student, isSaving, onSave, onToast }) {
             alt={student.fullName}
             className="w-9 h-9 rounded-full object-cover border border-stone-200 shadow-2xs shrink-0"
             onError={(e) => {
+              e.target.onerror = null
               e.target.src = '/images/avatar-student.jpg'
             }}
           />
@@ -263,6 +264,7 @@ export function GradeCard({ student, isSaving, onSave, onToast }) {
             alt={student.fullName}
             className="w-9 h-9 rounded-full object-cover border border-stone-200 shadow-2xs shrink-0"
             onError={(e) => {
+              e.target.onerror = null
               e.target.src = '/images/avatar-student.jpg'
             }}
           />
