@@ -64,7 +64,11 @@ public class EarlyWarningController {
      * Dành cho sinh viên tra cứu các cảnh báo học vụ của bản thân
      */
     @GetMapping("/my-alerts")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LECTURER', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<StudentRiskDto>>> getMyAlerts(Authentication authentication) {
+        if (authentication == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
         List<StudentRiskDto> alerts = earlyWarningService.getStudentSelfWarningsByUsername(authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Cảnh báo học vụ cá nhân", alerts));
     }

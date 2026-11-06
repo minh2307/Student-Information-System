@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "node --test test/*.test.js",
     "test:pwa": "node --test test/pwa.test.js",
-    "test:advisor": "node --test test/advisor-markdown.test.js"
+    "test:advisor": "node --test test/advisor-markdown.test.js",
+    "test:lighthouse": "node --test test/pwa-lighthouse.test.js",
+    "audit:pwa": "node scripts/run-lighthouse.mjs"
   },
   "dependencies": {
     "@payos/payos-checkout": "^1.0.8",

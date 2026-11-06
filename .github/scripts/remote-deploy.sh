@@ -3,6 +3,20 @@ set -e
 
 cd /opt/eduportal
 
+# Đảm bảo có tối thiểu 2GB Swap để chống OOM treo máy ảo khi chạy 5 microservices Java trên VPS 1GB RAM
+if [ $(free -m 2>/dev/null | awk '/^Swap:/ {print $2}' || echo "0") -lt 1024 ]; then
+  echo "=== Configuring 2GB Swap space on host to prevent OOM crash... ==="
+  if [ ! -f /swapfile ]; then
+    fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null || true
+    chmod 600 /swapfile 2>/dev/null || true
+    mkswap /swapfile 2>/dev/null || true
+  fi
+  swapon /swapfile 2>/dev/null || true
+  if ! grep -q '/swapfile' /etc/fstab 2>/dev/null; then
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab 2>/dev/null || true
+  fi
+fi
+
 echo "=== Diagnostic: Checking ports 80 and 3000 on host ==="
 if command -v ss >/dev/null 2>&1; then
   ss -tulpn 2>/dev/null | grep -E ':(80|3000)\b' || echo "No sockets listening on 80/3000 via ss"
@@ -47,7 +61,12 @@ fi
 sleep 2
 
 # Frontend port mặc định là 3000 (được host nginx reverse proxy từ 80 & 443 SSL)
-RESOLVED_FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+# Nếu host Nginx đang chạy chiếm port 80, container frontend bắt buộc phải chạy ở port 3000
+if ss -tulpn 2>/dev/null | grep -q 'nginx.*:80\b' || netstat -tulpn 2>/dev/null | grep -q 'nginx.*:80\b'; then
+  RESOLVED_FRONTEND_PORT="3000"
+else
+  RESOLVED_FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+fi
 
 # Ghi file .env từ biến môi trường (được truyền qua SSH)
 {
@@ -63,6 +82,11 @@ RESOLVED_FRONTEND_PORT="${FRONTEND_PORT:-3000}"
   echo "AI_MAX_TOKENS=${AI_MAX_TOKENS:-1500}"
   echo "FRONTEND_PORT=${RESOLVED_FRONTEND_PORT}"
   echo "FRONTEND_ALT_PORT=${FRONTEND_ALT_PORT:-3000}"
+  echo "PAYOS_CLIENT_ID=${PAYOS_CLIENT_ID:-57fb1006-9ba1-472c-ba21-8536efcda5aa}"
+  echo "PAYOS_API_KEY=${PAYOS_API_KEY:-22f2d865-a236-4f93-9f66-e845a1dae134}"
+  echo "PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY:-2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a}"
+  echo "PAYOS_RETURN_URL=${PAYOS_RETURN_URL:-https://rikkeiportal.io.vn/student/tuition?status=PAID}"
+  echo "PAYOS_CANCEL_URL=${PAYOS_CANCEL_URL:-https://rikkeiportal.io.vn/student/tuition?status=CANCELLED}"
 } > .env
 
 # Đăng nhập GHCR nếu có token truyền vào (đảm bảo quyền pull các package mới/private)
