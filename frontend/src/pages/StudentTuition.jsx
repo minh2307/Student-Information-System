@@ -405,7 +405,11 @@ export const StudentTuition = () => {
 
       if (res.data?.data) {
         setPayOsData(res.data.data)
-        setActivePayOsTab('embedded')
+        const isMockLink =
+          res.data.data.isMock ||
+          res.data.data.paymentLinkId?.startsWith('PAYOS-LINK-') ||
+          res.data.data.paymentLinkId?.startsWith('PAYOS-FALLBACK-')
+        setActivePayOsTab(isMockLink ? 'qr' : 'embedded')
         setShowPayOsModal(true)
         setPollingActive(true)
       }
@@ -1161,14 +1165,64 @@ export const StudentTuition = () => {
                     id="payos-checkout-container"
                     className="w-full h-[540px] rounded-2xl overflow-hidden border border-stone-200 bg-stone-50 relative flex flex-col items-center justify-center shadow-inner"
                   >
-                    {!payOsData.checkoutUrl && (
+                    {payOsData.isMock ||
+                    payOsData.paymentLinkId?.startsWith('PAYOS-LINK-') ||
+                    payOsData.paymentLinkId?.startsWith('PAYOS-FALLBACK-') ? (
+                      <div className="w-full h-full p-6 flex flex-col items-center justify-center text-center space-y-4 bg-gradient-to-b from-stone-50 to-amber-50/30">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold shadow-2xs">
+                          <CreditCard size={24} />
+                        </div>
+                        <div className="max-w-md space-y-1">
+                          <h4 className="font-bold text-stone-900 text-sm">
+                            Cổng Thanh Toán PayOS (Chế Độ Thử Nghiệm Sandbox)
+                          </h4>
+                          <p className="text-xs text-stone-600">
+                            Hệ thống đang hoạt động ở chế độ Demo/Sandbox. Bạn có thể chuyển sang tab{' '}
+                            <strong>Mã VietQR</strong> để quét mã chuyển tiền hoặc bấm nút bên dưới để
+                            giả lập hoàn tất thanh toán tức thời.
+                          </p>
+                        </div>
+                        <div className="bg-white p-3.5 rounded-xl border border-stone-200 shadow-2xs text-xs space-y-1.5 w-full max-w-sm text-left font-mono">
+                          <div className="flex justify-between">
+                            <span className="text-stone-500 font-sans">Mã đơn hàng:</span>
+                            <strong className="text-red-700">#{payOsData.orderCode}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-stone-500 font-sans">Số tiền:</span>
+                            <strong className="text-stone-900 font-bold">{formatVnd(payOsData.amount)}</strong>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-stone-500 font-sans">Nội dung:</span>
+                            <strong className="text-stone-900">{payOsData.description}</strong>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center gap-2 pt-2 w-full max-w-sm">
+                          <button
+                            type="button"
+                            onClick={() => setActivePayOsTab('qr')}
+                            className="flex-1 px-4 py-2 bg-stone-900 hover:bg-black text-white text-xs font-semibold rounded-xl transition cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
+                          >
+                            <QrCode size={14} />
+                            <span>Mã VietQR & STK</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSimulatePayOsWebhook}
+                            className="flex-1 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl transition cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
+                          >
+                            <Sparkles size={14} />
+                            <span>⚡ Gạch Nợ Tức Thì</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : !payOsData.checkoutUrl ? (
                       <div className="text-center p-6 space-y-2">
                         <RefreshCw size={24} className="animate-spin mx-auto text-stone-400" />
                         <p className="text-xs text-stone-500 font-mono">
                           Đang tải giao diện thanh toán PayOS Checkout...
                         </p>
                       </div>
-                    )}
+                    ) : null}
                   </div>
 
                   <p className="text-[11px] text-stone-500 text-center font-sans">
@@ -1299,7 +1353,10 @@ export const StudentTuition = () => {
 
             {/* Modal Footer */}
             <div className="p-4 sm:p-5 border-t border-stone-200 bg-stone-50/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-              {payOsData.checkoutUrl ? (
+              {payOsData.checkoutUrl &&
+              !payOsData.isMock &&
+              !payOsData.paymentLinkId?.startsWith('PAYOS-LINK-') &&
+              !payOsData.paymentLinkId?.startsWith('PAYOS-FALLBACK-') ? (
                 <a
                   href={payOsData.checkoutUrl}
                   target="_blank"
