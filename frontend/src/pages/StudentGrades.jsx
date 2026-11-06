@@ -86,7 +86,7 @@ export const StudentGrades = () => {
             Bảng Ghi Điểm Học Tập & Đánh Giá Học Phần
           </h1>
           <p className="text-xs text-stone-600 mt-0.5">
-            Cơ cấu điểm kiểm tra: Chuyên cần (10%) • Đánh giá giữa kỳ (30%) • Thi kết thúc học phần (60%)
+            Cơ cấu điểm kiểm tra: Chuyên cần (10%) • Đánh giá giữa kỳ (40%) • Thi kết thúc học phần (50%)
           </p>
         </div>
 
@@ -189,16 +189,21 @@ export const StudentGrades = () => {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="md:hidden px-4 py-1.5 bg-stone-100/60 border-b border-stone-200 text-[10px] text-stone-500 flex items-center justify-between font-mono">
+            <span>Vuốt ngang để xem đủ cột điểm</span>
+            <span>👉</span>
+          </div>
+
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-left text-xs min-w-[700px]">
               <thead className="bg-stone-100/70 text-stone-600 text-[10px] uppercase font-mono tracking-wider border-b border-stone-200">
                 <tr>
                   <th className="px-4 py-3">Môn học</th>
                   <th className="px-3 py-3 text-center">Học kỳ</th>
                   <th className="px-3 py-3 text-center">Số TC</th>
                   <th className="px-3 py-3 text-right">Chuyên cần (10%)</th>
-                  <th className="px-3 py-3 text-right">Giữa kỳ (30%)</th>
-                  <th className="px-3 py-3 text-right">Cuối kỳ (60%)</th>
+                  <th className="px-3 py-3 text-right">Giữa kỳ (40%)</th>
+                  <th className="px-3 py-3 text-right">Cuối kỳ (50%)</th>
                   <th className="px-3 py-3 text-right font-bold text-red-800">Tổng kết (Hệ 10)</th>
                   <th className="px-3 py-3 text-center">Điểm chữ</th>
                   <th className="px-4 py-3 text-center">Tình trạng</th>

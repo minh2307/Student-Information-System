@@ -1,6 +1,7 @@
 package com.rikkei.eduportal.enrollment.exception;
 
 import com.rikkei.eduportal.common.ApiResponse;
+import com.rikkei.eduportal.enrollment.dto.BatchReservationErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -17,6 +18,25 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(BatchReservationException.class)
+    public ResponseEntity<BatchReservationErrorResponse> handleBatchReservationException(BatchReservationException ex) {
+        log.warn("Batch reservation failed: status={} code={} reason={} course={} message={}",
+                ex.getStatus(),
+                ex.getCode(),
+                ex.getDetails() != null ? ex.getDetails().getReason() : "N/A",
+                ex.getDetails() != null ? ex.getDetails().getFailedCourseId() : "N/A",
+                ex.getMessage());
+
+        BatchReservationErrorResponse response = new BatchReservationErrorResponse(
+                false,
+                ex.getStatus(),
+                ex.getCode(),
+                ex.getMessage(),
+                ex.getDetails()
+        );
+        return ResponseEntity.status(ex.getStatus()).body(response);
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
@@ -46,6 +66,13 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining("; "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(400, "Dữ liệu yêu cầu không hợp lệ: " + errors));
+    }
+
+    @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})
+    public ResponseEntity<ApiResponse<Void>> handleIllegalStateAndArgument(RuntimeException ex) {
+        log.warn("Invalid request state or argument: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(400, ex.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)

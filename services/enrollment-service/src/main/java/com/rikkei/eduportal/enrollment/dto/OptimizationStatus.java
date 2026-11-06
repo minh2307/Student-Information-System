@@ -28,5 +28,25 @@ public enum OptimizationStatus {
     /**
      * The request was invalid (e.g., empty course list, credit limit exceeded BR-01).
      */
-    INVALID_REQUEST
+    INVALID_REQUEST,
+
+    /**
+     * Search completed fully and optimal solution found.
+     */
+    OPTIMAL,
+
+    /**
+     * Timeout occurred but a valid feasible non-conflicting solution was found (best-so-far).
+     */
+    FEASIBLE_TIMEOUT,
+
+    /**
+     * No course input provided (empty course list).
+     */
+    NO_INPUT,
+
+    /**
+     * Search timed out before any valid feasible solution could be found.
+     */
+    TIMEOUT_NO_SOLUTION
 }

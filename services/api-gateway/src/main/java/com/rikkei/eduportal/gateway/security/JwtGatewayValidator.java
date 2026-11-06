@@ -48,7 +48,9 @@ public class JwtGatewayValidator {
             path.startsWith("/api/v1/public") ||
             path.startsWith("/actuator") ||
             path.equals("/error") ||
-            path.equals("/api/v1/student/class-sections/live-seats")) {
+            path.equals("/api/v1/student/class-sections/live-seats") ||
+            path.startsWith("/api/v1/student/calendar/feed") ||
+            path.startsWith("/api/v1/calendar/feed")) {
             return true;
         }
 
@@ -56,7 +58,8 @@ public class JwtGatewayValidator {
         if ("GET".equalsIgnoreCase(method)) {
             if (path.equals("/api/v1/courses") || path.startsWith("/api/v1/courses/") ||
                 path.equals("/api/v1/semesters") || path.startsWith("/api/v1/semesters/") ||
-                path.equals("/api/v1/student/class-sections")) {
+                path.equals("/api/v1/student/class-sections") ||
+                path.startsWith("/api/v1/announcements")) {
                 return true;
             }
         }
@@ -68,8 +71,11 @@ public class JwtGatewayValidator {
         if (userRole == null) return false;
         String normalizedRole = userRole.toUpperCase().replace("ROLE_", "");
 
-        if (path.startsWith("/api/v1/admin")) {
+        if (path.startsWith("/api/v1/admin") || path.startsWith("/api/v1/announcements")) {
             return "ADMIN".equals(normalizedRole);
+        }
+        if (path.startsWith("/api/v1/lecturer/early-warnings/my-alerts")) {
+            return "STUDENT".equals(normalizedRole) || "LECTURER".equals(normalizedRole) || "ADMIN".equals(normalizedRole);
         }
         if (path.startsWith("/api/v1/lecturer")) {
             return "LECTURER".equals(normalizedRole) || "ADMIN".equals(normalizedRole);

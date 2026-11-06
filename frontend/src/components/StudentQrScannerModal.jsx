@@ -12,18 +12,23 @@ import {
   Loader2,
   ShieldAlert,
   Smartphone,
-  Check
+  Check,
+  SwitchCamera,
+  Zap,
+  ZapOff,
+  ExternalLink
 } from 'lucide-react'
 import api from '../services/api'
+import { toast } from '../store/toastStore'
 
 /**
  * Component Quét Mã QR Điểm Danh Chuyên Nghiệp (PWA / Mobile WebRTC Optimized).
  * Khắc phục triệt để:
- * 1. Camera bị đen / lỗi getUserMedia trên Safari iOS & Chrome Android (HTTPS check, camera fallback, playsinline).
- * 2. Xử lý cấp quyền thân thiện với hướng dẫn chi tiết theo hệ điều hành iOS/Android.
- * 3. Tối ưu quét mã QR máy chiếu từ xa hoặc góc nghiêng (Hardware BarcodeDetector, responsive qrbox, FPS tối ưu).
- * 4. Chống bắn request trùng lặp (Immediate pause scanner + atomic flag).
- * 5. Bắt thông báo "ĐÃ ĐIỂM DANH TRƯỚC ĐÓ" hiển thị an tâm cho sinh viên.
+ * 1. Camera bị đen / lỗi getUserMedia trên Safari iOS & Chrome Android (HTTPS check, camera fallback, playsinline, video.play()).
+ * 2. Cấp quyền thân thiện với hướng dẫn chi tiết theo hệ điều hành iOS/Android và nút Chuyển HTTPS.
+ * 3. Chống màn hình đen WebKit: cưỡng chế playsinline, webkit-playsinline, muted, autoplay, CSS object-fit cover.
+ * 4. Đổi camera trước/sau và bật/tắt đèn Flash khi thiết bị hỗ trợ.
+ * 5. Bắt thông báo "ĐÃ ĐIỂM DANH TRƯỚC ĐÓ" (HTTP 409) hiển thị biên nhận điểm danh rõ ràng.
  */
 export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
   const [activeTab, setActiveTab] = useState('camera') // 'camera' | 'manual'
@@ -34,221 +39,247 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
   const [checkInResult, setCheckInResult] = useState(null)
   const [errorMessage, setErrorMessage] = useState(null)
   const [isDuplicate, setIsDuplicate] = useState(false)
-  const [activeCameraLabel, setActiveCameraLabel] = useState('')
+  const [showPermissionGuide, setShowPermissionGuide] = useState(false)
+
+  // Quản lý danh sách camera & Flash trên mobile
+  const [cameras, setCameras] = useState([])
+  const [selectedCameraId, setSelectedCameraId] = useState(null)
+  const [torchOn, setTorchOn] = useState(false)
+  const [supportsTorch, setSupportsTorch] = useState(false)
 
   const scannerRef = useRef(null)
   const isStartedRef = useRef(false)
   const isProcessingRef = useRef(false)
   const containerId = 'qr-camera-viewport'
 
-  // Kiểm tra context bảo mật (HTTPS hoặc localhost) bắt buộc cho WebRTC trên mobile
-  const checkSecureContext = () => {
-    const isLocalhost =
+  // Kiểm tra Secure Context (HTTPS hoặc localhost) bắt buộc cho WebRTC trên mobile
+  const isSecureContext =
+    typeof window !== 'undefined' &&
+    (window.isSecureContext ||
+      window.location.protocol === 'https:' ||
       window.location.hostname === 'localhost' ||
       window.location.hostname === '127.0.0.1' ||
-      window.location.hostname === '[::1]'
+      window.location.hostname === '[::1]')
 
-    const isSecure = window.isSecureContext || window.location.protocol === 'https:' || isLocalhost
-
-    if (!isSecure) {
-      return {
-        valid: false,
-        type: 'INSECURE_CONTEXT',
-        title: 'Yêu cầu kết nối bảo mật (HTTPS)',
-        message:
-          'Trình duyệt di động (iOS Safari / Android Chrome) chặn quyền truy cập Camera qua HTTP không an toàn. Vui lòng truy cập qua HTTPS hoặc dùng chức năng "Nhập Mã Thủ Công" bên dưới.'
-      }
+  const handleSwitchToHttps = () => {
+    if (typeof window !== 'undefined') {
+      window.location.href = window.location.href.replace(/^http:/, 'https:')
     }
-
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      return {
-        valid: false,
-        type: 'UNSUPPORTED',
-        title: 'Thiết bị không hỗ trợ MediaDevices',
-        message:
-          'Trình duyệt của bạn không hỗ trợ API truy cập camera WebRTC. Vui lòng cập nhật trình duyệt mới nhất hoặc nhập mã điểm danh thủ công.'
-      }
-    }
-
-    return { valid: true }
   }
 
   // Dừng Camera Scanner an toàn và giải phóng tài nguyên WebRTC
   const stopScanner = useCallback(async () => {
-    if (scannerRef.current && isStartedRef.current) {
+    if (scannerRef.current) {
       try {
-        await scannerRef.current.stop()
+        if (isStartedRef.current) {
+          await scannerRef.current.stop()
+        }
+        scannerRef.current.clear()
       } catch (err) {
         console.warn('Lỗi khi dừng scanner:', err)
       } finally {
         isStartedRef.current = false
         setIsScanning(false)
+        setTorchOn(false)
+        setSupportsTorch(false)
       }
     }
   }, [])
 
   // Bắt đầu Camera Scanner với cơ chế dò Camera sau (Environment) và Fallback thông minh
-  const startScanner = useCallback(async () => {
+  const startScanner = useCallback(async (preferredCameraId = null) => {
     setCameraError(null)
     setErrorMessage(null)
     setIsDuplicate(false)
+    setIsScanning(false)
     isProcessingRef.current = false
 
-    // 1. Kiểm tra môi trường HTTPS / WebRTC
-    const contextCheck = checkSecureContext()
-    if (!contextCheck.valid) {
-      setCameraError(contextCheck)
-      setIsScanning(false)
+    await stopScanner()
+
+    // 1. Kiểm tra HTTPS trên Mobile
+    if (!isSecureContext) {
+      setCameraError(
+        'Trình duyệt di động (iOS Safari / Android Chrome) chặn quyền truy cập Camera qua HTTP không an toàn. Vui lòng chuyển sang kết nối HTTPS hoặc sử dụng tab Nhập Mã Thủ Công.'
+      )
       return
     }
 
-    // Đợi DOM mount container element
+    // 2. Kiểm tra hỗ trợ WebRTC/MediaDevices
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraError(
+        'Trình duyệt của bạn không hỗ trợ API truy cập camera WebRTC. Vui lòng cập nhật Safari/Chrome mới nhất hoặc nhập mã điểm danh thủ công.'
+      )
+      return
+    }
+
+    // Đợi DOM viewport render
     setTimeout(async () => {
       try {
         const element = document.getElementById(containerId)
         if (!element) return
 
-        // Dọn dẹp scanner cũ nếu còn treo
-        if (scannerRef.current && isStartedRef.current) {
-          await stopScanner()
-        }
-
         if (!scannerRef.current) {
-          scannerRef.current = new Html5Qrcode(containerId, {
-            verbose: false,
-            // Kích hoạt Native BarcodeDetector API trên GPU/NPU của iOS 17+ và Android Chrome
-            experimentalFeatures: {
-              useBarCodeDetectorIfSupported: true
-            }
-          })
+          scannerRef.current = new Html5Qrcode(containerId)
         }
 
-        // Cấu hình khung quét tối ưu cho góc máy chiếu
+        // Lấy danh sách camera trên thiết bị
+        let cameraList = []
+        try {
+          cameraList = await Html5Qrcode.getCameras()
+          if (Array.isArray(cameraList) && cameraList.length > 0) {
+            setCameras(cameraList)
+          }
+        } catch (e) {
+          console.warn('Không thể liệt kê danh sách camera:', e)
+        }
+
+        // Ưu tiên camera sau (back / rear / environment)
+        let cameraConfig = { facingMode: 'environment' }
+
+        if (preferredCameraId) {
+          cameraConfig = { deviceId: { exact: preferredCameraId } }
+        } else if (cameraList.length > 0) {
+          const rearCam = cameraList.find((c) =>
+            /back|rear|sau|environment|cam.*0/i.test(c.label)
+          ) || cameraList[cameraList.length - 1]
+
+          if (rearCam?.id) {
+            cameraConfig = { deviceId: { exact: rearCam.id } }
+            setSelectedCameraId(rearCam.id)
+          }
+        }
+
+        // Cấu hình quét tối ưu cho Mobile Safari iOS & Chrome Android
         const config = {
-          fps: 15, // Cân bằng tốt giữa tốc độ nhận diện và hiệu năng pin mobile
+          fps: 15,
           qrbox: (viewfinderWidth, viewfinderHeight) => {
             const minEdge = Math.min(viewfinderWidth, viewfinderHeight)
-            // Lấy 72% chiều nhỏ nhất để quét được cả mã QR từ xa trên máy chiếu
-            const edge = Math.max(Math.floor(minEdge * 0.72), 200)
-            return { width: edge, height: edge }
+            const boxSize = Math.floor(minEdge * 0.72)
+            return {
+              width: Math.max(160, Math.min(boxSize, 280)),
+              height: Math.max(160, Math.min(boxSize, 280))
+            }
           },
-          aspectRatio: 1.0,
-          disableFlip: false // Tự động căn chỉnh chiều camera sau
-        }
-
-        // 2. Tìm camera sau (Rear / Environment Camera) tối ưu trên mobile
-        let cameraToUse = { facingMode: 'environment' }
-
-        try {
-          const devices = await Html5Qrcode.getCameras()
-          if (devices && devices.length > 0) {
-            // Ưu tiên camera có label rear/back/environment/sau
-            const rearCamera = devices.find((d) =>
-              /back|rear|environment|sau|facing\s*back|0/i.test(d.label)
-            ) || devices[devices.length - 1] // Trên đa số điện thoại, camera sau nằm cuối danh sách
-
-            if (rearCamera) {
-              cameraToUse = rearCamera.id
-              setActiveCameraLabel(rearCamera.label || 'Camera sau')
-            }
+          aspectRatio: undefined,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
           }
-        } catch (deviceEnumErr) {
-          console.warn('Không thể liệt kê danh sách camera, fallback sang facingMode: environment', deviceEnumErr)
         }
 
-        // 3. Khởi động stream camera
+        // Khởi động Html5Qrcode
         try {
           await scannerRef.current.start(
-            cameraToUse,
+            cameraConfig,
             config,
-            handleScanSuccess,
-            () => {
-              // Frame không có QR -> bỏ qua không throw
-            }
-          )
-        } catch (startErr) {
-          // Fallback nếu deviceId gặp lỗi OverconstrainedError
-          console.warn('Thử lại với facingMode: environment cơ bản do lỗi:', startErr)
-          await scannerRef.current.start(
-            { facingMode: 'environment' },
-            config,
-            handleScanSuccess,
+            onScanSuccess,
             () => {}
           )
+        } catch (initialErr) {
+          console.warn('Lỗi với cameraConfig chỉ định, thử fallback facingMode environment/user:', initialErr)
+          try {
+            await scannerRef.current.start(
+              { facingMode: 'environment' },
+              config,
+              onScanSuccess,
+              () => {}
+            )
+          } catch (fallbackErr) {
+            console.warn('Thử fallback sang camera mặc định:', fallbackErr)
+            await scannerRef.current.start(
+              { facingMode: 'user' },
+              config,
+              onScanSuccess,
+              () => {}
+            )
+          }
         }
 
         isStartedRef.current = true
         setIsScanning(true)
+
+        // FIX MÀN HÌNH ĐEN TRÊN SAFARI iOS & CHROME ANDROID
+        const fixVideoElement = () => {
+          const video = document.querySelector(`#${containerId} video`)
+          if (video) {
+            video.setAttribute('playsinline', 'true')
+            video.setAttribute('webkit-playsinline', 'true')
+            video.setAttribute('muted', 'true')
+            video.muted = true
+            video.autoplay = true
+            video.style.width = '100%'
+            video.style.height = '100%'
+            video.style.objectFit = 'cover'
+            video.style.borderRadius = '0.75rem'
+
+            if (video.paused) {
+              video.play().catch((e) => console.warn('Lỗi gọi video.play():', e))
+            }
+          }
+        }
+
+        fixVideoElement()
+        setTimeout(fixVideoElement, 300)
+        setTimeout(fixVideoElement, 800)
+
+        // Kiểm tra đèn Flash/Torch
+        try {
+          const track = scannerRef.current.getVideoTrack()
+          const capabilities = track ? track.getCapabilities() : {}
+          if (capabilities.torch) {
+            setSupportsTorch(true)
+          }
+        } catch (e) {
+          // torch unsupported
+        }
+
       } catch (err) {
         console.error('Lỗi khởi động camera scanner:', err)
-        handleCameraError(err)
+        let friendlyMsg = 'Không thể mở camera. Vui lòng cấp quyền Camera trong cài đặt trình duyệt hoặc chuyển sang tab Nhập mã thủ công.'
+        if (err.name === 'NotAllowedError' || err.message?.includes('Permission denied')) {
+          friendlyMsg = 'Quyền Camera bị từ chối. Vui lòng nhấn vào biểu tượng ổ khóa trên thanh địa chỉ trình duyệt để cấp quyền Camera.'
+          setShowPermissionGuide(true)
+        } else if (err.name === 'NotFoundError' || err.message?.includes('device not found')) {
+          friendlyMsg = 'Không tìm thấy thiết bị camera trên máy. Vui lòng sử dụng tab Nhập Mã Thủ Công.'
+        }
+        setCameraError(friendlyMsg)
         setIsScanning(false)
       }
     }, 150)
-  }, [stopScanner])
+  }, [isSecureContext, stopScanner])
 
-  // Phân tích lỗi camera để đưa ra hướng dẫn trực quan thân thiện cho iOS và Android
-  const handleCameraError = (err) => {
-    const errorStr = (err?.name || err?.message || '').toString()
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
-    const isAndroid = /Android/.test(navigator.userAgent)
+  // Đổi camera trước/sau
+  const handleToggleCamera = async () => {
+    if (cameras.length <= 1) return
+    const currentIndex = cameras.findIndex((c) => c.id === selectedCameraId)
+    const nextIndex = (currentIndex + 1) % cameras.length
+    const nextCamera = cameras[nextIndex]
+    setSelectedCameraId(nextCamera.id)
+    await startScanner(nextCamera.id)
+  }
 
-    if (errorStr.includes('NotAllowedError') || errorStr.includes('PermissionDeniedError')) {
-      setCameraError({
-        type: 'PERMISSION_DENIED',
-        title: 'Quyền Truy Cập Camera Bị Chặn',
-        message: 'Trình duyệt chưa được cấp quyền mở Camera để quét mã.',
-        guide: isIOS
-          ? [
-              'Vào ứng dụng Cài đặt (Settings) trên iPhone/iPad',
-              'Cuộn xuống chọn Safari (hoặc Chrome nếu đang dùng Chrome)',
-              'Chọn mục Camera > Chuyển sang "Cho phép" (Allow) hoặc "Hỏi" (Ask)',
-              'Quay lại trang này và nhấn nút "Thử lại Camera" bên dưới.'
-            ]
-          : isAndroid
-          ? [
-              'Chạm vào biểu tượng Ổ khóa / Cài đặt ở góc trái thanh địa chỉ URL',
-              'Chọn mục Quyền (Permissions) > Máy ảnh (Camera)',
-              'Chuyển trạng thái sang "Cho phép" (Allow)',
-              'Tải lại trang web và tiếp tục.'
-            ]
-          : [
-              'Vui lòng nhấn vào biểu tượng ổ khóa/camera trên thanh địa chỉ của trình duyệt',
-              'Cấp quyền truy cập máy ảnh và nhấn Thử lại.'
-            ]
-      })
-    } else if (errorStr.includes('NotFoundError') || errorStr.includes('DevicesNotFoundError')) {
-      setCameraError({
-        type: 'NOT_FOUND',
-        title: 'Không Tìm Thấy Camera',
-        message: 'Hệ thống không phát hiện thiết bị camera nào trên máy của bạn.'
-      })
-    } else if (errorStr.includes('NotReadableError') || errorStr.includes('TrackStartError')) {
-      setCameraError({
-        type: 'BUSY',
-        title: 'Camera Đang Bị Ứng Dụng Khác Chiếm Dụng',
-        message:
-          'Camera đang được sử dụng bởi ứng dụng khác (Zalo, Facebook, Zoom, hoặc ứng dụng Chụp ảnh). Vui lòng đóng các ứng dụng đó và thử lại.'
-      })
-    } else {
-      setCameraError({
-        type: 'GENERIC',
-        title: 'Không Thể Mở Camera',
-        message:
-          'Đã có sự cố khi kết nối tới cảm biến máy ảnh. Bạn có thể thử lại hoặc dùng tab "Nhập Mã Thủ Công".'
-      })
+  // Bật/Tắt Flash (Torch)
+  const handleToggleTorch = async () => {
+    if (!supportsTorch || !scannerRef.current) return
+    try {
+      const track = scannerRef.current.getVideoTrack()
+      if (track) {
+        const nextState = !torchOn
+        await track.applyConstraints({
+          advanced: [{ torch: nextState }]
+        })
+        setTorchOn(nextState)
+      }
+    } catch (e) {
+      console.warn('Lỗi bật/tắt đèn Flash:', e)
     }
   }
 
-  // Quản lý Lifecycle khi mở/đóng Modal hoặc đổi tab
   useEffect(() => {
     if (isOpen) {
       setCheckInResult(null)
       setErrorMessage(null)
       setIsDuplicate(false)
       setManualToken('')
-      isProcessingRef.current = false
-
       if (activeTab === 'camera') {
         startScanner()
       }
@@ -261,27 +292,34 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
     }
   }, [isOpen, activeTab, startScanner, stopScanner])
 
-  // Xử lý khi quét thấy mã QR: Dừng quét ngay lập tức để chống request trùng lặp
-  const handleScanSuccess = async (decodedText) => {
+  // Lắng nghe phím ESC & Khoá cuộn body khi mở Modal
+  useEffect(() => {
+    if (!isOpen) return
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen])
+
+  // Xử lý khi quét thấy mã QR
+  const onScanSuccess = async (decodedText) => {
     if (isProcessingRef.current || submitting) return
     isProcessingRef.current = true
-
     console.log('Quét thành công QR token:', decodedText)
 
-    // Tạm dừng scanner ngay để tránh frame kế tiếp quét trùng
-    try {
-      if (scannerRef.current && isStartedRef.current) {
-        await scannerRef.current.pause(true)
-      }
-    } catch (e) {
-      console.warn('Lỗi khi pause scanner, dừng hẳn scanner:', e)
-      await stopScanner()
-    }
-
+    await stopScanner()
     await submitAttendance(decodedText)
   }
 
-  // Gửi API điểm danh lên Backend
+  // Gửi API điểm danh kèm deviceInfo & clientTimestampMs
   const submitAttendance = async (token) => {
     if (!token || !token.trim()) {
       setErrorMessage('Mã điểm danh không hợp lệ.')
@@ -296,25 +334,59 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
     try {
       const res = await api.post('/attendance/check-in', {
         qrToken: token.trim(),
-        deviceInfo: navigator.userAgent
+        deviceInfo: navigator.userAgent,
+        clientTimestampMs: Date.now()
       })
 
       if (res.data?.data) {
-        setCheckInResult(res.data.data)
-        await stopScanner()
+        const result = res.data.data
+        setCheckInResult(result)
+
+        // Haptic feedback trên mobile
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([100, 50, 100])
+        }
+
+        // Bắn Toast xanh thành công hiển thị ngay lập tức
+        toast.success(
+          `Điểm danh thành công môn ${result.courseName || ''} (${result.sectionCode || ''})!`,
+          'Điểm Danh Thành Công'
+        )
+
         if (onSuccess) {
-          onSuccess(res.data.data)
+          onSuccess(result)
         }
       }
     } catch (err) {
       const status = err.response?.status
-      const msg = err.response?.data?.message || 'Điểm danh không thành công.'
+      const serverMsg = err.response?.data?.message || err.response?.data?.error
 
-      // Bắt trường hợp đã điểm danh trước đó (HTTP 409 hoặc thông báo ĐÃ ĐIỂM DANH TRƯỚC ĐÓ)
-      if (status === 409 || msg.includes('ĐÃ ĐIỂM DANH TRƯỚC ĐÓ') || msg.includes('đã điểm danh thành công')) {
+      let msg = ''
+      if (serverMsg && typeof serverMsg === 'string') {
+        msg = serverMsg
+      } else if (!err.response) {
+        msg = 'Không thể kết nối đến máy chủ điểm danh. Vui lòng kiểm tra kết nối mạng Wi-Fi/4G hoặc địa chỉ máy chủ.'
+      } else if (status === 403) {
+        msg = 'Bạn không thuộc danh sách sinh viên hợp lệ của lớp học phần này để điểm danh.'
+      } else if (status === 404) {
+        msg = 'Không tìm thấy phiên điểm danh hoặc phiên học đã bị hủy.'
+      } else if (status === 401) {
+        msg = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại tài khoản sinh viên.'
+      } else if (status === 400) {
+        msg = 'Mã QR đã hết hạn (TOTP 15s) hoặc phiên điểm danh đã bị giảng viên đóng.'
+      } else {
+        msg = `Điểm danh thất bại (HTTP ${status || 'Error'}). Vui lòng thử lại.`
+      }
+
+      const isDup = status === 409 || msg.includes('ĐÃ ĐIỂM DANH') || msg.includes('đã điểm danh thành công')
+      if (isDup) {
         setIsDuplicate(true)
-        setErrorMessage(msg)
-        await stopScanner()
+        setCheckInResult({
+          courseName: 'Lớp học phần hiện tại',
+          sectionCode: 'Đã hoàn tất',
+          message: 'Hệ thống đã ghi nhận điểm danh của bạn cho buổi học này rồi!'
+        })
+        toast.warning('Bạn đã điểm danh thành công môn học này trước đó!', 'Đã Điểm Danh')
       } else {
         setErrorMessage(msg)
       }
@@ -324,7 +396,6 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
     }
   }
 
-  // Xử lý submit form mã thủ công
   const handleManualSubmit = (e) => {
     e.preventDefault()
     submitAttendance(manualToken)
@@ -335,52 +406,91 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
     onClose()
   }
 
-  // Quét lại mã mới (dành cho trường hợp token hết hạn hoặc lỗi góc máy)
-  const handleRetryCamera = async () => {
+  const handleRetryCamera = () => {
     setCheckInResult(null)
     setErrorMessage(null)
     setIsDuplicate(false)
-    isProcessingRef.current = false
-
-    if (scannerRef.current && isStartedRef.current) {
-      try {
-        await scannerRef.current.resume()
-        return
-      } catch (resumeErr) {
-        console.warn('Resume không thành công, khởi động lại scanner:', resumeErr)
-      }
-    }
-
-    await stopScanner()
-    startScanner()
+    startScanner(selectedCameraId)
   }
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in">
-      <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[92vh]">
+    <div 
+      className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose()
+      }}
+    >
+      {/* CSS chống màn hình đen & tối ưu hiển thị video trên iOS Safari & Android Chrome */}
+      <style>{`
+        #${containerId} {
+          width: 100% !important;
+          min-height: 280px !important;
+          max-height: 340px !important;
+          position: relative !important;
+          background: #000 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          overflow: hidden !important;
+          border-radius: 0.75rem !important;
+        }
+        #${containerId} video {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
+          border-radius: 0.75rem !important;
+          display: block !important;
+        }
+        #${containerId} canvas.html5-qrcode-element {
+          display: none !important;
+        }
+      `}</style>
+
+      <div 
+        className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-xs">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
               <QrCode size={18} />
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-800">Quét Mã QR Điểm Danh</h3>
-              <p className="text-[11px] text-slate-500 font-medium">TOTP Bảo Mật • Xoay 15 Giây/Lần</p>
+              <p className="text-[11px] text-slate-500">Mã TOTP bảo mật xoay 15 giây/lần</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={handleClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 active:bg-slate-300 transition-colors touch-manipulation cursor-pointer"
+            aria-label="Đóng Quét QR"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
-        {/* Tab switch (Chỉ hiển thị khi chưa có kết quả thành công) */}
-        {!checkInResult && !isDuplicate && (
+        {/* Cảnh báo nếu thiết bị đang dùng HTTP (không phải HTTPS) */}
+        {!isSecureContext && (
+          <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-200 flex items-center justify-between text-xs text-amber-800">
+            <div className="flex items-center gap-2">
+              <ShieldAlert size={16} className="text-amber-600 shrink-0" />
+              <span>Camera yêu cầu kết nối <strong>HTTPS</strong> trên di động.</span>
+            </div>
+            <button
+              onClick={handleSwitchToHttps}
+              className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-semibold flex items-center gap-1 shrink-0 ml-2"
+            >
+              Chuyển HTTPS <ExternalLink size={10} />
+            </button>
+          </div>
+        )}
+
+        {/* Tab switch */}
+        {!checkInResult && (
           <div className="flex border-b border-slate-100 bg-slate-50/50 p-1">
             <button
               onClick={() => {
@@ -389,12 +499,12 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
               }}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition ${
                 activeTab === 'camera'
-                  ? 'bg-white text-emerald-700 shadow-xs'
+                  ? 'bg-white text-emerald-700 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               <Camera size={14} />
-              Quét Camera Mobile
+              Quét Camera Trực Tiếp
             </button>
             <button
               onClick={() => {
@@ -404,7 +514,7 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
               }}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition ${
                 activeTab === 'manual'
-                  ? 'bg-white text-emerald-700 shadow-xs'
+                  ? 'bg-white text-emerald-700 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -414,92 +524,74 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
           </div>
         )}
 
-        {/* Body content */}
-        <div className="p-4 overflow-y-auto">
-          {/* TRƯỜNG HỢP 1: ĐIỂM DANH THÀNH CÔNG */}
+        {/* Body */}
+        <div className="p-4">
           {checkInResult ? (
-            <div className="py-6 text-center space-y-3 animate-in zoom-in-95 duration-200">
-              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                <CheckCircle2 size={38} className="stroke-[2.2]" />
+            /* Kết quả thành công hoặc đã điểm danh */
+            <div className="py-6 text-center space-y-3">
+              <div
+                className={`w-16 h-16 ${
+                  isDuplicate ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
+                } rounded-full flex items-center justify-center mx-auto shadow-inner animate-in zoom-in-75`}
+              >
+                {isDuplicate ? <Check size={36} /> : <CheckCircle2 size={36} />}
               </div>
               <div>
-                <span className="inline-block px-3 py-0.5 bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-full mb-1">
-                  ĐÃ XÁC NHẬN CÓ MẶT
+                <span
+                  className={`inline-block px-2.5 py-0.5 ${
+                    isDuplicate
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                      : 'bg-emerald-100 text-emerald-800'
+                  } text-[11px] font-bold rounded-full mb-1`}
+                >
+                  {isDuplicate ? 'ĐÃ ĐIỂM DANH TRƯỚC ĐÓ' : 'Đã Có Mặt'}
                 </span>
-                <h4 className="text-base font-extrabold text-slate-800">Điểm Danh Thành Công!</h4>
-                <p className="text-xs text-slate-600 mt-1 font-semibold">
-                  {checkInResult.courseName} <span className="font-mono text-emerald-700">({checkInResult.sectionCode})</span>
-                </p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Sinh viên: <span className="font-bold text-slate-700">{checkInResult.studentName}</span> ({checkInResult.studentCode})
-                </p>
-                <div className="mt-3 text-xs text-emerald-700 font-medium bg-emerald-50 border border-emerald-200/60 py-2 px-3.5 rounded-xl inline-block shadow-xs">
+                <h4 className="text-base font-bold text-slate-800">
+                  {isDuplicate ? 'Bạn Đã Điểm Danh Rồi!' : 'Điểm Danh Thành Công!'}
+                </h4>
+                {checkInResult.courseName && (
+                  <p className="text-xs text-slate-600 mt-1 font-medium">
+                    {checkInResult.courseName} ({checkInResult.sectionCode})
+                  </p>
+                )}
+                {checkInResult.studentName && (
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Sinh viên: <span className="font-semibold text-slate-700">{checkInResult.studentName}</span>{' '}
+                    ({checkInResult.studentCode})
+                  </p>
+                )}
+                <p
+                  className={`text-xs ${
+                    isDuplicate ? 'text-amber-700 bg-amber-50' : 'text-emerald-600 bg-emerald-50'
+                  } font-medium mt-1.5 py-1.5 px-3 rounded-lg inline-block`}
+                >
                   {checkInResult.message}
-                </div>
-              </div>
-              <button
-                onClick={handleClose}
-                className="w-full mt-4 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-sm transition active:scale-[0.99]"
-              >
-                Hoàn tất & Đóng
-              </button>
-            </div>
-          ) : isDuplicate ? (
-            /* TRƯỜNG HỢP 2: ĐÃ ĐIỂM DANH TRƯỚC ĐÓ (Deduplicated) */
-            <div className="py-6 text-center space-y-3 animate-in zoom-in-95 duration-200">
-              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                <Check size={38} className="stroke-[2.5]" />
-              </div>
-              <div>
-                <span className="inline-block px-3 py-0.5 bg-blue-100 text-blue-800 text-[11px] font-bold rounded-full mb-1">
-                  ĐÃ ĐIỂM DANH TRƯỚC ĐÓ
-                </span>
-                <h4 className="text-base font-extrabold text-slate-800">Bạn Đã Điểm Danh Phiên Này!</h4>
-                <p className="text-xs text-slate-600 mt-1.5 px-4 font-medium">
-                  {errorMessage || 'Hệ thống đã ghi nhận sự có mặt của bạn trước đó. Không cần quét lại.'}
                 </p>
               </div>
               <button
                 onClick={handleClose}
-                className="w-full mt-4 py-2.5 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900 shadow-sm transition active:scale-[0.99]"
+                className={`w-full mt-4 py-2.5 ${
+                  isDuplicate ? 'bg-slate-700 hover:bg-slate-800' : 'bg-emerald-600 hover:bg-emerald-700'
+                } text-white rounded-xl text-xs font-bold shadow-sm transition`}
               >
-                Đã hiểu, đóng cửa sổ
+                Đóng Cửa Sổ
               </button>
             </div>
           ) : activeTab === 'camera' ? (
-            /* TRƯỜNG HỢP 3: TAB CAMERA QUÉT */
+            /* Tab Camera Scanner */
             <div className="space-y-3">
-              {/* Thông báo lỗi Camera hoặc Quyền truy cập */}
               {cameraError ? (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-3 animate-in fade-in">
-                  <div className="flex items-start gap-2.5">
-                    <ShieldAlert size={22} className="text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <h5 className="text-xs font-bold text-amber-900">{cameraError.title}</h5>
-                      <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">{cameraError.message}</p>
-                    </div>
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-3 text-center">
+                  <AlertCircle size={26} className="text-amber-600 mx-auto" />
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-900">Không Thể Truy Cập Camera</h4>
+                    <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">{cameraError}</p>
                   </div>
 
-                  {/* Hướng dẫn chi tiết theo từng loại thiết bị */}
-                  {cameraError.guide && (
-                    <div className="p-3 bg-white/80 rounded-xl border border-amber-100 text-[11px] text-slate-700 space-y-1.5">
-                      <p className="font-bold text-slate-800 flex items-center gap-1">
-                        <Smartphone size={13} className="text-amber-600" /> Hướng dẫn cấp quyền máy ảnh:
-                      </p>
-                      <ol className="list-decimal list-inside space-y-1 text-slate-600 pl-1">
-                        {cameraError.guide.map((step, idx) => (
-                          <li key={idx} className="leading-tight">
-                            {step}
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 justify-end pt-1">
+                  <div className="flex gap-2 justify-center pt-1">
                     <button
                       onClick={handleRetryCamera}
-                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1 shadow-xs transition"
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition"
                     >
                       <RefreshCw size={12} /> Thử lại Camera
                     </button>
@@ -510,65 +602,119 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
                       Nhập mã tay
                     </button>
                   </div>
+
+                  {/* Accordion hướng dẫn cấp quyền camera trên iOS/Android */}
+                  <div className="pt-2 text-left border-t border-amber-200/60">
+                    <button
+                      type="button"
+                      onClick={() => setShowPermissionGuide(!showPermissionGuide)}
+                      className="text-[11px] font-bold text-amber-900 flex items-center justify-between w-full"
+                    >
+                      <span className="flex items-center gap-1">
+                        <Smartphone size={13} /> Hướng Dẫn Cấp Quyền Camera Trên Mobile
+                      </span>
+                      <span>{showPermissionGuide ? '▲' : '▼'}</span>
+                    </button>
+
+                    {showPermissionGuide && (
+                      <div className="mt-2 space-y-2 text-[10px] text-slate-600 bg-white/80 p-2.5 rounded-lg border border-amber-100">
+                        <div>
+                          <strong className="text-slate-800">📱 iPhone / Safari iOS:</strong>
+                          <ol className="list-decimal pl-4 mt-0.5 space-y-0.5">
+                            <li>Nhấn vào biểu tượng <strong>"aA"</strong> hoặc <strong>ổ khóa</strong> ở góc trái thanh địa chỉ.</li>
+                            <li>Chọn <strong>Cài đặt trang web (Website Settings)</strong> $\rightarrow$ Camera $\rightarrow$ chọn <strong>Cho phép (Allow)</strong>.</li>
+                            <li>Tải lại trang và nhấn Thử lại Camera.</li>
+                          </ol>
+                        </div>
+                        <div>
+                          <strong className="text-slate-800">🤖 Android / Chrome:</strong>
+                          <ol className="list-decimal pl-4 mt-0.5 space-y-0.5">
+                            <li>Nhấn vào biểu tượng <strong>ổ khóa / tùy chọn</strong> ở góc trái thanh địa chỉ.</li>
+                            <li>Chọn <strong>Quyền (Permissions)</strong> $\rightarrow$ Bật <strong>Máy ảnh (Camera)</strong>.</li>
+                            <li>Quay lại và nhấn Thử lại Camera.</li>
+                          </ol>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
-                /* Khung hình Viewport Quét Camera */
-                <div className="relative rounded-2xl overflow-hidden bg-black flex flex-col items-center justify-center min-h-[300px] border border-slate-800 shadow-inner">
+                <div className="relative rounded-xl overflow-hidden bg-black flex flex-col items-center justify-center min-h-[280px]">
                   {/* Div viewport cho Html5Qrcode */}
-                  <div id={containerId} className="w-full h-full min-h-[300px] max-h-[340px] overflow-hidden" />
+                  <div id={containerId} className="w-full h-full max-h-[320px] overflow-hidden" />
 
-                  {/* Overlay đường ngắm quét mã kiểu HUD */}
+                  {/* Khung ngắm ảo & tia quét laser realtime */}
                   {isScanning && !submitting && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                      <div className="relative w-52 h-52 border-2 border-emerald-400/50 rounded-2xl">
-                        {/* 4 góc ngắm */}
-                        <div className="absolute -top-1 -left-1 w-5 h-5 border-t-4 border-l-4 border-emerald-400 rounded-tl-lg" />
-                        <div className="absolute -top-1 -right-1 w-5 h-5 border-t-4 border-r-4 border-emerald-400 rounded-tr-lg" />
-                        <div className="absolute -bottom-1 -left-1 w-5 h-5 border-b-4 border-l-4 border-emerald-400 rounded-bl-lg" />
-                        <div className="absolute -bottom-1 -right-1 w-5 h-5 border-b-4 border-r-4 border-emerald-400 rounded-br-lg" />
-                        {/* Tia laser quét animation */}
-                        <div className="absolute inset-x-2 top-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_8px_#34d399] animate-[bounce_2.5s_infinite]" />
+                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                      <div className="w-56 h-56 border-2 border-emerald-400/80 rounded-2xl relative shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                        <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-emerald-400 rounded-tl-lg" />
+                        <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-emerald-400 rounded-tr-lg" />
+                        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-emerald-400 rounded-bl-lg" />
+                        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-emerald-400 rounded-br-lg" />
+                        {/* Tia quét laser chuyển động */}
+                        <div className="absolute left-2 right-2 h-0.5 bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse top-1/2 -translate-y-1/2" />
                       </div>
                     </div>
                   )}
 
-                  {/* Trạng thái đang xác thực */}
-                  {submitting && (
-                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center text-white gap-2.5 z-20">
-                      <Loader2 size={36} className="animate-spin text-emerald-400" />
-                      <p className="text-xs font-bold tracking-wide">Đang xác thực mã QR & thời gian TOTP...</p>
+                  {/* Thanh công cụ nổi trên camera (Đổi camera & Bật đèn Flash) */}
+                  {isScanning && !submitting && (
+                    <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+                      {supportsTorch && (
+                        <button
+                          onClick={handleToggleTorch}
+                          className={`p-2 rounded-full backdrop-blur-md transition ${
+                            torchOn
+                              ? 'bg-amber-400 text-slate-900 shadow-lg'
+                              : 'bg-black/40 text-white hover:bg-black/60'
+                          }`}
+                          title="Bật/Tắt Flash"
+                        >
+                          {torchOn ? <Zap size={16} /> : <ZapOff size={16} />}
+                        </button>
+                      )}
+                      {cameras.length > 1 && (
+                        <button
+                          onClick={handleToggleCamera}
+                          className="p-2 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition"
+                          title="Đổi camera trước/sau"
+                        >
+                          <SwitchCamera size={16} />
+                        </button>
+                      )}
                     </div>
                   )}
 
-                  {/* Trạng thái đang khởi động camera */}
+                  {/* Overlay trạng thái đang gửi API xác thực */}
+                  {submitting && (
+                    <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center text-white gap-2 z-20">
+                      <Loader2 size={32} className="animate-spin text-emerald-400" />
+                      <p className="text-xs font-semibold">Đang xác thực mã QR & thời gian TOTP...</p>
+                    </div>
+                  )}
+
+                  {/* Overlay đang mở máy ảnh */}
                   {!isScanning && !cameraError && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white/80 gap-2">
-                      <Loader2 size={26} className="animate-spin text-emerald-400" />
-                      <p className="text-xs font-medium">Đang kết nối camera sau...</p>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white/70 gap-2">
+                      <Loader2 size={24} className="animate-spin" />
+                      <p className="text-xs">Đang mở máy ảnh...</p>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Thông tin hỗ trợ */}
-              <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
-                <span>💡 Căn chỉnh mã QR trên máy chiếu vào giữa khung quét</span>
-                {activeCameraLabel && (
-                  <span className="font-mono text-[10px] text-slate-400 truncate max-w-[140px]">
-                    {activeCameraLabel}
-                  </span>
-                )}
-              </div>
+              <p className="text-center text-[11px] text-slate-400">
+                💡 Hướng camera về phía mã QR trên máy chiếu. Mã QR đổi mới mỗi 15 giây (dung sai 30s).
+              </p>
 
-              {/* Thông báo lỗi khi điểm danh thất bại */}
-              {errorMessage && !isDuplicate && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium flex items-start gap-2 animate-in fade-in">
+              {errorMessage && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium flex items-start gap-2">
                   <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="leading-tight">{errorMessage}</p>
+                  <div>
+                    <p>{errorMessage}</p>
                     <button
                       onClick={handleRetryCamera}
-                      className="text-emerald-700 hover:text-emerald-800 underline font-bold mt-1.5 inline-flex items-center gap-1 transition"
+                      className="text-emerald-700 underline font-semibold mt-1 inline-flex items-center gap-1"
                     >
                       <RefreshCw size={11} /> Quét lại mã mới
                     </button>
@@ -577,29 +723,28 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
               )}
             </div>
           ) : (
-            /* TRƯỜNG HỢP 4: TAB NHẬP MÃ THỦ CÔNG */
+            /* Tab Nhập mã thủ công */
             <form onSubmit={handleManualSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Mã Token Điểm Danh (TOTP):
+                  Mã Token Điểm Danh:
                 </label>
                 <textarea
                   rows={3}
                   value={manualToken}
                   onChange={(e) => setManualToken(e.target.value)}
                   placeholder="Dán mã token QR hiển thị trên màn chiếu (VD: 1.12.119284712.ab3f890...)"
-                  className="w-full text-xs font-mono p-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                  className="w-full text-xs font-mono p-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   required
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Mã thay đổi xoay vòng 15 giây/lần. Hệ thống cho phép dung sai bù trừ trễ mạng.
+                  Mã xoay vòng 15 giây/lần (dung sai 30 giây). Vui lòng gửi ngay khi lấy mã trên màn hình.
                 </p>
               </div>
 
-              {errorMessage && !isDuplicate && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium flex items-center gap-2">
-                  <AlertCircle size={15} className="shrink-0 text-red-500" />
-                  <span>{errorMessage}</span>
+              {errorMessage && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
+                  {errorMessage}
                 </div>
               )}
 
@@ -614,7 +759,7 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
                 <button
                   type="submit"
                   disabled={submitting || !manualToken.trim()}
-                  className="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {submitting && <Loader2 size={14} className="animate-spin" />}
                   {submitting ? 'Đang xác thực...' : 'Điểm danh ngay'}

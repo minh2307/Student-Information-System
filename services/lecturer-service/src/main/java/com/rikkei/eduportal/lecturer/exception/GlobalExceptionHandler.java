@@ -54,6 +54,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(409, ex.getMessage()));
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<?>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        log.warn("DataIntegrityViolation: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(409, "Bạn đã điểm danh thành công phiên học này rồi hoặc dữ liệu bị xung đột."));
+    }
+
     @ExceptionHandler(InvalidQrException.class)
     public ResponseEntity<ApiResponse<?>> handleInvalidQr(InvalidQrException ex) {
         log.warn("InvalidQr: {}", ex.getMessage());

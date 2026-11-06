@@ -73,8 +73,12 @@ public class TuitionController {
     @GetMapping("/payos/status")
     public ResponseEntity<ApiResponse<TuitionDto>> checkPayOSStatus(
             @RequestParam(required = false) String semester,
+            @RequestParam(required = false) Long orderCode,
             HttpServletRequest request) {
         String studentIdentifier = extractUser(request);
+        if (orderCode != null) {
+            payOSService.syncPaymentStatus(studentIdentifier, semester, orderCode);
+        }
         TuitionDto dto = tuitionService.getStudentTuition(studentIdentifier, semester);
         return ResponseEntity.ok(ApiResponse.success("Trạng thái quyết toán học phí", dto));
     }
