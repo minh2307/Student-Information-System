@@ -10,7 +10,7 @@ services:
     expose:
       - "5432"
     ports:
-      - "127.0.0.1:${DB_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-15432}:5432"
     volumes:
       - postgres_data_staging:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d:ro
@@ -38,7 +38,7 @@ services:
     container_name: eduportal-auth-staging
     restart: unless-stopped
     ports:
-      - "${AUTH_PORT:-8081}:8081"
+      - "127.0.0.1:${AUTH_PORT:-18081}:8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -46,7 +46,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
       SPRING_PROFILES_ACTIVE: staging
-      JAVA_OPTS: ${JAVA_OPTS:--Xmx110m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1}
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,7 +60,7 @@ services:
       resources:
         limits:
           cpus: '0.80'
-          memory: 180M
+          memory: 200M
         reservations:
           memory: 64M
     networks:
@@ -74,13 +74,13 @@ services:
     container_name: eduportal-course-staging
     restart: unless-stopped
     ports:
-      - "${COURSE_PORT:-8082}:8082"
+      - "127.0.0.1:${COURSE_PORT:-18082}:8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_PROFILES_ACTIVE: staging
-      JAVA_OPTS: ${JAVA_OPTS:--Xmx110m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1}
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
     depends_on:
       postgres:
         condition: service_healthy
@@ -94,7 +94,7 @@ services:
       resources:
         limits:
           cpus: '0.80'
-          memory: 180M
+          memory: 200M
         reservations:
           memory: 64M
     networks:
@@ -108,7 +108,7 @@ services:
     container_name: eduportal-enrollment-staging
     restart: unless-stopped
     ports:
-      - "${ENROLLMENT_PORT:-8083}:8083"
+      - "127.0.0.1:${ENROLLMENT_PORT:-18083}:8083"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -117,10 +117,10 @@ services:
       PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-demo-client-id}
       PAYOS_API_KEY: ${PAYOS_API_KEY:-demo-api-key}
       PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-demo-checksum-key-32bytes-long!!}
-      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost:3000/student/tuition?status=PAID}
-      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost:3000/student/tuition?status=CANCELLED}
+      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost:8080/student/tuition?status=PAID}
+      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost:8080/student/tuition?status=CANCELLED}
       SPRING_PROFILES_ACTIVE: staging
-      JAVA_OPTS: ${JAVA_OPTS:--Xmx110m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1}
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
     depends_on:
       postgres:
         condition: service_healthy
@@ -134,7 +134,7 @@ services:
       resources:
         limits:
           cpus: '0.80'
-          memory: 180M
+          memory: 200M
         reservations:
           memory: 64M
     networks:
@@ -148,7 +148,7 @@ services:
     container_name: eduportal-ai-staging
     restart: unless-stopped
     ports:
-      - "${AI_PORT:-8084}:8084"
+      - "127.0.0.1:${AI_PORT:-18084}:8084"
     environment:
       AI_API_KEY: ${AI_API_KEY:-demo-key}
       AI_BASE_URL: ${AI_BASE_URL:-https://openrouter.ai/api}
@@ -157,7 +157,7 @@ services:
       AI_MAX_TOKENS: ${AI_MAX_TOKENS:-1500}
       ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
       SPRING_PROFILES_ACTIVE: staging
-      JAVA_OPTS: ${JAVA_OPTS:--Xmx110m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1}
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
     depends_on:
       enrollment-service:
         condition: service_started
@@ -171,7 +171,7 @@ services:
       resources:
         limits:
           cpus: '0.80'
-          memory: 180M
+          memory: 200M
         reservations:
           memory: 64M
     networks:
@@ -185,7 +185,7 @@ services:
     container_name: eduportal-lecturer-staging
     restart: unless-stopped
     ports:
-      - "${LECTURER_PORT:-8085}:8085"
+      - "127.0.0.1:${LECTURER_PORT:-18085}:8085"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -194,10 +194,10 @@ services:
       PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-demo-client-id}
       PAYOS_API_KEY: ${PAYOS_API_KEY:-demo-api-key}
       PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-demo-checksum-key-32bytes-long!!}
-      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost:3000/student/tuition?status=PAID}
-      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost:3000/student/tuition?status=CANCELLED}
+      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost:8080/student/tuition?status=PAID}
+      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost:8080/student/tuition?status=CANCELLED}
       SPRING_PROFILES_ACTIVE: staging
-      JAVA_OPTS: ${JAVA_OPTS:--Xmx110m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1}
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
     depends_on:
       postgres:
         condition: service_healthy
@@ -211,7 +211,7 @@ services:
       resources:
         limits:
           cpus: '0.80'
-          memory: 180M
+          memory: 200M
         reservations:
           memory: 64M
     networks:
@@ -225,7 +225,8 @@ services:
     container_name: eduportal-frontend-staging
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-3000}:80"
+      # Secure Loopback Binding: Chỉ bind 127.0.0.1 để Newman trên VPS gọi nội bộ
+      - "${FRONTEND_BIND_IP:-127.0.0.1}:${FRONTEND_PORT:-8080}:80"
     depends_on:
       auth-service:
         condition: service_started
