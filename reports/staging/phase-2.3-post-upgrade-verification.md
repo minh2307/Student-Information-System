@@ -17,13 +17,19 @@ Lệnh kiểm tra không phá hủy được thực thi trực tiếp trên máy
 ```text
 $ free -h
                total        used        free      shared  buff/cache   available
-Mem:           954Mi       714Mi        84Mi       3.0Mi       299Mi       240Mi
-Swap:          2.0Gi       912Mi       1.1Gi
+Mem:           954Mi       858Mi        70Mi       2.8Mi       166Mi        95Mi
+Swap:          3.0Gi       907Mi       2.1Gi
 
 $ swapon --show
-NAME      TYPE SIZE   USED PRIO
-/swapfile file   2G 912.3M   -2
+NAME            TYPE  SIZE   USED PRIO
+/swapfile       file    2G 907.8M   -2
+/swapfile-extra file 1024M     0B   -3
+
+$ grep swap /etc/fstab
+/swapfile none swap sw 0 0
+/swapfile-extra none swap sw 0 0
 ```
+- **Xác nhận**: Đã tạo và kích hoạt thành công file `/swapfile-extra` (1.0GB, quyền `600`), nâng tổng Swap lên **3.0 GiB** (trống 2.1 GiB). Đã thêm cấu hình tự kích hoạt sau reboot vào `/etc/fstab`. Cả hai file swap cùng hoạt động song song.
 
 ### 1.2. Bộ vi xử lý CPU (`lscpu`, `nproc`)
 ```text
@@ -41,8 +47,9 @@ Socket(s):                            1
 ```text
 $ df -h /
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda2        20G   12G  6.8G  63% /
+/dev/sda2        20G   13G  5.8G  69% /
 ```
+- **Xác nhận**: Phân vùng gốc `/` còn trống **5.8 GB (5,800 MB)** sau khi tạo swapfile mới, bảo đảm dư dôi dung lượng cho log và container runtime.
 
 ### 1.4. Kiểm tra Cổng 8080 (`ss -tulpn | grep :8080`)
 ```text
