@@ -89,7 +89,12 @@ public class PayOSService {
         // Đồng bộ dữ liệu học phí mới nhất
         TuitionDto tuitionDto = tuitionService.getStudentTuition(studentIdentifier, targetSemester);
         TuitionFee tuition = tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), targetSemester)
-                .orElseThrow(() -> new IllegalStateException("Không tìm thấy bản ghi học phí cho kỳ " + targetSemester));
+                .orElse(null);
+
+        if (tuition == null || tuition.getTotalCredits() == null || tuition.getTotalCredits() == 0 ||
+                tuition.getTotalAmount() == null || tuition.getTotalAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("Chưa đăng ký học phần trong học kỳ này. Không thể tạo liên kết thanh toán.");
+        }
 
         BigDecimal remainingAmount = tuition.getTotalAmount().subtract(
                 tuition.getPaidAmount() != null ? tuition.getPaidAmount() : BigDecimal.ZERO
@@ -259,7 +264,68 @@ public class PayOSService {
             return Map.of("success", true, "message", "Webhook verified for test/unlinked order", "orderCode", orderCode);
         }
 
-        // 3. Quyết toán học phí tự động (Idempotent: nếu đã PAID thì không cộng dồn thêm)
+        // Xử lý hoàn tiền giao dịch (STT 12: Giao dịch đã hoàn tiền -> không tính vào tiền đã thanh toán ròng)
+        boolean isRefund = Boolean.TRUE.equals(data.get("isRefund"))
+                || "REFUND".equalsIgnoreCase(String.valueOf(data.get("status")))
+                || "REFUND".equalsIgnoreCase(String.valueOf(data.get("type")))
+                || desc.toUpperCase().contains("HOAN TIEN")
+                || desc.toUpperCase().contains("REFUND")
+                || amount < 0;
+
+        if (isRefund) {
+            String refundRef = reference.startsWith("REFUND") ? reference : "REFUND-" + reference;
+            if (tuition.getTransactionCode() != null && tuition.getTransactionCode().contains(refundRef)) {
+                log.info("Refund reference {} already recorded on tuition id {}, ignoring duplicate webhook", refundRef, tuition.getId());
+                return Map.of("success", true, "message", "Giao dịch hoàn tiền đã được ghi nhận trước đó", "orderCode", orderCode);
+            }
+
+            BigDecimal currentPaid = tuition.getPaidAmount() != null ? tuition.getPaidAmount() : BigDecimal.ZERO;
+            long refundAmount = Math.abs(amount);
+            BigDecimal newPaid = currentPaid.subtract(BigDecimal.valueOf(refundAmount));
+            if (newPaid.compareTo(BigDecimal.ZERO) < 0) {
+                newPaid = BigDecimal.ZERO;
+            }
+            tuition.setPaidAmount(newPaid);
+            if (newPaid.compareTo(tuition.getTotalAmount()) >= 0 && tuition.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
+                tuition.setStatus("PAID");
+            } else if (newPaid.compareTo(BigDecimal.ZERO) > 0) {
+                tuition.setStatus("PARTIAL");
+            } else {
+                tuition.setStatus("UNPAID");
+            }
+
+            String existingTxn = tuition.getTransactionCode();
+            String updatedTxn = (existingTxn != null && !existingTxn.isBlank())
+                    ? existingTxn + ", " + refundRef
+                    : refundRef;
+            if (updatedTxn.length() > 255) {
+                updatedTxn = updatedTxn.substring(updatedTxn.length() - 255);
+            }
+            tuition.setTransactionCode(updatedTxn);
+            tuitionFeeRepository.save(tuition);
+            log.info("PayOS Webhook: Xử lý hoàn tiền {} VNĐ cho orderCode {}, paidAmount mới: {}", refundAmount, orderCode, newPaid);
+
+            if (tuition.getStudent() != null && tuition.getStudent().getUser() != null) {
+                Notification notification = new Notification();
+                notification.setUser(tuition.getStudent().getUser());
+                notification.setTitle("Thông báo hoàn tiền học phí qua PayOS");
+                notification.setMessage(String.format("Hệ thống đã ghi nhận hoàn số tiền %,d VNĐ cho học kỳ %s qua cổng PayOS. Mã giao dịch: %s",
+                        refundAmount, tuition.getSemesterName(), refundRef));
+                notification.setType("TUITION");
+                notification.setLinkUrl("/student/tuition");
+                notification.setIsRead(false);
+                notificationRepository.save(notification);
+            }
+
+            return Map.of("success", true, "message", "Hoàn tiền học phí thành công", "orderCode", orderCode, "status", tuition.getStatus());
+        }
+
+        // 3. Quyết toán học phí tự động (Idempotent: nếu đã PAID hoặc reference đã ghi nhận trước đó thì không cộng dồn thêm)
+        if (tuition.getTransactionCode() != null && tuition.getTransactionCode().contains(reference)) {
+            log.info("Transaction reference {} already recorded on tuition id {}, ignoring duplicate webhook", reference, tuition.getId());
+            return Map.of("success", true, "message", "Giao dịch đã được ghi nhận trước đó", "orderCode", orderCode);
+        }
+
         if ("PAID".equalsIgnoreCase(tuition.getStatus())) {
             log.info("TuitionFee id {} already settled (status: PAID), ignoring duplicate webhook", tuition.getId());
             return Map.of("success", true, "message", "Học phí đã được quyết toán trước đó", "orderCode", orderCode);
@@ -277,7 +343,15 @@ public class PayOSService {
 
         tuition.setPaymentDate(LocalDateTime.now());
         tuition.setPaymentMethod("PayOS VietQR (Tự động)");
-        tuition.setTransactionCode(reference);
+
+        String existingTxn = tuition.getTransactionCode();
+        String updatedTxn = (existingTxn != null && !existingTxn.isBlank())
+                ? existingTxn + ", " + reference
+                : reference;
+        if (updatedTxn.length() > 255) {
+            updatedTxn = updatedTxn.substring(updatedTxn.length() - 255);
+        }
+        tuition.setTransactionCode(updatedTxn);
         tuitionFeeRepository.save(tuition);
 
         log.info("PayOS Webhook: Quyết toán học phí thành công cho studentId: {}, orderCode: {}, amount: {} VNĐ, status: {}",

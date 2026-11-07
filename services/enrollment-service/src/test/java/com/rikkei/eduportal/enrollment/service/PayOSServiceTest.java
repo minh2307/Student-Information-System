@@ -255,4 +255,210 @@ class PayOSServiceTest {
 
         assertTrue(payOSService.syncPaymentStatus("SV2024001", "2024-25_SEM2", 123456L));
     }
+
+    @Test
+    @DisplayName("TC-PAYOS-10 (STT 10): Giao dịch thanh toán thất bại (code != 00) => Không ghi nhận là đã thanh toán")
+    void testProcessWebhook_FailedTransaction_NotSettled() {
+        long orderCode = 998877L;
+        tuition.setStatus("UNPAID");
+        tuition.setPaidAmount(BigDecimal.ZERO);
+        tuition.setPayosOrderCode(orderCode);
+
+        Map<String, Object> data = new TreeMap<>();
+        data.put("amount", 4800000L);
+        data.put("code", "01"); // Thất bại
+        data.put("orderCode", orderCode);
+
+        String canonical = "amount=4800000&code=01&orderCode=998877";
+        String validSig = payOSService.computeHmacSha256(canonical, testChecksumKey);
+
+        PayOSWebhookPayload payload = new PayOSWebhookPayload("01", "Thanh toan that bai", false, data, validSig);
+
+        Map<String, Object> result = payOSService.processWebhook(payload);
+
+        assertEquals(false, result.get("success"));
+        assertEquals("UNPAID", tuition.getStatus());
+        assertEquals(BigDecimal.ZERO, tuition.getPaidAmount());
+        verify(tuitionFeeRepository, never()).save(any(TuitionFee.class));
+    }
+
+    @Test
+    @DisplayName("TC-PAYOS-11 (STT 11): Webhook thanh toán gửi nhiều lần với cùng mã reference => Không cộng tiền trùng")
+    void testProcessWebhook_DuplicateReference_DoesNotAddTwice() {
+        long orderCode = 887766L;
+        tuition.setStatus("PARTIAL");
+        tuition.setPaidAmount(BigDecimal.valueOf(2000000));
+        tuition.setTransactionCode("PAYOS-REF-887766");
+        tuition.setPayosOrderCode(orderCode);
+
+        when(tuitionFeeRepository.findByPayosOrderCode(orderCode)).thenReturn(Optional.of(tuition));
+
+        Map<String, Object> data = new TreeMap<>();
+        data.put("amount", 2000000L);
+        data.put("code", "00");
+        data.put("orderCode", orderCode);
+        data.put("reference", "PAYOS-REF-887766");
+
+        String canonical = "amount=2000000&code=00&orderCode=887766&reference=PAYOS-REF-887766";
+        String validSig = payOSService.computeHmacSha256(canonical, testChecksumKey);
+
+        PayOSWebhookPayload payload = new PayOSWebhookPayload("00", "success", true, data, validSig);
+
+        Map<String, Object> result = payOSService.processWebhook(payload);
+
+        assertEquals(true, result.get("success"));
+        assertEquals("Giao dịch đã được ghi nhận trước đó", result.get("message"));
+        // paidAmount vẫn giữ nguyên 2.000.000, không bị cộng đè lên 4.000.000
+        assertEquals(BigDecimal.valueOf(2000000), tuition.getPaidAmount());
+    }
+
+    @Test
+    @DisplayName("TC-PAYOS-12 (STT 12): Giao dịch đã hoàn tiền => Khấu trừ khỏi số tiền đã thanh toán ròng")
+    void testProcessWebhook_RefundTransaction_DeductsFromPaidAmount() {
+        long orderCode = 554433L;
+        tuition.setStatus("PAID");
+        tuition.setTotalAmount(BigDecimal.valueOf(4800000));
+        tuition.setPaidAmount(BigDecimal.valueOf(4800000));
+        tuition.setPayosOrderCode(orderCode);
+
+        when(tuitionFeeRepository.findByPayosOrderCode(orderCode)).thenReturn(Optional.of(tuition));
+        when(tuitionFeeRepository.save(any(TuitionFee.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Map<String, Object> data = new TreeMap<>();
+        data.put("amount", 1000000L);
+        data.put("code", "00");
+        data.put("orderCode", orderCode);
+        data.put("isRefund", true);
+        data.put("description", "HOAN TIEN HOC PHI MON CS401");
+
+        String canonical = "amount=1000000&code=00&description=HOAN TIEN HOC PHI MON CS401&isRefund=true&orderCode=554433";
+        String validSig = payOSService.computeHmacSha256(canonical, testChecksumKey);
+
+        PayOSWebhookPayload payload = new PayOSWebhookPayload("00", "refund", true, data, validSig);
+
+        Map<String, Object> result = payOSService.processWebhook(payload);
+
+        assertEquals(true, result.get("success"));
+        assertEquals("Hoàn tiền học phí thành công", result.get("message"));
+        // 4.800.000 - 1.000.000 = 3.800.000
+        assertEquals(BigDecimal.valueOf(3800000), tuition.getPaidAmount());
+        assertEquals("PARTIAL", tuition.getStatus());
+    }
+
+    @Test
+    @DisplayName("TC-PAYOS-13: Từ chối tạo payment link nếu chưa đăng ký học phần (totalCredits = 0)")
+    void testCreatePaymentLink_ZeroCredits_ThrowsException() {
+        TuitionFee zeroTuition = new TuitionFee();
+        zeroTuition.setTotalCredits(0);
+        zeroTuition.setTotalAmount(BigDecimal.ZERO);
+
+        when(dashboardService.resolveStudent("SV2024001")).thenReturn(student);
+        when(tuitionService.getStudentTuition("SV2024001", "2025-26_SEM1")).thenReturn(new TuitionDto());
+        when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2025-26_SEM1")).thenReturn(Optional.of(zeroTuition));
+
+        assertThrows(IllegalStateException.class, () -> {
+            payOSService.createPaymentLink("SV2024001", "2025-26_SEM1");
+        });
+    }
+
+    @Test
+    @DisplayName("TC-PAYOS-14: Webhook chuẩn PayOS không có isRefund => Được xử lý an toàn như giao dịch nộp tiền chuẩn")
+    void testProcessWebhook_StandardPayloadWithoutIsRefund_SettlesNormally() {
+        long orderCode = 443322L;
+        tuition.setStatus("UNPAID");
+        tuition.setTotalAmount(BigDecimal.valueOf(5700000));
+        tuition.setPaidAmount(BigDecimal.ZERO);
+        tuition.setPayosOrderCode(orderCode);
+        tuition.setTransactionCode(null);
+
+        when(tuitionFeeRepository.findByPayosOrderCode(orderCode)).thenReturn(Optional.of(tuition));
+        when(tuitionFeeRepository.save(any(TuitionFee.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Payload chuẩn thực tế từ PayOS: không hề có isRefund
+        Map<String, Object> data = new TreeMap<>();
+        data.put("accountNumber", "999988882025");
+        data.put("amount", 5700000L);
+        data.put("code", "00");
+        data.put("currency", "VND");
+        data.put("description", "HP SV2024001 SEM2");
+        data.put("orderCode", orderCode);
+        data.put("reference", "FT2401019999");
+
+        String canonical = "accountNumber=999988882025&amount=5700000&code=00&currency=VND&description=HP SV2024001 SEM2&orderCode=443322&reference=FT2401019999";
+        String validSig = payOSService.computeHmacSha256(canonical, testChecksumKey);
+
+        PayOSWebhookPayload payload = new PayOSWebhookPayload("00", "success", true, data, validSig);
+
+        Map<String, Object> result = payOSService.processWebhook(payload);
+
+        assertEquals(true, result.get("success"));
+        assertEquals(BigDecimal.valueOf(5700000), tuition.getPaidAmount());
+        assertEquals("PAID", tuition.getStatus());
+        assertEquals("FT2401019999", tuition.getTransactionCode());
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("TC-PAYOS-15: Webhook hoàn tiền gửi lặp lại với cùng mã reference => Không trừ tiền lần 2 (Idempotent refund)")
+    void testProcessWebhook_DuplicateRefund_DoesNotDeductTwice() {
+        long orderCode = 332211L;
+        tuition.setStatus("PARTIAL");
+        tuition.setTotalAmount(BigDecimal.valueOf(5700000));
+        tuition.setPaidAmount(BigDecimal.valueOf(4700000)); // Đã bị trừ 1M trước đó
+        tuition.setTransactionCode("FT2401011111, REFUND-RET12345");
+        tuition.setPayosOrderCode(orderCode);
+
+        when(tuitionFeeRepository.findByPayosOrderCode(orderCode)).thenReturn(Optional.of(tuition));
+
+        Map<String, Object> data = new TreeMap<>();
+        data.put("amount", 1000000L);
+        data.put("code", "00");
+        data.put("orderCode", orderCode);
+        data.put("isRefund", true);
+        data.put("reference", "RET12345");
+
+        String canonical = "amount=1000000&code=00&isRefund=true&orderCode=332211&reference=RET12345";
+        String validSig = payOSService.computeHmacSha256(canonical, testChecksumKey);
+
+        PayOSWebhookPayload payload = new PayOSWebhookPayload("00", "refund", true, data, validSig);
+
+        Map<String, Object> result = payOSService.processWebhook(payload);
+
+        assertEquals(true, result.get("success"));
+        assertEquals("Giao dịch hoàn tiền đã được ghi nhận trước đó", result.get("message"));
+        // paidAmount giữ nguyên 4.700.000, không bị trừ tiếp xuống 3.700.000
+        assertEquals(BigDecimal.valueOf(4700000), tuition.getPaidAmount());
+    }
+
+    @Test
+    @DisplayName("TC-PAYOS-16: Thanh toán nhiều lần (Partial Payments) => Ghép mã giao dịch và lưu vết đầy đủ")
+    void testProcessWebhook_MultiInstallment_AppendsTransactionCode() {
+        long orderCode = 221100L;
+        tuition.setStatus("PARTIAL");
+        tuition.setTotalAmount(BigDecimal.valueOf(5000000));
+        tuition.setPaidAmount(BigDecimal.valueOf(2000000));
+        tuition.setTransactionCode("FT240101_INSTALLMENT_1");
+        tuition.setPayosOrderCode(orderCode);
+
+        when(tuitionFeeRepository.findByPayosOrderCode(orderCode)).thenReturn(Optional.of(tuition));
+        when(tuitionFeeRepository.save(any(TuitionFee.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Map<String, Object> data = new TreeMap<>();
+        data.put("amount", 3000000L);
+        data.put("code", "00");
+        data.put("orderCode", orderCode);
+        data.put("reference", "FT240101_INSTALLMENT_2");
+
+        String canonical = "amount=3000000&code=00&orderCode=221100&reference=FT240101_INSTALLMENT_2";
+        String validSig = payOSService.computeHmacSha256(canonical, testChecksumKey);
+
+        PayOSWebhookPayload payload = new PayOSWebhookPayload("00", "success", true, data, validSig);
+
+        Map<String, Object> result = payOSService.processWebhook(payload);
+
+        assertEquals(true, result.get("success"));
+        assertEquals(BigDecimal.valueOf(5000000), tuition.getPaidAmount());
+        assertEquals("PAID", tuition.getStatus());
+        assertEquals("FT240101_INSTALLMENT_1, FT240101_INSTALLMENT_2", tuition.getTransactionCode());
+    }
 }
