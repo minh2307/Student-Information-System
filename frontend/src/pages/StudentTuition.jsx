@@ -405,11 +405,7 @@ export const StudentTuition = () => {
 
       if (res.data?.data) {
         setPayOsData(res.data.data)
-        const isMockLink =
-          res.data.data.isMock ||
-          res.data.data.paymentLinkId?.startsWith('PAYOS-LINK-') ||
-          res.data.data.paymentLinkId?.startsWith('PAYOS-FALLBACK-')
-        setActivePayOsTab(isMockLink ? 'qr' : 'embedded')
+        setActivePayOsTab('qr')
         setShowPayOsModal(true)
         setPollingActive(true)
       }
@@ -1121,19 +1117,6 @@ export const StudentTuition = () => {
             <div className="px-5 pt-3 border-b border-stone-200 bg-white flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setActivePayOsTab('embedded')}
-                className={`py-2 px-3.5 text-xs font-bold rounded-t-xl transition flex items-center gap-1.5 border-b-2 cursor-pointer ${
-                  activePayOsTab === 'embedded'
-                    ? 'border-red-700 text-red-700 bg-red-50/50'
-                    : 'border-transparent text-stone-500 hover:text-stone-800'
-                }`}
-              >
-                <Layers size={14} />
-                <span>Nhúng PayOS Checkout (Khung Thanh Toán)</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setActivePayOsTab('qr')}
                 className={`py-2 px-3.5 text-xs font-bold rounded-t-xl transition flex items-center gap-1.5 border-b-2 cursor-pointer ${
                   activePayOsTab === 'qr'
@@ -1142,7 +1125,20 @@ export const StudentTuition = () => {
                 }`}
               >
                 <QrCode size={14} />
-                <span>Mã VietQR &amp; Chi Tiết Đơn Hàng</span>
+                <span>Mã VietQR &amp; Chi Tiết Thanh Toán</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActivePayOsTab('embedded')}
+                className={`py-2 px-3.5 text-xs font-bold rounded-t-xl transition flex items-center gap-1.5 border-b-2 cursor-pointer ${
+                  activePayOsTab === 'embedded'
+                    ? 'border-red-700 text-red-700 bg-red-50/50'
+                    : 'border-transparent text-stone-500 hover:text-stone-800'
+                }`}
+              >
+                <Layers size={14} />
+                <span>Khung Nhúng PayOS Checkout</span>
               </button>
             </div>
 
@@ -1158,7 +1154,167 @@ export const StudentTuition = () => {
                 </div>
               </div>
 
-              {/* Tab 1: Embedded */}
+              {/* Tab 1: QR + Details (Primary & Default) */}
+              {activePayOsTab === 'qr' && (
+                <div className="space-y-4">
+                  <div className="relative mx-auto w-full max-w-sm bg-gradient-to-b from-stone-50 to-white border-2 border-stone-300 rounded-2xl p-4 flex flex-col items-center justify-center shadow-sm">
+                    <div className="w-full flex items-center justify-between pb-2 mb-3 border-b border-stone-200 text-[10px] font-mono font-bold">
+                      <span className="text-red-700 uppercase flex items-center gap-1">
+                        <QrCode size={12} /> PayOS VietQR 24/7
+                      </span>
+                      <span className="text-emerald-700 uppercase flex items-center gap-1">
+                        <CheckCircle2 size={12} /> Tự Động Gạch Nợ
+                      </span>
+                    </div>
+
+                    {payOsData.accountNumber ? (
+                      <div className="w-full flex flex-col items-center">
+                        <img
+                          src={`https://img.vietqr.io/image/${payOsData.bin || '970422'}-${payOsData.accountNumber}-vietqr_pro.svg?addInfo=${encodeURIComponent(
+                            payOsData.description || ''
+                          )}&amount=${payOsData.amount || 0}&accountName=${encodeURIComponent(
+                            payOsData.accountName || 'NGUYEN QUANG VINH'
+                          )}`}
+                          onError={(e) => {
+                            e.target.onerror = null
+                            e.target.src = `https://img.vietqr.io/image/${payOsData.bin || '970422'}-${payOsData.accountNumber}-compact2.png?addInfo=${encodeURIComponent(
+                              payOsData.description || ''
+                            )}&amount=${payOsData.amount || 0}&accountName=${encodeURIComponent(
+                              payOsData.accountName || 'NGUYEN QUANG VINH'
+                            )}`
+                          }}
+                          alt="PayOS VietQR Code"
+                          className="w-full max-w-[260px] h-auto object-contain rounded-xl shadow-2xs border border-stone-100 bg-white"
+                        />
+                        <p className="text-[11px] text-stone-600 text-center mt-3 font-medium">
+                          Mở App Ngân hàng bất kỳ &gt; Quét mã VietQR ở trên để thanh toán chính xác
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center text-xs text-stone-500">
+                        <RefreshCw size={24} className="animate-spin mx-auto text-stone-400 mb-2" />
+                        Đang tạo mã thanh toán VietQR PayOS...
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-stone-50/90 p-4 rounded-xl border border-stone-200 text-xs space-y-2.5 font-mono">
+                    <div className="flex justify-between items-center pb-2 border-b border-stone-200">
+                      <span className="text-stone-500 font-sans">Mã đơn hàng PayOS:</span>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-red-800 text-sm tracking-wide">
+                          #{payOsData.orderCode}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(String(payOsData.orderCode), 'Mã đơn hàng PayOS')}
+                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
+                          title="Sao chép mã đơn hàng"
+                        >
+                          {copiedField === 'Mã đơn hàng PayOS' ? (
+                            <CheckCheck size={13} className="text-emerald-700" />
+                          ) : (
+                            <Copy size={13} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-500 font-sans">Ngân hàng thụ hưởng:</span>
+                      <span className="text-stone-900 font-bold font-sans">
+                        MBBank (Ngân hàng TMCP Quân đội)
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-500 font-sans">Chủ tài khoản:</span>
+                      <strong className="text-stone-900 font-bold">
+                        {payOsData.accountName || 'NGUYEN QUANG VINH'}
+                      </strong>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-500 font-sans">Số tài khoản nhận:</span>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-stone-900 bg-white px-2 py-0.5 rounded border border-stone-200 text-sm font-bold">
+                          {payOsData.accountNumber}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(payOsData.accountNumber, 'Số tài khoản')}
+                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
+                          title="Sao chép số tài khoản"
+                        >
+                          {copiedField === 'Số tài khoản' ? (
+                            <CheckCheck size={13} className="text-emerald-700" />
+                          ) : (
+                            <Copy size={13} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-500 font-sans">Số tiền quyết toán:</span>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-red-700 text-sm font-bold">
+                          {formatVnd(payOsData.amount)}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(String(payOsData.amount), 'Số tiền')}
+                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
+                          title="Sao chép số tiền"
+                        >
+                          {copiedField === 'Số tiền' ? (
+                            <CheckCheck size={13} className="text-emerald-700" />
+                          ) : (
+                            <Copy size={13} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-500 font-sans">Nội dung chuyển tiền:</span>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-stone-900 bg-white px-2 py-0.5 rounded border border-stone-200">
+                          {payOsData.description}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleCopy(payOsData.description, 'Nội dung chuyển khoản PayOS')
+                          }
+                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
+                          title="Sao chép nội dung"
+                        >
+                          {copiedField === 'Nội dung chuyển khoản PayOS' ? (
+                            <CheckCheck size={13} className="text-emerald-700" />
+                          ) : (
+                            <Copy size={13} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {payOsData.checkoutUrl && (
+                    <a
+                      href={payOsData.checkoutUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-stone-900 hover:bg-black text-white text-xs font-bold transition cursor-pointer shadow-sm"
+                    >
+                      <ExternalLink size={14} />
+                      <span>Mở Cổng Thanh Toán PayOS (pay.payos.vn) ↗</span>
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Tab 2: Embedded */}
               {activePayOsTab === 'embedded' && (
                 <div className="space-y-3">
                   <div
@@ -1229,104 +1385,6 @@ export const StudentTuition = () => {
                     Nếu khung thanh toán bị chặn do bảo mật trình duyệt, bạn có thể chuyển qua tab{' '}
                     <strong>Mã VietQR</strong> hoặc bấm nút mở tab mới bên dưới.
                   </p>
-                </div>
-              )}
-
-              {/* Tab 2: QR + Details */}
-              {activePayOsTab === 'qr' && (
-                <div className="space-y-4">
-                  <div className="relative mx-auto w-60 h-auto min-h-60 bg-gradient-to-b from-stone-50 to-white border-2 border-stone-300 rounded-2xl p-4 flex flex-col items-center justify-center shadow-sm">
-                    <div className="w-full flex items-center justify-between pb-2 mb-2 border-b border-stone-200 text-[10px] font-mono font-bold">
-                      <span className="text-red-700 uppercase">PayOS VietQR</span>
-                      <span className="text-emerald-700 uppercase">Tự động gạch nợ</span>
-                    </div>
-
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                        payOsData.qrCode || ''
-                      )}`}
-                      alt="PayOS VietQR Code"
-                      className="w-48 h-48 object-contain rounded-lg shadow-2xs"
-                    />
-
-                    <p className="text-[10px] text-stone-500 text-center mt-2.5 font-medium">
-                      Mở App Ngân hàng bất kỳ &gt; Quét QR &gt; Bấm chuyển tiền
-                    </p>
-                  </div>
-
-                  <div className="bg-stone-50/80 p-3.5 rounded-xl border border-stone-200 text-xs space-y-2 font-mono">
-                    <div className="flex justify-between items-center pb-1 border-b border-stone-200">
-                      <span className="text-stone-500 font-sans">Mã đơn hàng PayOS:</span>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="text-red-800 text-sm tracking-wide">
-                          #{payOsData.orderCode}
-                        </strong>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(String(payOsData.orderCode), 'Mã đơn hàng PayOS')}
-                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
-                          title="Sao chép mã đơn hàng"
-                        >
-                          {copiedField === 'Mã đơn hàng PayOS' ? (
-                            <CheckCheck size={13} className="text-emerald-700" />
-                          ) : (
-                            <Copy size={13} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-stone-500 font-sans">Số tiền cần nộp:</span>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="text-stone-900 text-sm font-bold">
-                          {formatVnd(payOsData.amount)}
-                        </strong>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(String(payOsData.amount), 'Số tiền')}
-                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
-                          title="Sao chép số tiền"
-                        >
-                          {copiedField === 'Số tiền' ? (
-                            <CheckCheck size={13} className="text-emerald-700" />
-                          ) : (
-                            <Copy size={13} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-stone-500 font-sans">Nội dung chuyển:</span>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="text-stone-900 bg-white px-2 py-0.5 rounded border border-stone-200">
-                          {payOsData.description}
-                        </strong>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleCopy(payOsData.description, 'Nội dung chuyển khoản PayOS')
-                          }
-                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
-                          title="Sao chép nội dung"
-                        >
-                          {copiedField === 'Nội dung chuyển khoản PayOS' ? (
-                            <CheckCheck size={13} className="text-emerald-700" />
-                          ) : (
-                            <Copy size={13} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center pt-1 border-t border-stone-200">
-                      <span className="text-stone-500 font-sans">Tài khoản nhận:</span>
-                      <span className="text-stone-700">
-                        {payOsData.accountNumber} ({payOsData.accountName})
-                      </span>
-                    </div>
-                  </div>
                 </div>
               )}
 
