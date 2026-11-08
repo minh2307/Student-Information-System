@@ -70,6 +70,21 @@ function isSensitiveOrApiRequest(url) {
 }
 
 /**
+ * Read-only educational resources eligible for offline caching on mobile
+ * (Timetable, Grades, Semesters, Announcements)
+ */
+function isOfflineCacheableApi(request, url) {
+  if (request.method !== 'GET') return false;
+  const path = url.pathname.toLowerCase();
+  return (
+    path.includes('/student/timetable') ||
+    path.includes('/student/grades') ||
+    path.includes('/semesters') ||
+    path.includes('/announcements')
+  );
+}
+
+/**
  * Verify whether a request is an eligible static asset for Stale-While-Revalidate
  */
 function isStaticAsset(url) {
@@ -173,6 +188,53 @@ self.addEventListener('fetch', (event) => {
   const isSameOrigin = url.origin === self.location.origin;
   const isAllowedExternal = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
   if (!isSameOrigin && !isAllowedExternal) {
+    return;
+  }
+
+  // Rule 2.2: READ-ONLY OFFLINE CACHE (Timetable, Grades & Semesters on Mobile)
+  // Network-First with Service Worker Cache Fallback: students can view timetable & grades when offline in airplane mode
+  if (isOfflineCacheableApi(request, url)) {
+    event.respondWith(
+      caches.open(DYNAMIC_CACHE).then(async (cache) => {
+        try {
+          const networkResponse = await fetch(request);
+          if (networkResponse && networkResponse.status === 200) {
+            cache.put(request, networkResponse.clone());
+            limitCacheSize(DYNAMIC_CACHE, MAX_DYNAMIC_ITEMS);
+          }
+          return networkResponse;
+        } catch (networkError) {
+          // Offline / Airplane Mode: Fallback to cached response
+          const cachedResponse = await cache.match(request);
+          if (cachedResponse) {
+            const headers = new Headers(cachedResponse.headers);
+            headers.set('X-EduPortal-Offline-Cache', 'true');
+            return new Response(cachedResponse.body, {
+              status: cachedResponse.status,
+              statusText: cachedResponse.statusText,
+              headers
+            });
+          }
+          // If not in cache yet, return descriptive offline 503 response
+          return new Response(
+            JSON.stringify({
+              status: 503,
+              success: false,
+              message: 'Thiết bị đang ở chế độ Ngoại tuyến (Offline). Dữ liệu này chưa kịp lưu vào bộ nhớ đệm.',
+              offline: true
+            }),
+            {
+              status: 503,
+              statusText: 'Service Unavailable (Offline)',
+              headers: {
+                'Content-Type': 'application/json; charset=UTF-8',
+                'X-EduPortal-Offline': 'true'
+              }
+            }
+          );
+        }
+      })
+    );
     return;
   }
 

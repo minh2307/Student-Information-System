@@ -12,18 +12,35 @@ import {
   Printer, 
   ShieldCheck, 
   Info,
-  Filter 
+  Filter,
+  WifiOff 
 } from 'lucide-react'
 
 export const StudentGrades = () => {
   const [grades, setGrades] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false)
   const [selectedSemester, setSelectedSemester] = useState('ALL')
   const [showCredentialModal, setShowCredentialModal] = useState(false)
 
   useEffect(() => {
     fetchGrades()
+
+    const handleOnline = () => {
+      setIsOffline(false)
+      fetchGrades()
+    }
+    const handleOffline = () => {
+      setIsOffline(true)
+    }
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
   }, [])
 
   const fetchGrades = async () => {
@@ -33,13 +50,32 @@ export const StudentGrades = () => {
       const res = await api.get('/student/grades')
       if (res.data?.data) {
         setGrades(res.data.data)
+        try {
+          localStorage.setItem('eduportal_offline_grades', JSON.stringify(res.data.data))
+        } catch (e) {}
+        setIsOffline(typeof navigator !== 'undefined' ? !navigator.onLine : false)
+        return
       }
     } catch (err) {
-      console.error('Lỗi khi tải bảng điểm:', err)
-      setError(err.response?.data?.message || 'Không thể tải bảng điểm từ hệ thống')
-    } finally {
-      setLoading(false)
+      console.warn('Lỗi khi tải bảng điểm từ mạng, chuyển sang đọc Cache offline:', err)
     }
+
+    // Offline Fallback: Đọc dữ liệu từ localStorage Cache
+    const cached = localStorage.getItem('eduportal_offline_grades')
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setGrades(parsed)
+          setIsOffline(true)
+          setError(null)
+          return
+        }
+      } catch (e) {}
+    }
+
+    setError('Không thể tải bảng điểm từ hệ thống và chưa có bản lưu ngoại tuyến.')
+    setLoading(false)
   }
 
   // Danh sách các học kỳ có trong bảng điểm
@@ -124,6 +160,29 @@ export const StudentGrades = () => {
           </button>
         </div>
       </div>
+
+      {/* Offline Alert Banner (Chế độ máy bay / Ngắt kết nối mạng) */}
+      {isOffline && (
+        <div className="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-2xs print:hidden animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-2.5 w-2.5 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-600"></span>
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <WifiOff size={15} className="text-amber-700" />
+              <span>
+                <strong>Chế độ Ngoại tuyến (Offline):</strong> Bạn đang xem Bảng điểm chi tiết đã lưu trong bộ nhớ đệm (Cache). Toàn bộ điểm quá trình, điểm thi và GPA vẫn hiển thị bình thường khi không có kết nối internet.
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            <span className="text-[10px] font-bold text-amber-800 bg-amber-200/80 px-2.5 py-1 rounded-md uppercase tracking-wider">
+              Service Worker Cache
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* 2. Key Academic Indicators (Tabular, Anti-Slop) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
