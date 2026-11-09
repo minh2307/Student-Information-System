@@ -1,5 +1,12 @@
 server:
   port: 8083
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 20
+    max-connections: 2000
+    accept-count: 200
+    connection-timeout: 30000
 
 spring:
   application:
@@ -44,4 +51,3 @@ payos:
   base-url: ${PAYOS_BASE_URL:https://api-merchant.payos.vn}
   return-url: ${PAYOS_RETURN_URL:http://localhost:5173/student/tuition?status=PAID}
   cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5173/student/tuition?status=CANCELLED}
-
