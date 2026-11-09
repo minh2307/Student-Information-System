@@ -208,6 +208,11 @@ public class GatewayProxyController {
     }
 
     private String determineTargetService(String path) {
+        // Module Admin Exam Schedules
+        if (path.startsWith("/api/v1/admin/exam-schedules") || path.startsWith("/api/v1/admin/exams")) {
+            return enrollmentServiceUrl;
+        }
+
         // Module Course & Section & Admin Enrollment Approval & Semesters
         if (path.startsWith("/api/v1/admin/courses") ||
             path.startsWith("/api/v1/admin/class-sections") ||

@@ -547,6 +547,9 @@ jobs:
           AI_MAX_TOKENS: '1500'
           FRONTEND_PORT: ${{ vars.FRONTEND_PORT || steps.resolve.outputs.frontend_port }}
           FRONTEND_ALT_PORT: ${{ vars.FRONTEND_ALT_PORT || '3000' }}
+          PAYOS_CLIENT_ID: ${{ secrets.PAYOS_CLIENT_ID || '57fb1006-9ba1-472c-ba21-8536efcda5aa' }}
+          PAYOS_API_KEY: ${{ secrets.PAYOS_API_KEY || '22f2d865-a236-4f93-9f66-e845a1dae134' }}
+          PAYOS_CHECKSUM_KEY: ${{ secrets.PAYOS_CHECKSUM_KEY || '2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a' }}
           COMPOSE_FILE: ${{ steps.resolve.outputs.compose_file }}
           ENV_NAME: ${{ steps.resolve.outputs.env_name }}
           IMAGE_TAG: ${{ steps.resolve.outputs.tag }}
@@ -566,7 +569,7 @@ jobs:
             "${SSH_USER}@${SSH_HOST}:/opt/eduportal/"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             "${SSH_USER}@${SSH_HOST}" \
-            "COMPOSE_FILE='${COMPOSE_FILE}' ENV_NAME='${ENV_NAME}' IMAGE_TAG='${IMAGE_TAG}' REGISTRY='${REGISTRY}' IMAGE_PREFIX='${IMAGE_PREFIX}' DB_PASSWORD='${DB_PASSWORD}' JWT_SECRET='${JWT_SECRET}' AI_API_KEY='${AI_API_KEY}' AI_BASE_URL='${AI_BASE_URL}' AI_MODEL='${AI_MODEL}' AI_PROVIDER='${AI_PROVIDER}' AI_MAX_TOKENS='${AI_MAX_TOKENS}' FRONTEND_PORT='${FRONTEND_PORT}' FRONTEND_ALT_PORT='${FRONTEND_ALT_PORT}' GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' bash /opt/eduportal/remote-deploy.sh"
+            "COMPOSE_FILE='${COMPOSE_FILE}' ENV_NAME='${ENV_NAME}' IMAGE_TAG='${IMAGE_TAG}' REGISTRY='${REGISTRY}' IMAGE_PREFIX='${IMAGE_PREFIX}' DB_PASSWORD='${DB_PASSWORD}' JWT_SECRET='${JWT_SECRET}' AI_API_KEY='${AI_API_KEY}' AI_BASE_URL='${AI_BASE_URL}' AI_MODEL='${AI_MODEL}' AI_PROVIDER='${AI_PROVIDER}' AI_MAX_TOKENS='${AI_MAX_TOKENS}' FRONTEND_PORT='${FRONTEND_PORT}' FRONTEND_ALT_PORT='${FRONTEND_ALT_PORT}' PAYOS_CLIENT_ID='${PAYOS_CLIENT_ID}' PAYOS_API_KEY='${PAYOS_API_KEY}' PAYOS_CHECKSUM_KEY='${PAYOS_CHECKSUM_KEY}' GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' bash /opt/eduportal/remote-deploy.sh"
 
       - name: Notify deploy result
         if: always()

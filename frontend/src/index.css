@@ -23,11 +23,20 @@
    ==================================================================== */
 
 /* Momentum smooth scrolling cho iOS WebKit & Android Blink */
-.touch-scroll,
-.overflow-x-auto,
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
+}
+
 .overflow-y-auto {
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: auto;
+  overscroll-behavior-y: auto;
 }
 
 /* Safe area insets cho iPhone có Notch, Dynamic Island & Android Gesture Bar */
@@ -52,6 +61,7 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   border-radius: 1rem;
 }
 

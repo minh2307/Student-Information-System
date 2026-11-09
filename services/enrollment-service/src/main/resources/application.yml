@@ -45,9 +45,9 @@ schedule:
     max-solutions: 100
 
 payos:
-  client-id: ${PAYOS_CLIENT_ID:demo-client-id}
-  api-key: ${PAYOS_API_KEY:demo-api-key}
-  checksum-key: ${PAYOS_CHECKSUM_KEY:demo-checksum-key-32bytes-long!!}
+  client-id: ${PAYOS_CLIENT_ID:57fb1006-9ba1-472c-ba21-8536efcda5aa}
+  api-key: ${PAYOS_API_KEY:22f2d865-a236-4f93-9f66-e845a1dae134}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a}
   base-url: ${PAYOS_BASE_URL:https://api-merchant.payos.vn}
-  return-url: ${PAYOS_RETURN_URL:http://localhost:5173/student/tuition?status=PAID}
-  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5173/student/tuition?status=CANCELLED}
+  return-url: ${PAYOS_RETURN_URL:https://rikkeiportal.io.vn/student/tuition?status=PAID}
+  cancel-url: ${PAYOS_CANCEL_URL:https://rikkeiportal.io.vn/student/tuition?status=CANCELLED}
