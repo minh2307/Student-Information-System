@@ -428,7 +428,7 @@ public class RealtimeSeatService {
 
     /**
      * Broadcast một sự kiện SSE đến toàn bộ emitter (anonymous + authenticated).
-     * Dead emitter bị loại bỏ.
+     * Dead emitter bị loại bỏ và giải phóng tài nguyên lập tức.
      */
     private void broadcastToAll(SseEmitter.SseEventBuilder event, String eventLabel) {
         List<SseEmitter> dead = new ArrayList<>();
@@ -437,15 +437,26 @@ public class RealtimeSeatService {
         for (SseEmitter e : anonymousEmitters) {
             if (!sendEvent(e, event)) dead.add(e);
         }
+        for (SseEmitter e : dead) {
+            completeQuietly(e);
+        }
         anonymousEmitters.removeAll(dead);
 
         // Authenticated emitters (tất cả sinh viên)
-        for (CopyOnWriteArrayList<SseEmitter> list : studentEmitters.values()) {
+        for (Map.Entry<Long, CopyOnWriteArrayList<SseEmitter>> entry : studentEmitters.entrySet()) {
+            Long studentId = entry.getKey();
+            CopyOnWriteArrayList<SseEmitter> list = entry.getValue();
             List<SseEmitter> deadInList = new ArrayList<>();
             for (SseEmitter e : list) {
                 if (!sendEvent(e, event)) deadInList.add(e);
             }
+            for (SseEmitter e : deadInList) {
+                completeQuietly(e);
+            }
             list.removeAll(deadInList);
+            if (list.isEmpty()) {
+                studentEmitters.remove(studentId, list);
+            }
         }
 
         if (!dead.isEmpty()) {
@@ -469,7 +480,42 @@ public class RealtimeSeatService {
         for (SseEmitter e : list) {
             if (!sendEvent(e, event)) dead.add(e);
         }
+        for (SseEmitter e : dead) {
+            completeQuietly(e);
+        }
         list.removeAll(dead);
+        if (list.isEmpty()) {
+            studentEmitters.remove(studentId, list);
+        }
+    }
+
+    // ================================================================== //
+    //  Monitoring & Load Test Metrics Helper (EDUP-204, 200 SSE)         //
+    // ================================================================== //
+
+    /**
+     * Lấy tổng số kết nối SSE đang hoạt động (anonymous + authenticated).
+     */
+    public int getTotalActiveConnectionCount() {
+        return getActiveAnonymousCount() + getActiveAuthenticatedCount();
+    }
+
+    /**
+     * Lấy số kết nối SSE vãng lai đang mở.
+     */
+    public int getActiveAnonymousCount() {
+        return anonymousEmitters.size();
+    }
+
+    /**
+     * Lấy số kết nối SSE của sinh viên đã xác thực.
+     */
+    public int getActiveAuthenticatedCount() {
+        int count = 0;
+        for (CopyOnWriteArrayList<SseEmitter> list : studentEmitters.values()) {
+            count += list.size();
+        }
+        return count;
     }
 
     /**
