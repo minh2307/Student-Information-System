@@ -63,7 +63,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
 
       {/* Sidebar: Static on Desktop, Off-Canvas Drawer with 100dvh & Safe-Area on Mobile */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 sm:w-64 bg-white border-r border-stone-200/90 flex flex-col shrink-0 h-screen h-[100dvh] max-h-[100dvh] transition-transform duration-300 ease-in-out md:static md:translate-x-0 md:h-auto md:min-h-screen transform-gpu drawer-hardware-accelerated ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 sm:w-64 bg-white border-r border-stone-200/90 flex flex-col shrink-0 h-screen h-[100dvh] max-h-[100dvh] transition-transform duration-300 ease-in-out md:static md:translate-x-0 md:h-full md:max-h-screen transform-gpu drawer-hardware-accelerated ${
           mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full pointer-events-none md:pointer-events-auto'
         }`}
         aria-label="Thanh điều hướng chính"

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import api from '../services/api'
+import { useAuthStore } from '../store/authStore'
 import {
   FileCheck2,
   Calendar,
@@ -15,6 +16,9 @@ import {
 } from 'lucide-react'
 
 export const StudentExams = () => {
+  const user = useAuthStore((state) => state.user)
+  const studentCode = (user?.studentProfile?.studentCode || user?.username || 'SV').toUpperCase()
+  const studentName = user?.fullName || ''
   const [semesters, setSemesters] = useState([])
   const [selectedSemester, setSelectedSemester] = useState('')
   const [exams, setExams] = useState([])
@@ -117,17 +121,31 @@ export const StudentExams = () => {
       </div>
 
       {/* 2. Official Exam Rules Dispatch */}
-      <div className="bg-stone-50 border border-stone-200/90 rounded-xl p-4 text-xs text-stone-700 flex items-start gap-3 print:hidden">
-        <ShieldAlert size={18} className="text-red-700 shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <p className="font-bold text-stone-900 font-mono text-[11px] uppercase">
-            Quy định giám thị & Kỷ luật phòng thi học kỳ:
-          </p>
-          <ul className="list-disc list-inside space-y-0.5 text-stone-600 text-[11px]">
-            <li>Sinh viên phải xuất trình Thẻ sinh viên điện tử / CCCD hợp lệ trước khi vào bàn thi.</li>
-            <li>Có mặt trước cửa phòng thi 15 phút. Sinh viên đến muộn quá 15 phút sau khi bóc túi đề thi sẽ không được dự thi.</li>
-            <li>Không mang điện thoại, tài liệu không được phép vào phòng thi. Vi phạm sẽ bị lập biên bản đình chỉ thi.</li>
-          </ul>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 print:hidden">
+        <div className="bg-stone-50 border border-stone-200/90 rounded-xl p-4 text-xs text-stone-700 flex items-start gap-3">
+          <ShieldAlert size={18} className="text-red-700 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold text-stone-900 font-mono text-[11px] uppercase">
+              Quy định giám thị & Kỷ luật phòng thi:
+            </p>
+            <ul className="list-disc list-inside space-y-0.5 text-stone-600 text-[11px]">
+              <li>Xuất trình Thẻ sinh viên điện tử / CCCD hợp lệ khi vào phòng thi.</li>
+              <li>Có mặt trước giờ thi 15 phút. Muộn quá 15 phút sẽ không được dự thi.</li>
+              <li>Nghiêm cấm mang điện thoại, tài liệu trái phép vào phòng thi.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-xl p-4 text-xs text-emerald-950 flex items-start gap-3">
+          <CheckCircle2 size={18} className="text-emerald-700 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold text-emerald-900 font-mono text-[11px] uppercase">
+              Dữ liệu từ Phòng Đào tạo & Khảo thí (Admin):
+            </p>
+            <p className="text-emerald-800 text-[11px] leading-relaxed">
+              Lịch thi được đồng bộ tự động theo các lớp học phần bạn đã đăng ký trong học kỳ. Quản trị viên (Admin) xếp phòng thi, giám thị và giờ thi tập trung tại cổng quản trị.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -209,7 +227,8 @@ export const StudentExams = () => {
 
                 <div className="text-right shrink-0 self-end sm:self-center bg-stone-50 px-4 py-2.5 rounded-lg border border-stone-200">
                   <div className="text-[10px] uppercase font-mono font-bold text-stone-500">Số báo danh (SBD)</div>
-                  <div className="text-base font-bold font-mono text-stone-900">SV2024001</div>
+                  <div className="text-base font-bold font-mono text-stone-900">{studentCode}</div>
+                  {studentName && <div className="text-[11px] font-medium text-stone-700">{studentName}</div>}
                   <div className="text-[10px] text-emerald-700 font-medium mt-0.5 flex items-center gap-1 justify-end">
                     <ShieldCheck size={12} /> Đủ điều kiện dự thi
                   </div>

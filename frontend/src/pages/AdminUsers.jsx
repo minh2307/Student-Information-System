@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { getRealAvatar } from '../utils/avatarUtils'
 import { toast } from '../store/toastStore'
 import { confirmDialog } from '../store/confirmStore'
-import { Plus, Search, UserCheck, Shield, Trash2, Edit2, X, Check, Lock, Unlock, AlertCircle, CheckCircle, Key, History } from 'lucide-react'
+import { Plus, Search, UserCheck, Shield, Trash2, Edit2, X, Check, Lock, Unlock, AlertCircle, CheckCircle, Key, History, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 
 export const AdminUsers = () => {
   const currentUser = useAuthStore((state) => state.user)
@@ -121,9 +121,20 @@ export const AdminUsers = () => {
     degree: '',
   })
 
+  // State
+  const [currentPage, setCurrentPage] = useState(1)
+  const USERS_PER_PAGE = 10
+
   useEffect(() => {
+    setCurrentPage(1)
     fetchUsers()
   }, [selectedRole, keyword])
+
+  const totalPages = Math.max(1, Math.ceil(users.length / USERS_PER_PAGE))
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * USERS_PER_PAGE
+    return users.slice(start, start + USERS_PER_PAGE)
+  }, [users, currentPage])
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -195,20 +206,23 @@ export const AdminUsers = () => {
   }
 
   const openEditModal = (item) => {
-    setEditingUserId(item.user.id)
+    const u = item?.user || item || {}
+    const sp = item?.studentProfile || {}
+    const lp = item?.lecturerProfile || {}
+    setEditingUserId(u.id)
     setEditForm({
-      fullName: item.user.fullName || '',
-      email: item.user.email || '',
-      role: item.user.role || 'STUDENT',
-      status: item.user.status || 'ACTIVE',
-      avatarUrl: item.user.avatarUrl || '',
+      fullName: u.fullName || '',
+      email: u.email || '',
+      role: u.role || 'STUDENT',
+      status: u.status || 'ACTIVE',
+      avatarUrl: u.avatarUrl || '',
       password: '',
-      studentCode: item.studentProfile?.studentCode || '',
-      major: item.studentProfile?.major || '',
-      currentSemester: item.studentProfile?.currentSemester || 1,
-      lecturerCode: item.lecturerProfile?.lecturerCode || '',
-      department: item.lecturerProfile?.department || '',
-      degree: item.lecturerProfile?.degree || '',
+      studentCode: sp?.studentCode || '',
+      major: sp?.major || '',
+      currentSemester: sp?.currentSemester || 1,
+      lecturerCode: lp?.lecturerCode || '',
+      department: lp?.department || '',
+      degree: lp?.degree || '',
     })
     setShowEditModal(true)
   }
@@ -238,8 +252,9 @@ export const AdminUsers = () => {
   }
 
   const handleDeleteUser = async (id, username) => {
-    const targetItem = users.find((it) => it.user.id === id)
-    if (targetItem?.user?.role === 'ADMIN') {
+    const targetItem = users.find((it) => (it?.user?.id === id || it?.id === id))
+    const targetRole = targetItem?.user?.role || targetItem?.role
+    if (targetRole === 'ADMIN') {
       toast.warning('Không thể xóa tài khoản Quản trị viên (Admin)!')
       return
     }
@@ -266,16 +281,17 @@ export const AdminUsers = () => {
   }
 
   const handleToggleStatus = async (item) => {
-    if (item.user.role === 'ADMIN') {
+    const u = item?.user || item || {}
+    if (u.role === 'ADMIN') {
       toast.warning('Tài khoản Quản trị viên (Admin) luôn ở trạng thái hoạt động, không thể khóa!')
       return
     }
-    const nextStatus = item.user.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE'
+    const nextStatus = u.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE'
     try {
-      await api.put(`/admin/users/${item.user.id}`, { status: nextStatus })
+      await api.put(`/admin/users/${u.id}`, { status: nextStatus })
       const statusText = nextStatus === 'ACTIVE' ? 'mở khóa' : 'khóa'
-      toast.success(`Đã ${statusText} tài khoản ${item.user.username}!`)
-      setMessage({ type: 'success', text: `Đã ${statusText} tài khoản ${item.user.username}!` })
+      toast.success(`Đã ${statusText} tài khoản ${u.username}!`)
+      setMessage({ type: 'success', text: `Đã ${statusText} tài khoản ${u.username}!` })
       fetchUsers()
     } catch (err) {
       toast.error('Lỗi khi cập nhật trạng thái')
@@ -284,9 +300,10 @@ export const AdminUsers = () => {
   }
 
   const handleResetPassword = async (item) => {
+    const u = item?.user || item || {}
     const confirmed = await confirmDialog({
       title: 'Đặt lại mật khẩu mặc định',
-      message: `Bạn có muốn đặt lại mật khẩu cho tài khoản "${item.user.username}" về mật khẩu mặc định "123456" không?`,
+      message: `Bạn có muốn đặt lại mật khẩu cho tài khoản "${u.username}" về mật khẩu mặc định "123456" không?`,
       confirmText: 'Đặt lại về 123456',
       cancelText: 'Hủy bỏ',
       variant: 'warning',
@@ -294,9 +311,9 @@ export const AdminUsers = () => {
     if (!confirmed) return
 
     try {
-      await api.put(`/admin/users/${item.user.id}`, { password: '123456' })
-      toast.success(`Mật khẩu của tài khoản "${item.user.username}" đã được đặt về "123456"!`)
-      setMessage({ type: 'success', text: `Đã đặt lại mật khẩu của ${item.user.username} về "123456" thành công!` })
+      await api.put(`/admin/users/${u.id}`, { password: '123456' })
+      toast.success(`Mật khẩu của tài khoản "${u.username}" đã được đặt về "123456"!`)
+      setMessage({ type: 'success', text: `Đã đặt lại mật khẩu của ${u.username} về "123456" thành công!` })
     } catch (err) {
       const errMsg = err.response?.data?.message || 'Lỗi khi đặt lại mật khẩu'
       toast.error(errMsg)
@@ -355,7 +372,7 @@ export const AdminUsers = () => {
               selectedRole === '' ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            Tất cả
+            Tất cả {users.length > 0 && `(${users.length})`}
           </button>
           <button
             onClick={() => setSelectedRole('STUDENT')}
@@ -411,133 +428,198 @@ export const AdminUsers = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {users.map((item) => {
-                const u = item.user
-                const sp = item.studentProfile
-                const lp = item.lecturerProfile
-                const isAdmin = u.role === 'ADMIN'
-                const isSelf = currentUser && (currentUser.id === u.id || currentUser.username === u.username)
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Loader2 size={24} className="animate-spin text-red-600" />
+                      <span className="text-xs font-medium">Đang tải danh sách tài khoản...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center text-slate-500 text-xs">
+                    Không tìm thấy tài khoản người dùng nào phù hợp với bộ lọc tìm kiếm.
+                  </td>
+                </tr>
+              ) : (
+                paginatedUsers.map((item) => {
+                  const u = item?.user || item || {}
+                  const sp = item?.studentProfile || null
+                  const lp = item?.lecturerProfile || null
+                  const isAdmin = u.role === 'ADMIN'
+                  const isSelf = currentUser && (currentUser.id === u.id || currentUser.username === u.username)
 
-                return (
-                  <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={getRealAvatar(u)}
-                          alt="avatar"
-                          className="w-10 h-10 rounded-xl bg-stone-100 border border-stone-200 object-cover shadow-2xs"
-                          onError={(e) => {
-                            e.target.onerror = null
-                            e.target.src = '/images/avatar-student.jpg'
-                          }}
-                        />
-                        <div>
-                          <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                            <span>{u.fullName}</span>
-                            {isSelf && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
-                                Bạn
-                              </span>
-                            )}
+                  return (
+                    <tr key={u.id || Math.random()} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={getRealAvatar(u)}
+                            alt="avatar"
+                            className="w-10 h-10 rounded-xl bg-stone-100 border border-stone-200 object-cover shadow-2xs"
+                            onError={(e) => {
+                              e.target.onerror = null
+                              e.target.src = '/images/avatar-student.jpg'
+                            }}
+                          />
+                          <div>
+                            <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                              <span>{u.fullName || 'Chưa cập nhật'}</span>
+                              {isSelf && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+                                  Bạn
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-400 font-mono">@{u.username}</div>
                           </div>
-                          <div className="text-xs text-slate-400 font-mono">@{u.username}</div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="px-4 py-4 text-slate-600 font-medium">{u.email}</td>
+                      <td className="px-4 py-4 text-slate-600 font-medium">{u.email}</td>
 
-                    <td className="px-4 py-4">
-                      <div>
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded text-xs font-semibold ${
-                            u.role === 'ADMIN'
-                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                              : u.role === 'LECTURER'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-red-50 text-red-700 border border-red-200'
-                          }`}
-                        >
-                          {u.role}
-                        </span>
-                        {sp && (
-                          <div className="text-xs text-slate-500 mt-1 font-mono">
-                            Mã: <strong className="text-slate-700">{sp.studentCode}</strong> ({sp.major})
-                          </div>
-                        )}
-                        {lp && (
-                          <div className="text-xs text-slate-500 mt-1 font-mono">
-                            Mã: <strong className="text-slate-700">{lp.lecturerCode}</strong> ({lp.department})
-                          </div>
-                        )}
-                      </div>
-                    </td>
+                      <td className="px-4 py-4">
+                        <div>
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded text-xs font-semibold ${
+                              u.role === 'ADMIN'
+                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                : u.role === 'LECTURER'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-red-50 text-red-700 border border-red-200'
+                            }`}
+                          >
+                            {u.role}
+                          </span>
+                          {sp && (
+                            <div className="text-xs text-slate-500 mt-1 font-mono">
+                              Mã: <strong className="text-slate-700">{sp.studentCode}</strong> ({sp.major})
+                            </div>
+                          )}
+                          {lp && (
+                            <div className="text-xs text-slate-500 mt-1 font-mono">
+                              Mã: <strong className="text-slate-700">{lp.lecturerCode}</strong> ({lp.department})
+                            </div>
+                          )}
+                        </div>
+                      </td>
 
-                    <td className="px-4 py-4">
-                      {isAdmin ? (
-                        <span
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default select-none shadow-2xs"
-                          title="Tài khoản Quản trị viên (Admin) luôn duy trì hoạt động và không thể bị khóa"
-                        >
-                          <Shield size={12} className="text-emerald-600" />
-                          <span>Hoạt động</span>
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleToggleStatus(item)}
-                          title="Bấm để đổi trạng thái"
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
-                            u.status === 'ACTIVE'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                              : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
-                          }`}
-                        >
-                          {u.status === 'ACTIVE' ? <Unlock size={12} /> : <Lock size={12} />}
-                          <span>{u.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}</span>
-                        </button>
-                      )}
-                    </td>
-
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleResetPassword(item)}
-                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                          title="Đặt lại mật khẩu về mặc định (123456)"
-                        >
-                          <Key size={16} />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(item)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Chỉnh sửa"
-                        >
-                          <Edit2 size={16} />
-                        </button>
+                      <td className="px-4 py-4">
                         {isAdmin ? (
                           <span
-                            className="p-1.5 text-slate-300 cursor-not-allowed rounded-lg opacity-40 select-none inline-flex"
-                            title="Không thể xóa tài khoản Quản trị viên (Admin)"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default select-none shadow-2xs"
+                            title="Tài khoản Quản trị viên (Admin) luôn duy trì hoạt động và không thể bị khóa"
                           >
-                            <Trash2 size={16} />
+                            <Shield size={12} className="text-emerald-600" />
+                            <span>Hoạt động</span>
                           </span>
                         ) : (
                           <button
-                            onClick={() => handleDeleteUser(u.id, u.username)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Xóa tài khoản"
+                            onClick={() => handleToggleStatus(item)}
+                            title="Bấm để đổi trạng thái"
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                              u.status === 'ACTIVE'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                            }`}
                           >
-                            <Trash2 size={16} />
+                            {u.status === 'ACTIVE' ? <Unlock size={12} /> : <Lock size={12} />}
+                            <span>{u.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa'}</span>
                           </button>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
+                      </td>
+
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleResetPassword(item)}
+                            className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                            title="Đặt lại mật khẩu về mặc định (123456)"
+                          >
+                            <Key size={16} />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(item)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Chỉnh sửa"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          {isAdmin ? (
+                            <span
+                              className="p-1.5 text-slate-300 cursor-not-allowed rounded-lg opacity-40 select-none inline-flex"
+                              title="Không thể xóa tài khoản Quản trị viên (Admin)"
+                            >
+                              <Trash2 size={16} />
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleDeleteUser(u.id, u.username)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Xóa tài khoản"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {users.length > USERS_PER_PAGE && (
+          <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <span className="text-slate-600 font-sans">
+              Hiển thị <strong className="text-slate-900 font-mono">{(currentPage - 1) * USERS_PER_PAGE + 1}</strong> - <strong className="text-slate-900 font-mono">{Math.min(currentPage * USERS_PER_PAGE, users.length)}</strong> trên tổng số <strong className="text-slate-900 font-mono">{users.length}</strong> tài khoản
+            </span>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition"
+              >
+                <ChevronLeft size={14} />
+                <span>Trước</span>
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-7 h-7 rounded-lg text-xs font-mono font-medium transition ${
+                      currentPage === page
+                        ? 'bg-red-600 text-white font-bold shadow-2xs'
+                        : 'text-slate-700 hover:bg-white border border-slate-200/80 bg-white/60'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition"
+              >
+                <span>Sau</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal: Create User */}
