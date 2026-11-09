@@ -16,16 +16,16 @@ export const MainLayout = () => {
   }, [location.pathname])
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans">
+    <div className="flex h-screen h-[100dvh] overflow-hidden bg-slate-50 font-sans">
       <Sidebar 
         mobileOpen={mobileMenuOpen} 
         onClose={() => setMobileMenuOpen(false)} 
       />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <Header 
           onToggleMobileMenu={() => setMobileMenuOpen(prev => !prev)} 
         />
-        <main className="flex-1 p-3 sm:p-5 md:p-6 pb-24 overflow-y-auto">
+        <main className="flex-1 p-3 sm:p-5 md:p-6 pb-24 overflow-y-auto touch-scroll">
           <Outlet />
         </main>
       </div>

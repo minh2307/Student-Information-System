@@ -82,6 +82,11 @@ fi
   echo "AI_MAX_TOKENS=${AI_MAX_TOKENS:-1500}"
   echo "FRONTEND_PORT=${RESOLVED_FRONTEND_PORT}"
   echo "FRONTEND_ALT_PORT=${FRONTEND_ALT_PORT:-3000}"
+  echo "PAYOS_CLIENT_ID=${PAYOS_CLIENT_ID:-57fb1006-9ba1-472c-ba21-8536efcda5aa}"
+  echo "PAYOS_API_KEY=${PAYOS_API_KEY:-22f2d865-a236-4f93-9f66-e845a1dae134}"
+  echo "PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY:-2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a}"
+  echo "PAYOS_RETURN_URL=${PAYOS_RETURN_URL:-https://rikkeiportal.io.vn/student/tuition?status=PAID}"
+  echo "PAYOS_CANCEL_URL=${PAYOS_CANCEL_URL:-https://rikkeiportal.io.vn/student/tuition?status=CANCELLED}"
 } > .env
 
 # Đăng nhập GHCR nếu có token truyền vào (đảm bảo quyền pull các package mới/private)

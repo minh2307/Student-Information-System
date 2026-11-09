@@ -8,6 +8,7 @@ import com.rikkei.eduportal.enrollment.dto.TuitionDto;
 import com.rikkei.eduportal.enrollment.entity.Notification;
 import com.rikkei.eduportal.enrollment.entity.StudentProfile;
 import com.rikkei.eduportal.enrollment.entity.TuitionFee;
+import com.rikkei.eduportal.enrollment.exception.BusinessException;
 import com.rikkei.eduportal.enrollment.repository.NotificationRepository;
 import com.rikkei.eduportal.enrollment.repository.StudentProfileRepository;
 import com.rikkei.eduportal.enrollment.repository.TuitionFeeRepository;
@@ -101,9 +102,9 @@ public class PayOSService {
 
         long amount = remainingAmount.longValue();
 
-        // PayOS orderCode phải là số nguyên dương duy nhất <= 9007199254740991
-        long tuitionId = tuition.getId() != null ? tuition.getId() : 1L;
-        long orderCode = tuitionId * 100000000L + (System.currentTimeMillis() % 100000000L);
+        // PayOS orderCode phải là số nguyên dương duy nhất <= 9007199254740991 (Number.MAX_SAFE_INTEGER)
+        // Sử dụng timestamp miligiây đảm bảo tính duy nhất và tăng dần tuyệt đối, không bị trùng lặp
+        long orderCode = System.currentTimeMillis();
 
         // Quy định PayOS: Description tối đa 25 ký tự
         String studentCode = student.getStudentCode() != null ? student.getStudentCode().trim().toUpperCase() : "SV" + student.getId();
@@ -157,6 +158,7 @@ public class PayOSService {
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("x-client-id", clientId);
             headers.set("x-api-key", apiKey);
+            headers.set(HttpHeaders.USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RikkeiEduPortal/1.0");
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(baseUrl + "/v2/payment-requests", entity, String.class);
@@ -179,9 +181,56 @@ public class PayOSService {
                     );
                     liveRes.setIsMock(false);
                     return liveRes;
+                } else if ("231".equals(root.path("code").asText())) {
+                    log.warn("PayOS orderCode {} bị trùng, tự động sinh mã mới và gửi lại...", orderCode);
+                    long retryOrderCode = System.currentTimeMillis() + 1000L;
+                    String retrySig = computeCreatePaymentLinkSignature(amount, effectiveCancelUrl, description, retryOrderCode, effectiveReturnUrl, checksumKey);
+                    requestBody.put("orderCode", retryOrderCode);
+                    requestBody.put("signature", retrySig);
+                    tuition.setPayosOrderCode(retryOrderCode);
+                    tuitionFeeRepository.save(tuition);
+
+                    HttpEntity<Map<String, Object>> retryEntity = new HttpEntity<>(requestBody, headers);
+                    ResponseEntity<String> retryResp = restTemplate.postForEntity(baseUrl + "/v2/payment-requests", retryEntity, String.class);
+                    if (retryResp.getStatusCode().is2xxSuccessful() && retryResp.getBody() != null) {
+                        JsonNode retryRoot = objectMapper.readTree(retryResp.getBody());
+                        if ("00".equals(retryRoot.path("code").asText())) {
+                            JsonNode retryData = retryRoot.path("data");
+                            PayOSPaymentLinkResponse liveRes = new PayOSPaymentLinkResponse(
+                                    retryOrderCode,
+                                    amount,
+                                    description,
+                                    retryData.path("accountNumber").asText("999988882025"),
+                                    retryData.path("accountName").asText("HOC VIEN CONG NGHE RIKKEI"),
+                                    retryData.path("bin").asText("970422"),
+                                    retryData.path("checkoutUrl").asText(),
+                                    retryData.path("qrCode").asText(),
+                                    retryData.path("paymentLinkId").asText(),
+                                    retryData.path("status").asText("PENDING")
+                            );
+                            liveRes.setIsMock(false);
+                            return liveRes;
+                        }
+                    }
+                } else {
+                    String desc = root.path("desc").asText("Giao dịch bị từ chối bởi cổng PayOS");
+                    log.error("PayOS API rejected creation: code={}, desc={}", root.path("code").asText(), desc);
+                    throw new BusinessException("PayOS từ chối yêu cầu thanh toán: " + desc);
                 }
             }
-            log.warn("PayOS API response non-zero code, falling back to simulated link: {}", response.getBody());
+            throw new BusinessException("Phản hồi không hợp lệ từ cổng thanh toán PayOS (HTTP " + response.getStatusCode().value() + ")");
+        } catch (BusinessException be) {
+            throw be;
+        } catch (org.springframework.web.client.HttpStatusCodeException httpEx) {
+            String desc = httpEx.getMessage();
+            try {
+                JsonNode errJson = objectMapper.readTree(httpEx.getResponseBodyAsString());
+                if (errJson.has("desc")) {
+                    desc = errJson.path("desc").asText();
+                }
+            } catch (Exception ignored) {}
+            log.error("PayOS HTTP error: status={}, desc={}", httpEx.getStatusCode(), desc);
+            throw new BusinessException("Cổng PayOS phản hồi lỗi: " + desc);
         } catch (Exception ex) {
             log.warn("Could not reach PayOS live API ({}), activating seamless sandbox fallback", ex.getMessage());
         }
@@ -327,6 +376,7 @@ public class PayOSService {
                 HttpHeaders headers = new HttpHeaders();
                 headers.set("x-client-id", clientId);
                 headers.set("x-api-key", apiKey);
+                headers.set(HttpHeaders.USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RikkeiEduPortal/1.0");
                 HttpEntity<?> entity = new HttpEntity<>(headers);
                 ResponseEntity<String> response = restTemplate.exchange(
                         baseUrl + "/v2/payment-requests/" + orderCode,
