@@ -33,10 +33,23 @@ export const StudentGrades = () => {
       const res = await api.get('/student/grades')
       if (res.data?.data) {
         setGrades(res.data.data)
+        try {
+          localStorage.setItem('eduportal_cached_grades', JSON.stringify(res.data.data))
+        } catch (e) {}
       }
     } catch (err) {
-      console.error('Lỗi khi tải bảng điểm:', err)
-      setError(err.response?.data?.message || 'Không thể tải bảng điểm từ hệ thống')
+      console.error('Lỗi khi tải bảng điểm, kiểm tra cache ngoại tuyến:', err)
+      const cached = localStorage.getItem('eduportal_cached_grades')
+      if (cached) {
+        try {
+          setGrades(JSON.parse(cached))
+          setError(null)
+        } catch (e) {
+          setError(err.response?.data?.message || 'Không thể tải bảng điểm từ hệ thống')
+        }
+      } else {
+        setError(err.response?.data?.message || 'Không thể tải bảng điểm từ hệ thống')
+      }
     } finally {
       setLoading(false)
     }

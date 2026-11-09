@@ -25,7 +25,8 @@ import {
   Share2,
   X,
   Smartphone,
-  QrCode
+  QrCode,
+  WifiOff
 } from 'lucide-react'
 
 // Mapping ngày trong tuần
@@ -78,6 +79,7 @@ export const StudentTimetable = () => {
   const [selectedSemester, setSelectedSemester] = useState('')
   const [timetable, setTimetable] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isOfflineData, setIsOfflineData] = useState(false)
   const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 768) ? 'list' : 'grid') // Mobile auto 'list', Desktop 'grid'
   const [selectedClassDetail, setSelectedClassDetail] = useState(null)
   const [weekOffset, setWeekOffset] = useState(0)
@@ -178,18 +180,33 @@ export const StudentTimetable = () => {
         const res = await api.get('/semesters')
         if (res.data?.data && res.data.data.length > 0) {
           setSemesters(res.data.data)
+          try {
+            localStorage.setItem('eduportal_cached_semesters', JSON.stringify(res.data.data))
+          } catch (e) {}
           const active = res.data.data.find(s => s.isActive) || res.data.data[0]
           setSelectedSemester(active.semesterCode)
         }
       } catch (err) {
         console.error('Không thể tải học kỳ:', err)
-        setSelectedSemester('2024-25_SEM2')
+        const cached = localStorage.getItem('eduportal_cached_semesters')
+        if (cached) {
+          try {
+            const list = JSON.parse(cached)
+            setSemesters(list)
+            const active = list.find(s => s.isActive) || list[0]
+            setSelectedSemester(active?.semesterCode || '2024-25_SEM2')
+          } catch (e) {
+            setSelectedSemester('2024-25_SEM2')
+          }
+        } else {
+          setSelectedSemester('2024-25_SEM2')
+        }
       }
     }
     loadSemesters()
   }, [])
 
-  // Tải thời khóa biểu khi thay đổi học kỳ
+  // Tải thời khóa biểu khi thay đổi học kỳ (hỗ trợ Offline Cache)
   useEffect(() => {
     if (!selectedSemester) return
     const fetchTimetable = async () => {
@@ -198,11 +215,24 @@ export const StudentTimetable = () => {
         const res = await api.get(`/student/timetable?semester=${selectedSemester}`)
         if (res.data?.data) {
           setTimetable(res.data.data)
+          setIsOfflineData(false)
+          try {
+            localStorage.setItem(`eduportal_cached_timetable_${selectedSemester}`, JSON.stringify(res.data.data))
+          } catch (e) {}
         }
       } catch (err) {
-        console.error('Lỗi tải TKB:', err)
-        // Fallback demo data nếu chưa có
-        setTimetable([])
+        console.error('Lỗi tải TKB, kiểm tra cache ngoại tuyến:', err)
+        const cached = localStorage.getItem(`eduportal_cached_timetable_${selectedSemester}`)
+        if (cached) {
+          try {
+            setTimetable(JSON.parse(cached))
+            setIsOfflineData(true)
+          } catch (e) {
+            setTimetable([])
+          }
+        } else {
+          setTimetable([])
+        }
       } finally {
         setLoading(false)
       }
@@ -242,7 +272,15 @@ export const StudentTimetable = () => {
               <CalendarDays size={22} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Thời Khóa Biểu Học Tập</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-slate-900">Thời Khóa Biểu Học Tập</h1>
+                {isOfflineData && (
+                  <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                    <WifiOff size={11} className="text-amber-700" />
+                    <span>Bộ nhớ ngoại tuyến (Offline)</span>
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500">Tra cứu lịch học dạng lưới trực quan theo tuần và học kỳ</p>
             </div>
           </div>
@@ -738,6 +776,18 @@ export const StudentTimetable = () => {
                     <span>{copying ? 'Đã chép' : 'Sao chép'}</span>
                   </button>
                 </div>
+
+                {syncInfo?.webcalUrl && (
+                  <div className="pt-1">
+                    <a
+                      href={syncInfo.webcalUrl}
+                      className="w-full py-2 px-3 bg-slate-900 hover:bg-black text-white text-center rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
+                    >
+                      <Smartphone size={14} className="text-amber-300" />
+                      <span>Thêm trực tiếp vào Apple Calendar trên iPhone (webcal://)</span>
+                    </a>
+                  </div>
+                )}
 
                 {/* Hướng dẫn ngắn */}
                 <div className="text-[11px] text-slate-600 space-y-1.5 pt-1 border-t border-red-100/60 font-sans">
