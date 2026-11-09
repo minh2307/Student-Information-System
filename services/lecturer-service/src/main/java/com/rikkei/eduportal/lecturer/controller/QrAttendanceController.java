@@ -83,7 +83,7 @@ public class QrAttendanceController {
      * Sinh viên quét mã QR điểm danh.
      * POST /api/v1/attendance/check-in
      */
-    @PostMapping("/api/v1/attendance/check-in")
+    @PostMapping({"/api/v1/attendance/check-in", "/api/v1/lecturer/attendance/check-in"})
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<ApiResponse<AttendanceCheckInResponse>> checkIn(
             Authentication authentication,
@@ -91,5 +91,15 @@ public class QrAttendanceController {
 
         AttendanceCheckInResponse response = qrAttendanceService.studentCheckIn(authentication.getName(), request);
         return ResponseEntity.ok(ApiResponse.success("Điểm danh thành công", response));
+    }
+
+    /**
+     * Fallback xử lý GET request khi sinh viên dùng Camera điện thoại / Zalo quét trực tiếp mã QR
+     * tránh phát sinh lỗi HTTP 405 Method Not Allowed.
+     */
+    @GetMapping({"/api/v1/attendance/check-in", "/api/v1/lecturer/attendance/check-in"})
+    public ResponseEntity<ApiResponse<String>> checkInGetFallback() {
+        return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(400, "Vui lòng mở ứng dụng Rikkei EduPortal và sử dụng tính năng 'Điểm danh QR' bên trong ứng dụng để quét mã, không mở trực tiếp link trên trình duyệt ngoài."));
     }
 }

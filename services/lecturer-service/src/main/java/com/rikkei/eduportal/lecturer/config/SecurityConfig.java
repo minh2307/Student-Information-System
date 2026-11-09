@@ -41,8 +41,9 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/**", "/error").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/attendance/check-in", "/api/v1/lecturer/attendance/check-in").permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/v1/attendance/check-in").hasRole("STUDENT")
+                .requestMatchers("/api/v1/attendance/check-in", "/api/v1/lecturer/attendance/check-in").hasRole("STUDENT")
                 .requestMatchers("/api/v1/lecturer/early-warnings/my-alerts").hasAnyRole("STUDENT", "LECTURER", "ADMIN")
                 .requestMatchers("/api/v1/lecturer/**").hasAnyRole("LECTURER", "ADMIN")
                 .anyRequest().authenticated()
