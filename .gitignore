@@ -44,6 +44,7 @@ coverage/
 .env.*
 !.env.example
 !.env.template
+!.env.*.example
 *.local
 
 # SSL & Security Keys
@@ -97,7 +98,9 @@ logs/
 # Test Reports & Automation (Postman / Newman / Reports)
 # ====================================================================
 newman/
-reports/
+reports/*
+!reports/staging/
+!reports/acceptance/
 .scannerwork/
 
 # ====================================================================

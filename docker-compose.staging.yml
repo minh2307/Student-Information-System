@@ -2,95 +2,155 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: eduportal-postgres-staging
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: academic_db
+      POSTGRES_DB: ${DB_NAME:-academic_db}
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required}
+    expose:
+      - "5432"
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${DB_PORT:-15432}:5432"
     volumes:
       - postgres_data_staging:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d academic_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-academic_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 160M
+        reservations:
+          memory: 48M
+    networks:
+      - staging-network
 
   auth-service:
-    image: ${IMAGE_PREFIX}/auth-service:${IMAGE_TAG}
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    image: ${IMAGE_PREFIX:-}staging-auth-service:${IMAGE_TAG:-latest}
     container_name: eduportal-auth-staging
+    restart: unless-stopped
     ports:
-      - "8081:8081"
+      - "127.0.0.1:${AUTH_PORT:-18081}:8081"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
+      TURNSTILE_SECRET: ${TURNSTILE_SECRET:-}
+      TURNSTILE_HOSTNAMES: ${TURNSTILE_HOSTNAMES:-localhost,127.0.0.1}
       SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8081/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.80'
+          memory: 200M
+        reservations:
+          memory: 64M
+    networks:
+      - staging-network
 
-  lecturer-service:
-    image: ${IMAGE_PREFIX}/lecturer-service:${IMAGE_TAG}
-    container_name: eduportal-lecturer-staging
+  course-service:
+    build:
+      context: .
+      dockerfile: services/course-service/Dockerfile
+    image: ${IMAGE_PREFIX:-}staging-course-service:${IMAGE_TAG:-latest}
+    container_name: eduportal-course-staging
+    restart: unless-stopped
     ports:
-      - "8085:8085"
+      - "127.0.0.1:${COURSE_PORT:-18082}:8082"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
+      SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8082/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.80'
+          memory: 200M
+        reservations:
+          memory: 64M
+    networks:
+      - staging-network
+
+  enrollment-service:
+    build:
+      context: .
+      dockerfile: services/enrollment-service/Dockerfile
+    image: ${IMAGE_PREFIX:-}staging-enrollment-service:${IMAGE_TAG:-latest}
+    container_name: eduportal-enrollment-staging
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${ENROLLMENT_PORT:-18083}:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
       PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-57fb1006-9ba1-472c-ba21-8536efcda5aa}
       PAYOS_API_KEY: ${PAYOS_API_KEY:-22f2d865-a236-4f93-9f66-e845a1dae134}
       PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a}
       PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-https://rikkeiportal.io.vn/student/tuition?status=PAID}
       PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-https://rikkeiportal.io.vn/student/tuition?status=CANCELLED}
       SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
-
-  course-service:
-    image: ${IMAGE_PREFIX}/course-service:${IMAGE_TAG}
-    container_name: eduportal-course-staging
-    ports:
-      - "8082:8082"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      SPRING_PROFILES_ACTIVE: staging
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-
-  enrollment-service:
-    image: ${IMAGE_PREFIX}/enrollment-service:${IMAGE_TAG}
-    container_name: eduportal-enrollment-staging
-    ports:
-      - "8083:8083"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      SPRING_PROFILES_ACTIVE: staging
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8083/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.80'
+          memory: 200M
+        reservations:
+          memory: 64M
+    networks:
+      - staging-network
 
   ai-service:
-    image: ${IMAGE_PREFIX}/ai-service:${IMAGE_TAG}
+    build:
+      context: .
+      dockerfile: services/ai-service/Dockerfile
+    image: ${IMAGE_PREFIX:-}staging-ai-service:${IMAGE_TAG:-latest}
     container_name: eduportal-ai-staging
+    restart: unless-stopped
     ports:
-      - "${AI_PORT:-8084}:8084"
+      - "127.0.0.1:${AI_PORT:-18084}:8084"
     environment:
       AI_API_KEY: ${AI_API_KEY:-demo-key}
       AI_BASE_URL: ${AI_BASE_URL:-https://openrouter.ai/api}
@@ -99,21 +159,108 @@ services:
       AI_MAX_TOKENS: ${AI_MAX_TOKENS:-1500}
       ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
       SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
     depends_on:
-      - enrollment-service
+      enrollment-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8084/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.80'
+          memory: 200M
+        reservations:
+          memory: 64M
+    networks:
+      - staging-network
+
+  lecturer-service:
+    build:
+      context: .
+      dockerfile: services/lecturer-service/Dockerfile
+    image: ${IMAGE_PREFIX:-}staging-lecturer-service:${IMAGE_TAG:-latest}
+    container_name: eduportal-lecturer-staging
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:${LECTURER_PORT:-18085}:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-academic_db}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-demo-client-id}
+      PAYOS_API_KEY: ${PAYOS_API_KEY:-demo-api-key}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-demo-checksum-key-32bytes-long!!}
+      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost:8080/student/tuition?status=PAID}
+      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost:8080/student/tuition?status=CANCELLED}
+      SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8085/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.80'
+          memory: 200M
+        reservations:
+          memory: 64M
+    networks:
+      - staging-network
 
   frontend:
-    image: ${IMAGE_PREFIX}/frontend:${IMAGE_TAG}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: ${IMAGE_PREFIX:-}staging-frontend:${IMAGE_TAG:-latest}
     container_name: eduportal-frontend-staging
-    ports:
-      - "${FRONTEND_PORT:-3000}:80"
-    depends_on:
-      - auth-service
-      - lecturer-service
-      - enrollment-service
-      - course-service
     restart: unless-stopped
+    ports:
+      # Secure Loopback Binding: Chỉ bind 127.0.0.1 để Newman trên VPS gọi nội bộ
+      - "${FRONTEND_BIND_IP:-127.0.0.1}:${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      auth-service:
+        condition: service_started
+      course-service:
+        condition: service_started
+      enrollment-service:
+        condition: service_started
+      lecturer-service:
+        condition: service_started
+      ai-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 64M
+        reservations:
+          memory: 16M
+    networks:
+      - staging-network
 
 volumes:
   postgres_data_staging:
+    name: eduportal_postgres_data_staging
+
+networks:
+  staging-network:
+    name: eduportal_staging_network
+    driver: bridge

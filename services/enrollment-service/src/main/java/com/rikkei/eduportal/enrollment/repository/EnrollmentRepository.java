@@ -23,12 +23,12 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
            "AND e.status IN ('REGISTERED', 'PENDING')")
     List<Enrollment> findActiveEnrollmentsByStudent(@Param("studentId") Long studentId);
 
-    @Query("SELECT e FROM Enrollment e " +
+    @Query("SELECT DISTINCT e FROM Enrollment e " +
            "JOIN FETCH e.classSection cs " +
            "JOIN FETCH cs.course c " +
            "WHERE e.student.id = :studentId " +
            "AND cs.semesterName = :semester " +
-           "AND e.status IN ('REGISTERED', 'PENDING', 'COMPLETED')")
+           "AND e.status IN ('REGISTERED', 'COMPLETED')")
     List<Enrollment> findActiveEnrollmentsByStudentAndSemester(@Param("studentId") Long studentId, @Param("semester") String semester);
 
     @Query("SELECT COUNT(e) FROM Enrollment e " +

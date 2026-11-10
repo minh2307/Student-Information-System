@@ -126,7 +126,7 @@ CREATE TABLE IF NOT EXISTS tuition_fees (
     status VARCHAR(20) NOT NULL DEFAULT 'UNPAID' CHECK (status IN ('UNPAID', 'PAID', 'PARTIAL')),
     due_date DATE,
     payment_date TIMESTAMP,
-    transaction_code VARCHAR(100),
+    transaction_code VARCHAR(255),
     payment_method VARCHAR(50),
     payos_order_code BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -134,6 +134,28 @@ CREATE TABLE IF NOT EXISTS tuition_fees (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tuition_payos_order_code ON tuition_fees(payos_order_code);
+CREATE INDEX IF NOT EXISTS idx_tuition_student_id ON tuition_fees(student_id);
+
+-- 8b. Table tuition_fees_archive (Lưu vết dữ liệu học phí lịch sử / kiểm toán - TASK-FEE-02)
+CREATE TABLE IF NOT EXISTS tuition_fees_archive (
+    id BIGINT PRIMARY KEY,
+    student_id BIGINT,
+    semester_name VARCHAR(30),
+    total_credits INT,
+    credit_unit_price NUMERIC(12,2),
+    facility_fee NUMERIC(12,2),
+    total_amount NUMERIC(12,2),
+    paid_amount NUMERIC(12,2),
+    status VARCHAR(20),
+    due_date DATE,
+    payment_date TIMESTAMP,
+    transaction_code VARCHAR(255),
+    payment_method VARCHAR(50),
+    payos_order_code BIGINT,
+    created_at TIMESTAMP,
+    archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archive_reason VARCHAR(255)
+);
 
 -- 9. Table announcements (Bảng tin Đào tạo)
 CREATE TABLE IF NOT EXISTS announcements (

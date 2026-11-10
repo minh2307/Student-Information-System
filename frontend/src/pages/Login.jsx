@@ -29,10 +29,56 @@ const CATEGORIES = ['Tất cả', 'HỌC VỤ', 'LỊCH THI', 'HỌC BỔNG', 'H
 export const Login = () => {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [turnstileToken, setTurnstileToken] = useState('')
+  const turnstileContainerRef = React.useRef(null)
+  const widgetIdRef = React.useRef(null)
+  const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAAF67h8UHE6evHONq'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const login = useAuthStore((state) => state.login)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    let intervalId = null
+    const initTurnstile = () => {
+      if (window.turnstile && turnstileContainerRef.current && widgetIdRef.current === null) {
+        try {
+          widgetIdRef.current = window.turnstile.render(turnstileContainerRef.current, {
+            sitekey: siteKey,
+            action: 'login',
+            callback: (token) => {
+              setTurnstileToken(token)
+            },
+            'expired-callback': () => {
+              setTurnstileToken('')
+            },
+            'error-callback': () => {
+              setTurnstileToken('')
+            }
+          })
+          if (intervalId) clearInterval(intervalId)
+        } catch (err) {
+          console.warn('Turnstile render warning:', err)
+        }
+      }
+    }
+
+    if (window.turnstile) {
+      initTurnstile()
+    } else {
+      intervalId = setInterval(initTurnstile, 200)
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId)
+      if (widgetIdRef.current !== null && window.turnstile) {
+        try {
+          window.turnstile.remove(widgetIdRef.current)
+        } catch (e) {}
+        widgetIdRef.current = null
+      }
+    }
+  }, [siteKey])
 
   // Announcements state
   const [announcements, setAnnouncements] = useState([])
@@ -63,8 +109,17 @@ export const Login = () => {
     setError('')
     setLoading(true)
 
+    const form = e.currentTarget
+    const formData = new FormData(form)
+    const token = turnstileToken || formData.get('cf-turnstile-response') || ''
+
     try {
-      const res = await api.post('/auth/login', { username, password })
+      const res = await api.post('/auth/login', {
+        username,
+        password,
+        'cf-turnstile-response': token,
+        turnstileToken: token
+      })
       const { user, accessToken, refreshToken } = res.data.data
       login(user, accessToken, refreshToken)
 
@@ -75,6 +130,12 @@ export const Login = () => {
       console.warn('API error, fallback demo mode:', err)
       const msg = err.response?.data?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại tài khoản hoặc mật khẩu!'
       setError(msg)
+      if (window.turnstile && widgetIdRef.current !== null) {
+        try {
+          window.turnstile.reset(widgetIdRef.current)
+          setTurnstileToken('')
+        } catch (e) {}
+      }
     } finally {
       setLoading(false)
     }
@@ -429,6 +490,16 @@ export const Login = () => {
                   >
                     Quên mật khẩu?
                   </button>
+                </div>
+
+                {/* Cloudflare Turnstile Verification Widget */}
+                <div className="flex justify-center my-2">
+                  <div
+                    ref={turnstileContainerRef}
+                    className="cf-turnstile"
+                    data-sitekey={siteKey}
+                    data-action="login"
+                  ></div>
                 </div>
 
                 <button

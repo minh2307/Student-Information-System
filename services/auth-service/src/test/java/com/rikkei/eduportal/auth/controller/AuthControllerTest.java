@@ -8,6 +8,7 @@ import com.rikkei.eduportal.auth.security.JwtAuthenticationEntryPoint;
 import com.rikkei.eduportal.auth.security.JwtAuthenticationFilter;
 import com.rikkei.eduportal.auth.security.JwtTokenProvider;
 import com.rikkei.eduportal.auth.service.AuthService;
+import com.rikkei.eduportal.auth.service.TurnstileService;
 import com.rikkei.eduportal.common.Role;
 import com.rikkei.eduportal.common.UserStatus;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ class AuthControllerTest {
 
     @MockBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockBean
+    private TurnstileService turnstileService;
 
     @Autowired
     private ObjectMapper objectMapper;

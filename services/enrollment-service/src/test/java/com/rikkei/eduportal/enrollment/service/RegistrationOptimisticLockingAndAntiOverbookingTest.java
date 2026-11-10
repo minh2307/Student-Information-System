@@ -242,16 +242,18 @@ class RegistrationOptimisticLockingAndAntiOverbookingTest {
 
         // Mô phỏng JPA Database với Optimistic Locking: Đọc version hiện tại
         when(classSectionRepository.findByIdWithLock(100L)).thenAnswer(inv -> {
-            ClassSection copy = new ClassSection();
-            copy.setId(section.getId());
-            copy.setSectionCode(section.getSectionCode());
-            copy.setCourse(section.getCourse());
-            copy.setSemesterName(section.getSemesterName());
-            copy.setMaxCapacity(maxCapacity);
-            copy.setCurrentEnrolled(currentEnrolled.get());
-            copy.setVersion(dbVersion.get());
-            copy.setStatus("OPEN");
-            return Optional.of(copy);
+            synchronized (dbVersion) {
+                ClassSection copy = new ClassSection();
+                copy.setId(section.getId());
+                copy.setSectionCode(section.getSectionCode());
+                copy.setCourse(section.getCourse());
+                copy.setSemesterName(section.getSemesterName());
+                copy.setMaxCapacity(maxCapacity);
+                copy.setCurrentEnrolled(currentEnrolled.get());
+                copy.setVersion(dbVersion.get());
+                copy.setStatus("OPEN");
+                return Optional.of(copy);
+            }
         });
 
         // Mô phỏng JPA Compare-And-Swap (@Version check khi commit)

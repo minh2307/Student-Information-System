@@ -14,6 +14,7 @@ public class TuitionDto {
     private BigDecimal totalAmount;
     private BigDecimal paidAmount;
     private BigDecimal remainingAmount;
+    private BigDecimal excessAmount; // Khoản tiền dư / bảo lưu cho sinh viên khi hủy môn sau khi đã đóng tiền
     private String status;
     private LocalDate dueDate;
     private LocalDateTime paymentDate;
@@ -126,6 +127,9 @@ public class TuitionDto {
 
     public BigDecimal getRemainingAmount() { return remainingAmount; }
     public void setRemainingAmount(BigDecimal remainingAmount) { this.remainingAmount = remainingAmount; }
+
+    public BigDecimal getExcessAmount() { return excessAmount; }
+    public void setExcessAmount(BigDecimal excessAmount) { this.excessAmount = excessAmount; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

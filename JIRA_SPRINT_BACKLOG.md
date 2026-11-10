@@ -36,18 +36,18 @@ pie title Phân Bổ Story Points Đều Giữa 5 Thành Viên (Tổng 40 SP)
 
 # 2. BẢNG JIRA SPRINT BACKLOG TỔNG THỂ
 
-| Issue Key | Issue Type | Tóm tắt công việc (Summary) | Component | SP | Priority | Assignee | SRS Traceability |
-| :--- | :---: | :--- | :--- | :---: | :---: | :--- | :---: |
-| `EDUP-201` | Story | Triển khai Engine AI Xếp Thời khóa biểu tự động (CSP Solver) | `ai-service` | 5 | Highest | Nguyễn Sơn Minh | [F-12] |
-| `EDUP-202` | Story | Tích hợp Giao diện AI Smart Scheduler & 1-Click Batch Reserve | `frontend` | 3 | High | Nguyễn Sơn Minh | [F-12] |
-| `EDUP-203` | Story | Triển khai Cơ chế Giữ chỗ nguyên tử 5 phút (Slot Reservation) | `enrollment-service` | 5 | Highest | Phạm Viết Quân | [F-06] |
-| `EDUP-204` | Story | Xây dựng Bộ đếm Chỗ Thời gian thực qua Server-Sent Events (SSE) | `enrollment-service` | 3 | High | Phạm Viết Quân | [F-05] |
-| `EDUP-205` | Story | Triển khai Điểm danh Mã QR Động TOTP xoay 15s chống gian lận | `lecturer-service` | 4 | Highest | Hoàng Văn Lương | [F-09] |
-| `EDUP-206` | Story | Xây dựng Phân hệ Cảnh báo Sớm Nguy cơ Học vụ (Early Warning) | `lecturer-service` | 4 | High | Hoàng Văn Lương | [F-11] |
-| `EDUP-207` | Story | Bảng điểm số Mã hóa & Cổng Đối soát Công khai (Verifiable Credential)| `enrollment-service` | 5 | Highest | Nguyễn Quang Vinh | [F-14] |
-| `EDUP-208` | Story | Xây dựng Nhật ký Kiểm toán Học vụ Bất biến (Academic Audit Trail) | `auth-service` | 3 | Medium | Nguyễn Quang Vinh | [F-02] |
-| `EDUP-209` | Story | Đồng bộ Lịch học Chuẩn Quốc tế RFC 5545 (iCal Export & WebCal Feed) | `enrollment-service` | 4 | High | Hoàng Cương Cát | [F-08] |
-| `EDUP-210` | Story | Nâng cấp Ứng dụng Web Lũy tiến Di động PWA & Offline Caching | `frontend` | 4 | High | Hoàng Cương Cát | [F-07] |
+| Issue Key | Issue Type | Tóm tắt công việc (Summary) | Component | SP | Priority | Assignee | SRS Traceability | Trạng thái (Status) |
+| :--- | :---: | :--- | :--- | :---: | :---: | :--- | :---: | :---: |
+| `EDUP-201` | Story | Triển khai Engine AI Xếp Thời khóa biểu tự động (CSP Solver) | `ai-service` | 5 | Highest | Nguyễn Sơn Minh | [F-12] | **DONE** (PO Ký duyệt) |
+| `EDUP-202` | Story | Tích hợp Giao diện AI Smart Scheduler & 1-Click Batch Reserve | `frontend` | 3 | High | Nguyễn Sơn Minh | [F-12] | **DONE** (PO Ký duyệt) |
+| `EDUP-203` | Story | Triển khai Cơ chế Giữ chỗ nguyên tử 5 phút (Slot Reservation) | `enrollment-service` | 5 | Highest | Phạm Viết Quân | [F-06] | Hoàn thành |
+| `EDUP-204` | Story | Xây dựng Bộ đếm Chỗ Thời gian thực qua Server-Sent Events (SSE) | `enrollment-service` | 3 | High | Phạm Viết Quân | [F-05] | Hoàn thành |
+| `EDUP-205` | Story | Triển khai Điểm danh Mã QR Động TOTP xoay 15s chống gian lận | `lecturer-service` | 4 | Highest | Hoàng Văn Lương | [F-09] | Hoàn thành |
+| `EDUP-206` | Story | Xây dựng Phân hệ Cảnh báo Sớm Nguy cơ Học vụ (Early Warning) | `lecturer-service` | 4 | High | Hoàng Văn Lương | [F-11] | Hoàn thành |
+| `EDUP-207` | Story | Bảng điểm số Mã hóa & Cổng Đối soát Công khai (Verifiable Credential)| `enrollment-service` | 5 | Highest | Nguyễn Quang Vinh | [F-14] | Hoàn thành |
+| `EDUP-208` | Story | Xây dựng Nhật ký Kiểm toán Học vụ Bất biến (Academic Audit Trail) | `auth-service` | 3 | Medium | Nguyễn Quang Vinh | [F-02] | Hoàn thành |
+| `EDUP-209` | Story | Đồng bộ Lịch học Chuẩn Quốc tế RFC 5545 (iCal Export & WebCal Feed) | `enrollment-service` | 4 | High | Hoàng Cương Cát | [F-08] | **DONE** (PO Ký duyệt) |
+| `EDUP-210` | Story | Nâng cấp Ứng dụng Web Lũy tiến Di động PWA & Offline Caching | `frontend` | 4 | High | Hoàng Cương Cát | [F-07] | **DONE** (PO Ký duyệt) |
 
 ---
 
@@ -59,6 +59,7 @@ pie title Phân Bổ Story Points Đều Giữa 5 Thành Viên (Tổng 40 SP)
 * **Assignee**: **Nguyễn Sơn Minh** (Team Lead / AI Architect)
 * **Component**: `ai-service` & `enrollment-service`
 * **Story Points**: 5 SP (20 Giờ) | **Priority**: Highest
+* **Trạng thái**: **DONE** (PO Nghiệm thu & Ký duyệt ngày 09/11/2026 - [Biên bản nghiệm thu](reports/acceptance/BIEN_BAN_NGHIEM_THU_AC_EDUP_201_EDUP_202.md))
 * **Mô tả nghiệp vụ**: Là một Sinh viên, tôi muốn hệ thống tự động tính toán và sắp xếp lịch học dựa trên danh sách các môn tôi mong muốn đăng ký, để tôi không bị trùng lịch và có lịch học phù hợp nhất với sở thích cá nhân (tránh ngày học, chọn ca sáng/chiều, tối ưu số ngày đến trường).
 * **Danh sách Sub-tasks**:
   1. `EDUP-201-1`: Thiết kế ma trận kiểm tra xung đột thời gian (Interval Collision Detection) và data model CSP Request/Response. (6h)
@@ -80,6 +81,7 @@ pie title Phân Bổ Story Points Đều Giữa 5 Thành Viên (Tổng 40 SP)
 * **Assignee**: **Nguyễn Sơn Minh** (Team Lead / Full-stack)
 * **Component**: `frontend`
 * **Story Points**: 3 SP (12 Giờ) | **Priority**: High
+* **Trạng thái**: **DONE** (PO Nghiệm thu & Ký duyệt ngày 09/11/2026 - [Biên bản nghiệm thu](reports/acceptance/BIEN_BAN_NGHIEM_THU_AC_EDUP_201_EDUP_202.md))
 * **Mô tả nghiệp vụ**: Là một Sinh viên, tôi muốn có một giao diện trực quan trên Cổng Đăng ký tín chỉ để tùy chỉnh tiêu chí xếp lịch, xem bản đồ lịch của Top 3 phương án gợi ý và bấm 1-chạm đăng ký giữ chỗ tất cả các lớp trong phương án đã chọn.
 * **Danh sách Sub-tasks**:
   1. `EDUP-202-1`: Xây dựng UI Modal `ScheduleOptimizerModal.jsx` gồm các checkbox chọn môn, radio button chọn ca học (Sáng/Chiều/Tối), thanh chọn ngày nghỉ trong tuần. (6h)
@@ -182,9 +184,10 @@ pie title Phân Bổ Story Points Đều Giữa 5 Thành Viên (Tổng 40 SP)
 ---
 
 ### [EDUP-209] Đồng bộ Lịch học Chuẩn Quốc tế RFC 5545 (iCal & WebCal Feed)
-* **Assignee**: **Hoàng Cương Cát** (Full-stack Dev 2 - Academic & Mobile PWA)
+* **Assignee**: **Hoàng Cương Cát** (Full-stack Dev 2 - Academic & Mobile PWA - *Trình diễn & nghiệm thu thay bởi Team Lead Nguyễn Sơn Minh*)
 * **Component**: `enrollment-service` & `frontend`
 * **Story Points**: 4 SP (16 Giờ) | **Priority**: High
+* **Trạng thái**: **DONE** (PO Nghiệm thu & Ký duyệt ngày 09/11/2026 - [Biên bản nghiệm thu](reports/acceptance/BIEN_BAN_NGHIEM_THU_AC_EDUP_209_EDUP_210.md))
 * **Mô tả nghiệp vụ**: Là một Sinh viên bận rộn, tôi muốn có thể đồng bộ lịch học của mình một lần duy nhất vào Google Calendar trên điện thoại Android hoặc Apple Calendar trên iPhone qua chuẩn WebCal, để điện thoại tự động nhắc tôi trước mỗi giờ vào lớp.
 * **Danh sách Sub-tasks**:
   1. `EDUP-209-1`: Xây dựng Engine sinh nội dung file iCalendar `.ics` chuẩn RFC 5545 gồm `VEVENT`, `SUMMARY`, `DTSTART`, `DTEND`, `LOCATION`, `RRULE` (lặp lại theo tuần). (6h)
@@ -197,9 +200,10 @@ pie title Phân Bổ Story Points Đều Giữa 5 Thành Viên (Tổng 40 SP)
 ---
 
 ### [EDUP-210] Nâng cấp Ứng dụng Web Lũy tiến Di động PWA & Offline Caching
-* **Assignee**: **Hoàng Cương Cát** (Full-stack Dev 2 - Academic & Mobile PWA)
+* **Assignee**: **Hoàng Cương Cát** (Full-stack Dev 2 - Academic & Mobile PWA - *Trình diễn & nghiệm thu thay bởi Team Lead Nguyễn Sơn Minh*)
 * **Component**: `frontend`
 * **Story Points**: 4 SP (16 Giờ) | **Priority**: High
+* **Trạng thái**: **DONE** (PO Nghiệm thu & Ký duyệt ngày 09/11/2026 - [Biên bản nghiệm thu](reports/acceptance/BIEN_BAN_NGHIEM_THU_AC_EDUP_209_EDUP_210.md))
 * **Mô tả nghiệp vụ**: Là một Sinh viên thường xuyên di chuyển và nhiều khi ở khu vực sóng yếu/mất mạng, tôi muốn có thể cài đặt cổng đào tạo như một ứng dụng độc lập trên màn hình chính smartphone và vẫn xem được thời khóa biểu, bảng điểm ngay cả khi mất mạng.
 * **Danh sách Sub-tasks**:
   1. `EDUP-210-1`: Cấu hình Web App Manifest (`manifest.json`), khai báo tên app, theme color, icons (192px, 512px) và các thẻ meta di động trên `index.html`. (4h)
