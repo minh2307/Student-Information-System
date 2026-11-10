@@ -45,6 +45,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
+      TURNSTILE_SECRET: ${TURNSTILE_SECRET:-}
+      TURNSTILE_HOSTNAMES: ${TURNSTILE_HOSTNAMES:-localhost,127.0.0.1}
       SPRING_PROFILES_ACTIVE: staging
       JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
     depends_on:
