@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -19,6 +19,7 @@ import {
   ExternalLink,
   RefreshCw,
   AlertTriangle,
+  Info,
   X
 } from 'lucide-react'
 
@@ -27,10 +28,11 @@ export { numberToVietnameseWords }
 
 export const StudentTuition = () => {
   // ─────────────────────────────────────────
-  // 1. Store & URL SearchParams
+  // 1. Store & URL SearchParams & Navigation
   // ─────────────────────────────────────────
   const { user } = useAuthStore()
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   // ─────────────────────────────────────────
   // 2. State
@@ -253,20 +255,6 @@ export const StudentTuition = () => {
     } finally {
       setCheckingStatus(false)
     }
-  }
-
-  const handleSimulateBankingPayment = async () => {
-    setPaying(true)
-    setSimulatingStep(1)
-
-    setTimeout(() => {
-      setSimulatingStep(2)
-
-      setTimeout(async () => {
-        setSimulatingStep(3)
-        await handleConfirmPayment('VietQR Napas247 (Mobile Banking App)')
-      }, 900)
-    }, 900)
   }
 
   // ─────────────────────────────────────────
