@@ -46,6 +46,13 @@ public class ExamScheduleService {
     }
 
     @Transactional(readOnly = true)
+    public ExamScheduleDto getExamScheduleById(Long id) {
+        ExamSchedule es = examScheduleRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lịch thi với ID: " + id));
+        return mapToDto(es);
+    }
+
+    @Transactional(readOnly = true)
     public List<ExamScheduleDto> getAllExams(String semester) {
         return getAllAdminExams(semester, null);
     }
@@ -133,7 +140,7 @@ public class ExamScheduleService {
         if (request.getNotes() != null) {
             es.setNotes(request.getNotes().trim());
         }
-        if (request.getClassSectionId() != null && !request.getClassSectionId().equals(es.getClassSection().getId())) {
+        if (request.getClassSectionId() != null && (es.getClassSection() == null || !request.getClassSectionId().equals(es.getClassSection().getId()))) {
             ClassSection newSection = classSectionRepository.findById(request.getClassSectionId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học phần với ID: " + request.getClassSectionId()));
             es.setClassSection(newSection);

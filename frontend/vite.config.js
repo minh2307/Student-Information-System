@@ -105,8 +105,25 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
         // QR Attendance Check-in → lecturer-service:8085
+        '/api/v1/student/attendance': {
+          target: 'http://localhost:8085',
+          changeOrigin: true,
+        },
         '/api/v1/attendance': {
           target: 'http://localhost:8085',
+          changeOrigin: true,
+        },
+        '/attendance': {
+          target: 'http://localhost:8085',
+          changeOrigin: true,
+        },
+        // Admin Exam Schedules → enrollment-service:8083
+        '/api/v1/admin/exam-schedules': {
+          target: 'http://localhost:8083',
+          changeOrigin: true,
+        },
+        '/api/v1/admin/exams': {
+          target: 'http://localhost:8083',
           changeOrigin: true,
         },
         // Tất cả API còn lại → api-gateway:8080

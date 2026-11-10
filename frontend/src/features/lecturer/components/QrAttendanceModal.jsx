@@ -85,12 +85,15 @@ export function QrAttendanceModal({ sectionId, sectionCode, courseName, onClose 
     }
   }
 
+  const isSessionStale = session?.createdAt && 
+    (new Date(session.createdAt).getTime() < Date.now() - 12 * 60 * 60 * 1000)
+  const isSessionActive = (session?.status === 'OPEN' || session?.status === 'ACTIVE') && !isSessionStale
+
   useEffect(() => {
     fetchCurrentSession()
   }, [sectionId])
 
   useEffect(() => {
-    const isSessionActive = session?.status === 'OPEN' || session?.status === 'ACTIVE'
     if (isSessionActive) {
       fetchRotatingQr()
       timerRef.current = setInterval(() => {
@@ -113,7 +116,7 @@ export function QrAttendanceModal({ sectionId, sectionCode, courseName, onClose 
       if (timerRef.current) clearInterval(timerRef.current)
       if (pollingRef.current) clearInterval(pollingRef.current)
     }
-  }, [session?.status])
+  }, [isSessionActive])
 
   // Countdown ring calculation
   const circumference = 2 * Math.PI * 22
@@ -221,7 +224,7 @@ export function QrAttendanceModal({ sectionId, sectionCode, courseName, onClose 
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 Điểm Danh QR Động (Anti-Proxy)
-                {(session?.status === 'OPEN' || session?.status === 'ACTIVE') && (
+                {isSessionActive && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Đang mở
@@ -243,7 +246,7 @@ export function QrAttendanceModal({ sectionId, sectionCode, courseName, onClose 
               <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
               <p className="text-sm">Đang tải phiên điểm danh...</p>
             </div>
-          ) : (session?.status === 'OPEN' || session?.status === 'ACTIVE') ? (
+          ) : isSessionActive ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* QR Code Panel */}
               <div className="flex flex-col items-center gap-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-5">
@@ -313,14 +316,24 @@ export function QrAttendanceModal({ sectionId, sectionCode, courseName, onClose 
                 </div>
 
                 {/* Close Session button */}
-                <button
-                  onClick={handleCloseSession}
-                  disabled={closing}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-sm hover:bg-red-50 dark:hover:bg-red-950/30 transition disabled:opacity-50"
-                >
-                  <StopCircle className="h-4 w-4" />
-                  {closing ? 'Đang đóng...' : 'Kết thúc phiên điểm danh'}
-                </button>
+                <div className="w-full flex flex-col gap-2">
+                  <button
+                    onClick={handleCloseSession}
+                    disabled={closing}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 text-red-600 font-semibold text-sm hover:bg-red-50 dark:hover:bg-red-950/30 transition disabled:opacity-50"
+                  >
+                    <StopCircle className="h-4 w-4" />
+                    {closing ? 'Đang đóng...' : 'Kết thúc phiên điểm danh'}
+                  </button>
+                  <button
+                    onClick={handleStartSession}
+                    disabled={starting}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:bg-slate-200 transition disabled:opacity-50"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Khởi động phiên mới ngay
+                  </button>
+                </div>
               </div>
 
               {/* Live Attendee List */}
@@ -378,6 +391,13 @@ export function QrAttendanceModal({ sectionId, sectionCode, courseName, onClose 
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
                 Hệ thống sẽ tạo mã QR bảo mật xoay vòng 15 giây/lần. Sinh viên quét mã trực tiếp trên màn chiếu để điểm danh. Chống gian lận và chụp ảnh gửi nhóm hoàn toàn.
               </p>
+
+              {isSessionStale && (
+                <div className="mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-medium max-w-md mx-auto flex items-center justify-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>Phiên điểm danh trước đó đã hết hạn (&gt; 12 giờ). Vui lòng nhấn nút bên dưới để mở phiên mới.</span>
+                </div>
+              )}
 
               {session && (
                 <div className="mt-4 p-3 inline-block rounded-xl bg-slate-100 dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-300">

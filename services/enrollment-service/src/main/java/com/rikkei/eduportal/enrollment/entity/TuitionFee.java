@@ -26,10 +26,10 @@ public class TuitionFee {
     private Integer totalCredits = 0;
 
     @Column(name = "credit_unit_price", precision = 12, scale = 2)
-    private BigDecimal creditUnitPrice = BigDecimal.valueOf(450000.00);
+    private BigDecimal creditUnitPrice = BigDecimal.valueOf(100.00);
 
     @Column(name = "facility_fee", precision = 12, scale = 2)
-    private BigDecimal facilityFee = BigDecimal.valueOf(300000.00);
+    private BigDecimal facilityFee = BigDecimal.valueOf(1000.00);
 
     @Column(name = "total_amount", precision = 12, scale = 2, nullable = false)
     private BigDecimal totalAmount = BigDecimal.ZERO;

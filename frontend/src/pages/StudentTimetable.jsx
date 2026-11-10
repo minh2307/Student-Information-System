@@ -122,9 +122,62 @@ export const StudentTimetable = () => {
   const [checkInResult, setCheckInResult] = useState(null)
   const [checkInError, setCheckInError] = useState(null)
 
+  const cleanQrToken = (raw) => {
+    if (!raw) return ''
+    let t = raw.trim()
+    if (t.includes('checkInToken=')) {
+      const match = t.match(/checkInToken=([^&"'\s#]+)/)
+      if (match) return decodeURIComponent(match[1])
+    }
+    if (t.includes('token=')) {
+      const match = t.match(/token=([^&"'\s#]+)/)
+      if (match) return decodeURIComponent(match[1])
+    }
+    if (t.includes('qrToken=')) {
+      const match = t.match(/qrToken=([^&"'\s#]+)/)
+      if (match) return decodeURIComponent(match[1])
+    }
+    return t
+  }
+
+  // Tự động kích hoạt điểm danh nếu URL chứa tham số checkInToken / token / qrToken (khi quét bằng Camera điện thoại)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const tokenFromUrl = params.get('checkInToken') || params.get('token') || params.get('qrToken')
+    if (tokenFromUrl && tokenFromUrl.trim()) {
+      const cleanToken = cleanQrToken(tokenFromUrl)
+      setQrTokenInput(cleanToken)
+      const autoSubmit = async () => {
+        try {
+          setCheckingIn(true)
+          setCheckInError(null)
+          const res = await api.post('/attendance/check-in', {
+            qrToken: cleanToken,
+            deviceInfo: navigator.userAgent
+          })
+          if (res.data?.data) {
+            setCheckInResult(res.data.data)
+            toast.success('Điểm danh thành công từ mã QR!')
+          }
+        } catch (err) {
+          const msg = err.response?.data?.message || 'Điểm danh không thành công. Vui lòng thử lại.'
+          setCheckInError(msg)
+          toast.error(msg)
+        } finally {
+          setCheckingIn(false)
+          const newUrl = window.location.pathname
+          window.history.replaceState({}, '', newUrl)
+        }
+      }
+      autoSubmit()
+    }
+  }, [])
+
   const handleCheckIn = async (e) => {
     if (e) e.preventDefault()
-    if (!qrTokenInput.trim()) {
+    const cleanToken = cleanQrToken(qrTokenInput)
+    if (!cleanToken) {
       setCheckInError('Vui lòng dán hoặc quét mã QR hợp lệ.')
       return
     }
@@ -133,7 +186,7 @@ export const StudentTimetable = () => {
       setCheckingIn(true)
       setCheckInError(null)
       const res = await api.post('/attendance/check-in', {
-        qrToken: qrTokenInput.trim(),
+        qrToken: cleanToken,
         deviceInfo: navigator.userAgent
       })
       if (res.data?.data) {

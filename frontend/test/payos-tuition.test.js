@@ -38,14 +38,12 @@ describe('HOTFIX-PAYOS-FE: PayOS Checkout & Tuition Settlement Test Suite', () =
   describe('3. StudentTuition.jsx PayOS Checkout & Return URL Architecture', () => {
     const tuitionPagePath = path.join(frontendDir, 'src', 'pages', 'StudentTuition.jsx')
 
-    test('StudentTuition.jsx exists and imports required PayOS & Router hooks', () => {
+    test('StudentTuition.jsx exists and imports required Router hooks', () => {
       assert.ok(fs.existsSync(tuitionPagePath), 'StudentTuition.jsx must exist')
       const content = fs.readFileSync(tuitionPagePath, 'utf8')
 
       // Check essential imports
-      assert.ok(content.includes("from '@payos/payos-checkout'"), 'Must import from @payos/payos-checkout')
       assert.ok(content.includes('useSearchParams'), 'Must use useSearchParams to parse return URL query parameters')
-      assert.ok(content.includes('usePayOS'), 'Must use usePayOS hook')
     })
 
     test('StudentTuition.jsx handles PayOS Return URL parameters (status, code, cancel, orderCode)', () => {
@@ -63,14 +61,13 @@ describe('HOTFIX-PAYOS-FE: PayOS Checkout & Tuition Settlement Test Suite', () =
       assert.ok(content.includes('setSearchParams({}, { replace: true })'), 'Must clean searchParams to prevent duplicate toasts on refresh')
     })
 
-    test('StudentTuition.jsx provides PayOS Embedded Checkout & Dynamic VietQR Tabs', () => {
+    test('StudentTuition.jsx provides Direct PayOS VietQR & Live Status Verification without redundant iframe clutter', () => {
       const content = fs.readFileSync(tuitionPagePath, 'utf8')
 
-      assert.ok(content.includes('activePayOsTab'), 'Must have tab switcher state')
-      assert.ok(content.includes('payos-checkout-container'), 'Must have PayOS container ID element')
-      assert.ok(content.includes('Nhúng PayOS Checkout'), 'Must provide embedded checkout tab')
-      assert.ok(content.includes('Mã VietQR'), 'Must provide VietQR tab')
-      assert.ok(content.includes('handleSimulatePayOsWebhook'), 'Must provide simulated webhook for sandbox verification')
+      assert.ok(content.includes('payOsData'), 'Must have PayOS data state')
+      assert.ok(content.includes('Mã VietQR'), 'Must provide VietQR display')
+      assert.ok(content.includes('handleCheckPayOsStatus'), 'Must provide live PayOS payment status checking without mock buttons')
+      assert.ok(content.includes('handleOpenPayOs'), 'Must provide PayOS payment initiation')
     })
 
     test('StudentTuition.jsx supports Return Notification Banner and Printable Official Receipt', () => {

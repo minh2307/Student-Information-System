@@ -234,7 +234,7 @@ public class QrAttendanceService {
      * 6. Ngăn chặn điểm danh trùng lặp (Idempotent 409 Conflict & Race condition): Trả về thông báo "ĐÃ ĐIỂM DANH TRƯỚC ĐÓ".
      * 7. Ghi nhận bản ghi và trả về phản hồi chi tiết.
      */
-    @Transactional
+    @Transactional(noRollbackFor = {InvalidQrException.class})
     public AttendanceCheckInResponse studentCheckIn(String studentUsername, AttendanceCheckInRequest request) {
         if (request == null || request.qrToken() == null || request.qrToken().isBlank()) {
             throw new InvalidQrException("Mã QR không hợp lệ.");
@@ -244,6 +244,15 @@ public class QrAttendanceService {
         if ((rawToken.startsWith("\"") && rawToken.endsWith("\"")) ||
             (rawToken.startsWith("'") && rawToken.endsWith("'"))) {
             rawToken = rawToken.substring(1, rawToken.length() - 1).trim();
+        }
+
+        // Tự động bóc tách token nếu quét được đường dẫn URL (vd: /attendance/check-in?token=... hoặc ?checkInToken=...)
+        if (rawToken.contains("checkInToken=")) {
+            rawToken = extractQueryParam(rawToken, "checkInToken=");
+        } else if (rawToken.contains("token=")) {
+            rawToken = extractQueryParam(rawToken, "token=");
+        } else if (rawToken.contains("qrToken=")) {
+            rawToken = extractQueryParam(rawToken, "qrToken=");
         }
 
         String[] parts = rawToken.split("\\.");
@@ -295,7 +304,7 @@ public class QrAttendanceService {
             session.setStatus("CLOSED");
             session.setClosedAt(LocalDateTime.now());
             sessionRepo.save(session);
-            throw new InvalidQrException("Phiên điểm danh đã quá hạn thời gian cho phép và đã tự động đóng.");
+            throw new InvalidQrException("Phiên điểm danh này đã hết hạn (quá 12 giờ). Giảng viên vui lòng mở phiên điểm danh mới.");
         }
 
         // 2. Nới lỏng dung sai chênh lệch đồng hồ (Time Drift Window ±15s đến 30s) & Đồng bộ Clock Mobile
@@ -342,7 +351,7 @@ public class QrAttendanceService {
         Enrollment enrollment = enrollmentRepo.findByClassSectionIdAndStudentId(sectionId, student.getId())
                 .orElseThrow(() -> new AccessDeniedException("Bạn không thuộc danh sách sinh viên lớp học phần này."));
 
-        if (enrollment.getStatus() != EnrollmentStatus.REGISTERED) {
+        if (enrollment.getStatus() != EnrollmentStatus.REGISTERED && enrollment.getStatus() != EnrollmentStatus.COMPLETED) {
             throw new AccessDeniedException("Trạng thái đăng ký môn học của bạn không hợp lệ để điểm danh (" + enrollment.getStatus() + ").");
         }
 
@@ -396,10 +405,26 @@ public class QrAttendanceService {
     /**
      * Tìm phiên điểm danh đang hoạt động (OPEN hoặc ACTIVE).
      */
+    /**
+     * Tìm phiên điểm danh đang hoạt động (OPEN hoặc ACTIVE).
+     * Tự động lọc bỏ và đóng các phiên cũ quá 12 giờ để không phát sinh mã QR cho phiên đã hết hạn.
+     */
     private Optional<AttendanceSession> findActiveSession(Long sectionId) {
-        return sessionRepo.findFirstByClassSectionIdAndStatusInOrderByCreatedAtDesc(sectionId, List.of("ACTIVE", "OPEN"))
+        Optional<AttendanceSession> sessionOpt = sessionRepo.findFirstByClassSectionIdAndStatusInOrderByCreatedAtDesc(sectionId, List.of("ACTIVE", "OPEN"))
                 .or(() -> sessionRepo.findFirstByClassSectionIdAndStatusOrderByCreatedAtDesc(sectionId, "OPEN"))
                 .or(() -> sessionRepo.findFirstByClassSectionIdAndStatusOrderByCreatedAtDesc(sectionId, "ACTIVE"));
+
+        if (sessionOpt.isPresent()) {
+            AttendanceSession session = sessionOpt.get();
+            if (session.getCreatedAt() != null && session.getCreatedAt().isBefore(LocalDateTime.now().minusHours(12))) {
+                session.setStatus("CLOSED");
+                session.setClosedAt(LocalDateTime.now());
+                sessionRepo.save(session);
+                log.info("Auto-closed stale attendance session id={} created at {}", session.getId(), session.getCreatedAt());
+                return Optional.empty();
+            }
+        }
+        return sessionOpt;
     }
 
     private LecturerProfile resolveLecturer(String username) {
@@ -444,6 +469,23 @@ public class QrAttendanceService {
         } catch (WriterException | java.io.IOException e) {
             log.error("Failed to generate QR code image", e);
             return null;
+        }
+    }
+
+    private String extractQueryParam(String urlOrQuery, String paramPrefix) {
+        int idx = urlOrQuery.indexOf(paramPrefix);
+        if (idx == -1) return urlOrQuery;
+        String sub = urlOrQuery.substring(idx + paramPrefix.length()).trim();
+        int amp = sub.indexOf('&');
+        int hash = sub.indexOf('#');
+        int end = sub.length();
+        if (amp != -1 && amp < end) end = amp;
+        if (hash != -1 && hash < end) end = hash;
+        String paramVal = sub.substring(0, end).trim();
+        try {
+            return java.net.URLDecoder.decode(paramVal, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return paramVal;
         }
     }
 
