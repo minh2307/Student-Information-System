@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ public class TurnstileService {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public TurnstileService(
             @Value("${turnstile.secret:${TURNSTILE_SECRET:}}") String secret,
             @Value("${turnstile.hostnames:${TURNSTILE_HOSTNAMES:localhost,127.0.0.1}}") String hostnamesConfig,
@@ -39,6 +41,10 @@ public class TurnstileService {
         this(secret, hostnamesConfig, verifyUrl, enabled, objectMapper, HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build());
+    }
+
+    public TurnstileService() {
+        this("", "localhost,127.0.0.1", "https://challenges.cloudflare.com/turnstile/v0/siteverify", false, new ObjectMapper());
     }
 
     public TurnstileService(
