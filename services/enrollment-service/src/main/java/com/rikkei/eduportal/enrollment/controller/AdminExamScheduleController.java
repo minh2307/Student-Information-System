@@ -12,7 +12,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping({"/api/v1/admin/exam-schedules", "/api/v1/admin/exams"})
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class AdminExamScheduleController {
 
     private final ExamScheduleService examScheduleService;
@@ -31,16 +30,6 @@ public class AdminExamScheduleController {
             @RequestParam(required = false) String keyword) {
         List<ExamScheduleDto> exams = examScheduleService.getAllAdminExams(semester, keyword);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách lịch thi thành công", exams));
-    }
-
-    /**
-     * GET /api/v1/admin/exam-schedules/{id}
-     * Lấy chi tiết lịch thi theo ID
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ExamScheduleDto>> getExamScheduleById(@PathVariable Long id) {
-        ExamScheduleDto dto = examScheduleService.getExamScheduleById(id);
-        return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết lịch thi thành công", dto));
     }
 
     /**
