@@ -47,35 +47,38 @@ export const StudentGrades = () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await api.get('/student/grades')
-      if (res.data?.data) {
-        setGrades(res.data.data)
-        try {
-          localStorage.setItem('eduportal_offline_grades', JSON.stringify(res.data.data))
-        } catch (e) {}
-        setIsOffline(typeof navigator !== 'undefined' ? !navigator.onLine : false)
-        return
-      }
-    } catch (err) {
-      console.warn('Lỗi khi tải bảng điểm từ mạng, chuyển sang đọc Cache offline:', err)
-    }
-
-    // Offline Fallback: Đọc dữ liệu từ localStorage Cache
-    const cached = localStorage.getItem('eduportal_offline_grades')
-    if (cached) {
       try {
-        const parsed = JSON.parse(cached)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setGrades(parsed)
-          setIsOffline(true)
-          setError(null)
+        const res = await api.get('/student/grades')
+        if (res.data?.data) {
+          setGrades(res.data.data)
+          try {
+            localStorage.setItem('eduportal_offline_grades', JSON.stringify(res.data.data))
+          } catch (e) {}
+          setIsOffline(typeof navigator !== 'undefined' ? !navigator.onLine : false)
           return
         }
-      } catch (e) {}
-    }
+      } catch (err) {
+        console.warn('Lỗi khi tải bảng điểm từ mạng, chuyển sang đọc Cache offline:', err)
+      }
 
-    setError('Không thể tải bảng điểm từ hệ thống và chưa có bản lưu ngoại tuyến.')
-    setLoading(false)
+      // Offline Fallback: Đọc dữ liệu từ localStorage Cache
+      const cached = localStorage.getItem('eduportal_offline_grades')
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setGrades(parsed)
+            setIsOffline(true)
+            setError(null)
+            return
+          }
+        } catch (e) {}
+      }
+
+      setError('Không thể tải bảng điểm từ hệ thống và chưa có bản lưu ngoại tuyến.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Danh sách các học kỳ có trong bảng điểm

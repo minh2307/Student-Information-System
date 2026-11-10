@@ -96,19 +96,17 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
 
     await stopScanner()
 
-    // 1. Kiểm tra HTTPS trên Mobile
-    if (!isSecureContext) {
-      setCameraError(
-        'Trình duyệt di động (iOS Safari / Android Chrome) chặn quyền truy cập Camera qua HTTP không an toàn. Vui lòng chuyển sang kết nối HTTPS hoặc sử dụng tab Nhập Mã Thủ Công.'
-      )
-      return
-    }
-
-    // 2. Kiểm tra hỗ trợ WebRTC/MediaDevices
+    // 1. Kiểm tra hỗ trợ WebRTC/MediaDevices (Hỗ trợ cả môi trường mạng LAN Dev và Production)
     if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setCameraError(
-        'Trình duyệt của bạn không hỗ trợ API truy cập camera WebRTC. Vui lòng cập nhật Safari/Chrome mới nhất hoặc nhập mã điểm danh thủ công.'
-      )
+      if (!isSecureContext) {
+        setCameraError(
+          'Trình duyệt di động yêu cầu bảo mật Camera WebRTC. Vui lòng chuyển sang HTTPS hoặc sử dụng tab Nhập Mã Thủ Công.'
+        )
+      } else {
+        setCameraError(
+          'Trình duyệt của bạn không hỗ trợ API camera WebRTC. Vui lòng sử dụng tab Nhập Mã Thủ Công.'
+        )
+      }
       return
     }
 
@@ -319,9 +317,32 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
     await submitAttendance(decodedText)
   }
 
+  // Tự động trích xuất token nếu quét phải link URL (Safari / Camera / Zalo format)
+  const extractCleanToken = (text) => {
+    if (!text) return ''
+    let t = String(text).trim()
+    if (t.startsWith('"') && t.endsWith('"')) {
+      t = t.substring(1, t.length - 1).trim()
+    }
+    if (t.includes('checkInToken=')) {
+      const match = t.match(/checkInToken=([^&"'\s#]+)/)
+      if (match) return decodeURIComponent(match[1])
+    }
+    if (t.includes('token=')) {
+      const match = t.match(/token=([^&"'\s#]+)/)
+      if (match) return decodeURIComponent(match[1])
+    }
+    if (t.includes('qrToken=')) {
+      const match = t.match(/qrToken=([^&"'\s#]+)/)
+      if (match) return decodeURIComponent(match[1])
+    }
+    return t
+  }
+
   // Gửi API điểm danh kèm deviceInfo & clientTimestampMs
   const submitAttendance = async (token) => {
-    if (!token || !token.trim()) {
+    const rawToken = extractCleanToken(token)
+    if (!rawToken) {
       setErrorMessage('Mã điểm danh không hợp lệ.')
       isProcessingRef.current = false
       return
@@ -333,7 +354,7 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
 
     try {
       const res = await api.post('/attendance/check-in', {
-        qrToken: token.trim(),
+        qrToken: rawToken,
         deviceInfo: navigator.userAgent,
         clientTimestampMs: Date.now()
       })
@@ -366,6 +387,8 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
         msg = serverMsg
       } else if (!err.response) {
         msg = 'Không thể kết nối đến máy chủ điểm danh. Vui lòng kiểm tra kết nối mạng Wi-Fi/4G hoặc địa chỉ máy chủ.'
+      } else if (status === 405) {
+        msg = 'Phương thức HTTP không hợp lệ (405). Hệ thống đã tối ưu lại cổng nhận điểm danh.'
       } else if (status === 403) {
         msg = 'Bạn không thuộc danh sách sinh viên hợp lệ của lớp học phần này để điểm danh.'
       } else if (status === 404) {

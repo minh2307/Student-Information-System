@@ -54,12 +54,15 @@ public class JwtGatewayValidator {
             return true;
         }
 
-        // 2. Public catalog read-only (GET only)
+        // 2. Public catalog read-only (GET only) & Attendance Fallback for mobile camera QR scans
         if ("GET".equalsIgnoreCase(method)) {
             if (path.equals("/api/v1/courses") || path.startsWith("/api/v1/courses/") ||
                 path.equals("/api/v1/semesters") || path.startsWith("/api/v1/semesters/") ||
                 path.equals("/api/v1/student/class-sections") ||
-                path.startsWith("/api/v1/announcements")) {
+                path.startsWith("/api/v1/announcements") ||
+                path.startsWith("/api/v1/attendance") ||
+                path.startsWith("/attendance") ||
+                path.startsWith("/api/v1/student/attendance")) {
                 return true;
             }
         }
@@ -76,6 +79,9 @@ public class JwtGatewayValidator {
         }
         if (path.startsWith("/api/v1/lecturer/early-warnings/my-alerts")) {
             return "STUDENT".equals(normalizedRole) || "LECTURER".equals(normalizedRole) || "ADMIN".equals(normalizedRole);
+        }
+        if (path.startsWith("/api/v1/attendance") || path.startsWith("/attendance") || path.startsWith("/api/v1/student/attendance")) {
+            return "STUDENT".equals(normalizedRole) || "ADMIN".equals(normalizedRole);
         }
         if (path.startsWith("/api/v1/lecturer")) {
             return "LECTURER".equals(normalizedRole) || "ADMIN".equals(normalizedRole);

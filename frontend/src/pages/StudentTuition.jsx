@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
-import { usePayOS } from '@payos/payos-checkout'
+import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -8,31 +7,19 @@ import {
   CreditCard,
   CheckCircle2,
   AlertCircle,
-  Clock,
   Printer,
   QrCode,
   FileText,
   ShieldCheck,
   Building,
-  Check,
   Filter,
-  Download,
-  Info,
   Copy,
   CheckCheck,
   Zap,
-  Sparkles,
-  ArrowRight,
   ExternalLink,
   RefreshCw,
-  Maximize2,
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  X,
-  Radio,
-  Layers,
-  ArrowUpRight
+  X
 } from 'lucide-react'
 
 import { numberToVietnameseWords } from '../utils/currencyWords'
@@ -40,95 +27,46 @@ export { numberToVietnameseWords }
 
 export const StudentTuition = () => {
   // ─────────────────────────────────────────
-  // 1. Store / Router hooks (gọi đầu tiên)
+  // 1. Store & URL SearchParams
   // ─────────────────────────────────────────
   const { user } = useAuthStore()
   const [searchParams, setSearchParams] = useSearchParams()
-  const navigate = useNavigate()
 
   // ─────────────────────────────────────────
-  // 2. Tất cả useState (không phụ thuộc lẫn nhau)
+  // 2. State
   // ─────────────────────────────────────────
   const [semesters, setSemesters] = useState([])
   const [selectedSemester, setSelectedSemester] = useState('')
   const [tuition, setTuition] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [paying, setPaying] = useState(false)
-  const [showQrModal, setShowQrModal] = useState(false)
   const [showReceiptModal, setShowReceiptModal] = useState(false)
-  const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [copiedField, setCopiedField] = useState(null)
-  const [qrImageError, setQrImageError] = useState(false)
-  const [simulatingStep, setSimulatingStep] = useState(0)
-  const [selectedBankBin, setSelectedBankBin] = useState('970422')
-  const [showRawPayload, setShowRawPayload] = useState(false)
   const [showPayOsModal, setShowPayOsModal] = useState(false)
   const [payOsData, setPayOsData] = useState(null)
   const [creatingPayOs, setCreatingPayOs] = useState(false)
+  const [checkingStatus, setCheckingStatus] = useState(false)
   const [pollingActive, setPollingActive] = useState(false)
-  const [activePayOsTab, setActivePayOsTab] = useState('embedded')
+  const [payOsQrError, setPayOsQrError] = useState(false)
   const [returnStatusInfo, setReturnStatusInfo] = useState(null)
-  const [qrRemainingSeconds, setQrRemainingSeconds] = useState(900)
 
   // ─────────────────────────────────────────
-  // 3. Giá trị dẫn xuất từ store (không phải hook)
+  // 3. User info
   // ─────────────────────────────────────────
   const studentCode = user?.studentCode || user?.username || 'SV2024001'
   const studentName = user?.fullName || 'Nguyễn Văn C'
 
   // ─────────────────────────────────────────
-  // 4. useMemo – không phụ thuộc lẫn nhau
-  //    Thứ tự BẮT BUỘC: transferSyntax → activeBank → vietQrUrl → fallbackQrUrl
-  // ─────────────────────────────────────────
-  const transferSyntax = useMemo(() => {
-    return `${studentCode} HP ${tuition?.semesterName || selectedSemester}`
-  }, [studentCode, tuition, selectedSemester])
-
-  // activeBank PHẢI được khai báo trước vietQrUrl và fallbackQrUrl
-  const activeBank = useMemo(() => {
-    return tuition?.supportedBanks?.find((b) => b.bankBin === selectedBankBin) || {
-      bankBin: tuition?.bankBin || '970422',
-      bankShortName: tuition?.bankShortName || 'MB',
-      bankName: tuition?.bankName || 'MB Bank (Ngân hàng TMCP Quân đội)',
-      accountNumber: tuition?.accountNumber || '999988882025',
-      accountName: tuition?.accountName || 'HOC VIEN CONG NGHE RIKKEI',
-      vietQrPayload: tuition?.vietQrPayload || '',
-      vietQrQuickLink: tuition?.vietQrQuickLink || ''
-    }
-  }, [tuition, selectedBankBin])
-
-  // vietQrUrl PHỤ THUỘC vào activeBank – phải đứng SAU
-  const vietQrUrl = useMemo(() => {
-    const amt = tuition?.totalAmount || 0
-    const accNum = activeBank.accountNumber
-    const accName = activeBank.accountName
-    const transferContent = tuition?.transferContent || transferSyntax
-    return `https://img.vietqr.io/image/MB-${accNum}-compact2.png?amount=${amt}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accName)}`
-  }, [tuition, transferSyntax, activeBank])
-
-  // fallbackQrUrl PHỤ THUỘC vào activeBank – phải đứng SAU
-  const fallbackQrUrl = useMemo(() => {
-    const transferContent = tuition?.transferContent || transferSyntax
-    const rawData = `VIETQR_NAPAS247|MB|${activeBank.accountNumber}|${tuition?.totalAmount}|${transferContent}`
-    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(rawData)}`
-  }, [tuition, transferSyntax, activeBank])
-
-  // ─────────────────────────────────────────
-  // 5. useCallback handlers
+  // 4. Data Loading
   // ─────────────────────────────────────────
   const fetchTuition = useCallback(
-    async (semester, bankBin) => {
+    async (semester) => {
       const sem = semester || selectedSemester
-      const bin = bankBin || selectedBankBin
       if (!sem) return
       setLoading(true)
       try {
-        const res = await api.get(`/student/tuition?semester=${sem}&bank=${bin}`)
+        const res = await api.get(`/student/tuition?semester=${sem}`)
         if (res.data?.data) {
           setTuition(res.data.data)
-          if (res.data.data.bankBin) {
-            setSelectedBankBin(res.data.data.bankBin)
-          }
         }
       } catch (err) {
         console.error('Lỗi tải học phí:', err)
@@ -136,84 +74,9 @@ export const StudentTuition = () => {
         setLoading(false)
       }
     },
-    [selectedSemester, selectedBankBin]
+    [selectedSemester]
   )
 
-  const handlePayOsSuccess = useCallback(
-    (eventData) => {
-      setPollingActive(false)
-      setShowPayOsModal(false)
-      setShowReceiptModal(true)
-      toast.success('Học phí đã được quyết toán tự động qua cổng PayOS!')
-      fetchTuition(selectedSemester, selectedBankBin)
-    },
-    [selectedSemester, selectedBankBin, fetchTuition]
-  )
-
-  const handlePayOsCancel = useCallback((eventData) => {
-    setShowPayOsModal(false)
-    setPollingActive(false)
-    toast.info('Bạn đã hủy phiên thanh toán PayOS.')
-  }, [])
-
-  // ─────────────────────────────────────────
-  // 6. payOSConfig useMemo (phụ thuộc callbacks)
-  //    + usePayOS (phải gọi sau khi config ổn định)
-  // ─────────────────────────────────────────
-  const payOSConfig = useMemo(
-    () => ({
-      RETURN_URL: `${window.location.origin}/student/tuition`,
-      ELEMENT_ID: 'payos-checkout-container',
-      CHECKOUT_URL: payOsData?.checkoutUrl || '',
-      embedded: true,
-      onSuccess: (event) => handlePayOsSuccess(event),
-      onExit: () => {
-        setShowPayOsModal(false)
-        setPollingActive(false)
-      },
-      onCancel: (event) => handlePayOsCancel(event)
-    }),
-    [payOsData?.checkoutUrl, handlePayOsSuccess, handlePayOsCancel]
-  )
-
-  const { open: openPayOs, exit: exitPayOs } = usePayOS(payOSConfig)
-
-  const safeExitPayOs = useCallback(() => {
-    try {
-      const container = document.getElementById('payos-checkout-container')
-      if (container && container.querySelector('iframe')) {
-        exitPayOs()
-      }
-    } catch (e) {
-      // Ignored
-    }
-  }, [exitPayOs])
-
-  // ─────────────────────────────────────────
-  // 7. Tất cả useEffect (sau mọi useMemo/useCallback)
-  // ─────────────────────────────────────────
-
-  // 7a. Timer đếm lùi phiên VietQR 15 phút
-  useEffect(() => {
-    let timer = null
-    if (showQrModal && !paymentSuccess) {
-      setQrRemainingSeconds(900)
-      timer = setInterval(() => {
-        setQrRemainingSeconds((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
-    }
-    return () => {
-      if (timer) clearInterval(timer)
-    }
-  }, [showQrModal, paymentSuccess])
-
-  // 7b. Tải danh sách học kỳ
   useEffect(() => {
     const loadSemesters = async () => {
       try {
@@ -224,21 +87,22 @@ export const StudentTuition = () => {
           setSelectedSemester(active.semesterCode)
         }
       } catch (err) {
-        console.error('Lỗi tải học kỳ:', err)
+        console.error('Lỗi tải danh sách học kỳ:', err)
         setSelectedSemester('2024-25_SEM2')
       }
     }
     loadSemesters()
   }, [])
 
-  // 7c. Tải học phí khi học kỳ / ngân hàng thay đổi
   useEffect(() => {
     if (selectedSemester) {
-      fetchTuition(selectedSemester, selectedBankBin)
+      fetchTuition(selectedSemester)
     }
-  }, [selectedSemester, selectedBankBin, fetchTuition])
+  }, [selectedSemester, fetchTuition])
 
-  // 7d. Xử lý Return URL từ cổng PayOS Checkout
+  // ─────────────────────────────────────────
+  // 5. PayOS Return URL Handling
+  // ─────────────────────────────────────────
   useEffect(() => {
     const statusParam = searchParams.get('status')
     const codeParam = searchParams.get('code')
@@ -259,7 +123,6 @@ export const StudentTuition = () => {
         toast.success(
           `Học phí đã được quyết toán thành công qua cổng PayOS! ${orderCodeParam ? `(Mã ĐH: ${orderCodeParam})` : ''}`
         )
-        // Chủ động đối soát trực tiếp với Backend để cập nhật trạng thái học phí ngay
         if (orderCodeParam) {
           api.get(`/student/tuition/payos/status?orderCode=${orderCodeParam}&semester=${activeSem}`)
             .then((res) => {
@@ -270,7 +133,7 @@ export const StudentTuition = () => {
             .catch(() => {})
         }
         setShowReceiptModal(true)
-        fetchTuition(activeSem, selectedBankBin)
+        fetchTuition(activeSem)
       } else if (statusParam === 'CANCELLED' || cancelParam === 'true') {
         setReturnStatusInfo({
           type: 'CANCELLED',
@@ -291,19 +154,22 @@ export const StudentTuition = () => {
         toast.error(`Giao dịch PayOS không thành công (Mã: ${codeParam || 'ERR'})`)
       }
 
-      // Xóa các tham số query trên URL không làm tải lại trang
       setSearchParams({}, { replace: true })
     }
-  }, [searchParams, selectedSemester, selectedBankBin, fetchTuition, setSearchParams])
+  }, [searchParams, selectedSemester, fetchTuition, setSearchParams])
 
-  // 7e. Polling tự động kiểm tra trạng thái khi mở modal PayOS
+  // ─────────────────────────────────────────
+  // 6. Real-time Status Auto-polling
+  // ─────────────────────────────────────────
   useEffect(() => {
     let timer = null
     const isPaidStatus = tuition?.status === 'PAID'
-    if (pollingActive && !isPaidStatus) {
+    if (pollingActive && !isPaidStatus && payOsData?.orderCode) {
       timer = setInterval(async () => {
         try {
-          const res = await api.get(`/student/tuition?semester=${selectedSemester}&bank=${selectedBankBin}`)
+          const res = await api.get(
+            `/student/tuition/payos/status?orderCode=${payOsData.orderCode}&semester=${selectedSemester}`
+          )
           if (res.data?.data) {
             setTuition(res.data.data)
             if (res.data.data.status === 'PAID') {
@@ -314,78 +180,26 @@ export const StudentTuition = () => {
             }
           }
         } catch (ignored) {}
-      }, 3000)
+      }, 2500)
     }
     return () => {
       if (timer) clearInterval(timer)
     }
-  }, [pollingActive, tuition?.status, selectedSemester, selectedBankBin])
-
-  // 7f. Khởi tạo PayOS Embedded Iframe khi modal mở
-  useEffect(() => {
-    if (showPayOsModal && activePayOsTab === 'embedded' && payOsData?.checkoutUrl) {
-      const timer = setTimeout(() => {
-        const container = document.getElementById('payos-checkout-container')
-        if (container && !container.querySelector('iframe')) {
-          try {
-            openPayOs()
-          } catch (err) {
-            console.warn('PayOS openIframe error', err)
-          }
-        }
-      }, 150)
-      return () => {
-        clearTimeout(timer)
-        safeExitPayOs()
-      }
-    }
-  }, [showPayOsModal, activePayOsTab, payOsData?.checkoutUrl, openPayOs, safeExitPayOs])
-
-  // 7g. Lắng nghe postMessage từ PayOS Iframe
-  useEffect(() => {
-    const handlePayOsMessage = (event) => {
-      const allowedOrigins = [
-        'https://dev.pay.payos.vn',
-        'https://next.dev.pay.payos.vn',
-        'https://pay.payos.vn'
-      ]
-      if (allowedOrigins.includes(event.origin)) {
-        try {
-          const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
-          if (payload?.data?.status === 'PAID') {
-            handlePayOsSuccess(payload.data)
-          } else if (payload?.data?.status === 'CANCELLED') {
-            handlePayOsCancel(payload.data)
-          }
-        } catch (e) {
-          // Bỏ qua tin nhắn không phải JSON
-        }
-      }
-    }
-    window.addEventListener('message', handlePayOsMessage)
-    return () => window.removeEventListener('message', handlePayOsMessage)
-  }, [handlePayOsSuccess, handlePayOsCancel])
+  }, [pollingActive, tuition?.status, selectedSemester, payOsData?.orderCode])
 
   // ─────────────────────────────────────────
-  // 8. Hàm thông thường (không phải hook)
+  // 7. Actions & Handlers
   // ─────────────────────────────────────────
-
   const formatVnd = (num) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0)
-  }
-
-  const formatTimer = (seconds) => {
-    const m = Math.floor(seconds / 60)
-    const s = seconds % 60
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
 
   const handleCopy = (text, fieldName) => {
     try {
       navigator.clipboard.writeText(text)
       setCopiedField(fieldName)
-      toast.success(`Đã sao chép ${fieldName} vào bộ nhớ tạm!`)
-      setTimeout(() => setCopiedField(null), 2200)
+      toast.success(`Đã sao chép ${fieldName}!`)
+      setTimeout(() => setCopiedField(null), 2000)
     } catch (err) {
       console.warn('Clipboard write error', err)
     }
@@ -393,6 +207,7 @@ export const StudentTuition = () => {
 
   const handleOpenPayOs = async () => {
     setCreatingPayOs(true)
+    setPayOsQrError(false)
     try {
       const returnUrl = `${window.location.origin}/student/tuition`
       const cancelUrl = `${window.location.origin}/student/tuition?status=CANCELLED`
@@ -405,100 +220,47 @@ export const StudentTuition = () => {
 
       if (res.data?.data) {
         setPayOsData(res.data.data)
-        setActivePayOsTab('qr')
         setShowPayOsModal(true)
         setPollingActive(true)
       }
     } catch (err) {
-      toast.error(
-        'Không thể tạo liên kết thanh toán PayOS: ' + (err.response?.data?.message || err.message)
-      )
+      toast.error('Không thể tạo liên kết thanh toán PayOS: ' + (err.response?.data?.message || err.message))
     } finally {
       setCreatingPayOs(false)
     }
   }
 
-  const handleSimulatePayOsWebhook = async () => {
+  const handleCheckPayOsStatus = async () => {
     if (!payOsData?.orderCode) return
+    setCheckingStatus(true)
     try {
-      await api.post('/public/tuition/payos-webhook', {
-        code: '00',
-        desc: 'success',
-        success: true,
-        data: {
-          orderCode: payOsData.orderCode,
-          amount: payOsData.amount,
-          description: payOsData.description,
-          code: '00',
-          reference: 'SIM-PAYOS-' + Date.now()
-        },
-        signature: 'demo-signature'
-      })
-      toast.success('Đã gửi tín hiệu Webhook PayOS mô phỏng thành công!')
-      await fetchTuition(selectedSemester, selectedBankBin)
-      setShowPayOsModal(false)
-      setPollingActive(false)
-      setShowReceiptModal(true)
-    } catch (err) {
-      toast.error('Lỗi gửi webhook mô phỏng: ' + (err.response?.data?.message || err.message))
-    }
-  }
-
-  const handleConfirmPayment = async (methodName = 'VietQR Napas247') => {
-    setPaying(true)
-    try {
-      const activeB = tuition?.supportedBanks?.find((b) => b.bankBin === selectedBankBin)
-      const bankLabel = activeB ? `${activeB.bankShortName} (BIN ${activeB.bankBin})` : 'VietQR Napas247'
-
-      const res = await api.post('/student/tuition/pay', {
-        semester: selectedSemester,
-        paymentMethod: `VietQR Napas247 (${bankLabel})`
-      })
+      const res = await api.get(
+        `/student/tuition/payos/status?orderCode=${payOsData.orderCode}&semester=${selectedSemester}`
+      )
       if (res.data?.data) {
         setTuition(res.data.data)
-        setPaymentSuccess(true)
-        toast.success(`Quyết toán học phí kỳ ${selectedSemester} thành công qua ${methodName}!`)
-
-        setTimeout(() => {
-          setShowQrModal(false)
-          setPaymentSuccess(false)
-          setSimulatingStep(0)
+        if (res.data.data.status === 'PAID') {
+          setPollingActive(false)
+          setShowPayOsModal(false)
           setShowReceiptModal(true)
-        }, 1200)
+          toast.success('Học phí đã được quyết toán tự động qua cổng PayOS!')
+          return
+        }
       }
+      toast.info('Chưa ghi nhận chuyển khoản từ ngân hàng. Vui lòng kiểm tra lại sau khi chuyển tiền.')
     } catch (err) {
-      toast.error('Không thể hoàn tất thanh toán: ' + (err.response?.data?.message || err.message))
+      toast.error('Lỗi đối soát PayOS: ' + (err.response?.data?.message || err.message))
     } finally {
-      setPaying(false)
+      setCheckingStatus(false)
     }
   }
 
-  const handleSimulateBankingPayment = async () => {
-    setPaying(true)
-    setSimulatingStep(1)
-
-    setTimeout(() => {
-      setSimulatingStep(2)
-
-      setTimeout(async () => {
-        setSimulatingStep(3)
-        await handleConfirmPayment('VietQR Napas247 (Mobile Banking App)')
-      }, 900)
-    }, 900)
-  }
-
-  // ─────────────────────────────────────────
-  // 9. Giá trị Boolean dẫn xuất (không phải hook)
-  // ─────────────────────────────────────────
   const isPaid = tuition?.status === 'PAID'
   const isPartial = tuition?.status === 'PARTIAL'
 
-  // ─────────────────────────────────────────
-  // 10. JSX Render
-  // ─────────────────────────────────────────
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans pb-12">
-      {/* 1. Official Header & Semester Switcher */}
+      {/* 1. Header & Semester Switcher */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl border border-stone-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
           <div className="flex items-center gap-2">
@@ -547,7 +309,7 @@ export const StudentTuition = () => {
         </div>
       </div>
 
-      {/* 1.5. Return URL Notification Banner */}
+      {/* 2. Return URL Notification Banner */}
       {returnStatusInfo && (
         <div
           className={`p-4 rounded-2xl border flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-2 ${
@@ -608,7 +370,7 @@ export const StudentTuition = () => {
         </div>
       ) : (
         <>
-          {/* 2. Financial Standing Card */}
+          {/* 3. Financial Standing Card */}
           <div
             className={`rounded-2xl p-6 border shadow-2xs relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 ${
               isPaid
@@ -618,10 +380,6 @@ export const StudentTuition = () => {
                 : 'bg-stone-50 border-stone-200/90'
             }`}
           >
-            <div className="absolute right-4 -bottom-4 opacity-5 pointer-events-none w-52 h-52">
-              <img src="/images/stamp-seal.svg" alt="Seal" className="w-full h-full" />
-            </div>
-
             <div className="space-y-3 relative z-10">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span
@@ -630,7 +388,7 @@ export const StudentTuition = () => {
                       ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs'
                       : isPartial
                       ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                      : 'bg-red-100 text-red-800 border border-red-300 animate-pulse'
+                      : 'bg-red-100 text-red-800 border border-red-300'
                   }`}
                 >
                   {isPaid ? (
@@ -675,7 +433,7 @@ export const StudentTuition = () => {
                 </span>
                 <span>•</span>
                 <span>
-                  Hạn quyết toán (BR-07):{' '}
+                  Hạn quyết toán:{' '}
                   <strong className="text-red-700">{tuition.dueDate || '30 ngày sau chốt ĐK'}</strong>
                 </span>
               </div>
@@ -683,23 +441,14 @@ export const StudentTuition = () => {
 
             <div className="relative z-10 flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
               {!isPaid ? (
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  <button
-                    onClick={handleOpenPayOs}
-                    disabled={creatingPayOs}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-bold bg-gradient-to-r from-red-700 via-rose-700 to-amber-700 hover:from-red-800 hover:to-amber-800 text-white transition shadow-sm hover:shadow cursor-pointer disabled:opacity-50 ring-2 ring-red-400/30"
-                  >
-                    <Zap size={16} className="text-amber-200" />
-                    <span>{creatingPayOs ? 'Đang kết nối PayOS...' : 'Thanh Toán PayOS Checkout'}</span>
-                  </button>
-                  <button
-                    onClick={() => setShowQrModal(true)}
-                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-semibold bg-stone-100 hover:bg-stone-200 text-stone-800 transition border border-stone-300 cursor-pointer"
-                  >
-                    <QrCode size={16} className="text-stone-600" />
-                    <span>VietQR Napas247</span>
-                  </button>
-                </div>
+                <button
+                  onClick={handleOpenPayOs}
+                  disabled={creatingPayOs}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-xs font-bold bg-gradient-to-r from-red-700 via-rose-700 to-amber-700 hover:from-red-800 hover:to-amber-800 text-white transition shadow-sm hover:shadow cursor-pointer disabled:opacity-50 ring-2 ring-red-400/30"
+                >
+                  <Zap size={16} className="text-amber-200" />
+                  <span>{creatingPayOs ? 'Đang tạo mã PayOS QR...' : 'Thanh Toán Qua PayOS (VietQR)'}</span>
+                </button>
               ) : (
                 <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200 text-xs text-emerald-950 space-y-1.5 font-mono shadow-2xs">
                   <div className="flex items-center gap-1.5 font-bold text-emerald-900">
@@ -718,7 +467,7 @@ export const StudentTuition = () => {
             </div>
           </div>
 
-          {/* 3. Breakdown Course Fee Table */}
+          {/* 4. Breakdown Course Fee Table */}
           <div className="bg-white rounded-2xl border border-stone-200/90 shadow-2xs overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-stone-200/80 bg-stone-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
@@ -727,7 +476,7 @@ export const StudentTuition = () => {
                   Bảng Kê Chi Tiết Quyết Toán Học Phần ({tuition.courses?.length || 0} môn)
                 </h3>
                 <span className="text-[11px] text-stone-600">
-                  Căn cứ quy chế đào tạo tín chỉ và định mức chuẩn 450.000 VNĐ/TC (BR-07)
+                  Căn cứ quy chế đào tạo tín chỉ và định mức học vụ
                 </span>
               </div>
 
@@ -770,7 +519,7 @@ export const StudentTuition = () => {
                   {tuition.totalCredits > 0 && (
                     <tr className="bg-stone-50/40">
                       <td className="py-3.5 px-4 font-mono text-stone-400 text-center">-</td>
-                      <td className="py-3.5 px-4 font-mono text-stone-500 font-bold">FEE-LAB-LIB</td>
+                      <td className="py-3.5 px-4 font-mono text-stone-500 font-bold">FEE-FACILITY</td>
                       <td className="py-3.5 px-4 text-stone-700">
                         Phí duy trì cơ sở vật chất, thư viện số &amp; phòng lab thực hành
                       </td>
@@ -802,125 +551,114 @@ export const StudentTuition = () => {
         </>
       )}
 
-      {/* 4. MODAL THANH TOÁN VIETQR NAPAS247 */}
-      {showQrModal && (
-        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 my-8">
+      {/* 5. PAYOS VIETQR CHECKOUT MODAL (Focused, Compact, No Iframe Clutter) */}
+      {showPayOsModal && payOsData && (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 my-6 flex flex-col max-h-[92vh] overflow-hidden">
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3.5 border-b border-stone-200">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-red-700 text-white flex items-center justify-center">
-                  <QrCode size={18} />
+            <div className="p-4 sm:p-5 border-b border-stone-200 flex items-center justify-between bg-stone-50/80 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-red-700 via-rose-700 to-amber-600 text-white flex items-center justify-center shadow-xs">
+                  <Zap size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-stone-900 uppercase font-mono tracking-tight flex items-center gap-1.5">
-                    <span>Thanh Toán VietQR Napas247</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-100 text-amber-900 border border-amber-300 font-bold">
-                      24/7 Miễn Phí
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-bold text-stone-900 font-mono tracking-tight">
+                      Cổng Thanh Toán PayOS
+                    </h3>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      Live
                     </span>
-                  </h3>
+                  </div>
                   <p className="text-[11px] text-stone-500">
-                    Cổng đối soát thanh toán trực tuyến liên ngân hàng tức thì
+                    Mã đơn hàng:{' '}
+                    <strong className="text-red-700 font-mono font-bold">#{payOsData.orderCode}</strong>
                   </p>
                 </div>
               </div>
 
               <button
-                onClick={() => setShowQrModal(false)}
-                className="text-stone-400 hover:text-stone-700 text-2xl leading-none cursor-pointer"
+                onClick={() => {
+                  setShowPayOsModal(false)
+                  setPollingActive(false)
+                }}
+                className="text-stone-400 hover:text-stone-700 text-2xl leading-none p-1 rounded-lg hover:bg-stone-100 transition cursor-pointer"
+                title="Đóng cửa sổ"
               >
                 &times;
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="mt-4 space-y-4">
-              {/* Timer */}
-              <div className="flex items-center justify-between bg-stone-50 p-2.5 rounded-xl border border-stone-200 text-xs">
-                <span className="text-stone-600 flex items-center gap-1.5">
-                  <Clock size={13} className="text-amber-600" />
-                  Thời hạn phiên VietQR:
-                </span>
-                <span className="font-mono font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
-                  {formatTimer(qrRemainingSeconds)}
-                </span>
-              </div>
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+              {/* VietQR Code Card */}
+              <div className="relative mx-auto w-full bg-gradient-to-b from-stone-50 to-white border border-stone-200 rounded-2xl p-4 flex flex-col items-center justify-center shadow-2xs">
+                <div className="w-full flex items-center justify-between pb-2 mb-3 border-b border-stone-200 text-[10px] font-mono font-bold">
+                  <span className="text-red-700 uppercase flex items-center gap-1">
+                    <QrCode size={13} /> Mã VietQR Thanh Toán
+                  </span>
+                  <span className="text-emerald-700 uppercase flex items-center gap-1">
+                    <CheckCircle2 size={13} /> Tự Động Gạch Nợ
+                  </span>
+                </div>
 
-              {/* Bank Selector */}
-              {tuition?.supportedBanks && tuition.supportedBanks.length > 1 && (
-                <div className="flex items-center justify-center p-1 bg-stone-100 rounded-xl border border-stone-200 gap-1">
-                  {tuition.supportedBanks.map((bank) => (
-                    <button
-                      key={bank.bankBin}
-                      type="button"
-                      onClick={() => setSelectedBankBin(bank.bankBin)}
-                      className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                        selectedBankBin === bank.bankBin
-                          ? 'bg-white text-stone-900 shadow-2xs border border-stone-200'
-                          : 'text-stone-600 hover:text-stone-900'
-                      }`}
-                    >
-                      <Building
-                        size={13}
-                        className={selectedBankBin === bank.bankBin ? 'text-red-700' : 'text-stone-400'}
+                {payOsData.accountNumber ? (
+                  <div className="w-full flex flex-col items-center">
+                    <div className="p-2.5 bg-white rounded-2xl shadow-sm border border-stone-200">
+                      <img
+                        src={
+                          payOsQrError && payOsData.qrCode
+                            ? `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(
+                                payOsData.qrCode
+                              )}`
+                            : `https://img.vietqr.io/image/${payOsData.bin || '970422'}-${payOsData.accountNumber}-compact2.png?amount=${payOsData.amount || 0}&addInfo=${encodeURIComponent(
+                                payOsData.description || ''
+                              )}&accountName=${encodeURIComponent(
+                                payOsData.accountName || 'NGUYEN QUANG VINH'
+                              )}`
+                        }
+                        onError={() => setPayOsQrError(true)}
+                        alt="PayOS VietQR Code"
+                        className="w-52 h-auto object-contain rounded-xl"
                       />
-                      <span>
-                        {bank.bankShortName} ({bank.bankBin})
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* QR Display */}
-              <div className="relative mx-auto w-64 bg-gradient-to-b from-stone-50 to-white border-2 border-stone-300 rounded-2xl p-4 flex flex-col items-center justify-center shadow-sm">
-                <div className="w-full flex items-center justify-between pb-2 mb-2 border-b border-stone-200 text-[10px] font-mono font-bold">
-                  <span className="text-red-700 font-bold uppercase">VietQR</span>
-                  <span className="text-blue-700 font-bold uppercase">Napas 247</span>
-                </div>
-
-                {paymentSuccess ? (
-                  <div className="py-12 flex flex-col items-center gap-2 text-emerald-700 animate-in zoom-in">
-                    <CheckCircle2 size={54} className="animate-bounce" />
-                    <p className="font-bold text-sm">Giao dịch đã xác nhận thành công!</p>
-                    <p className="text-xs text-stone-500">Đang tạo biên lai điện tử...</p>
+                    </div>
+                    <p className="text-[11px] text-stone-600 text-center mt-2.5 font-medium">
+                      Mở App Ngân hàng bất kỳ &gt; Quét mã VietQR để thanh toán chính xác
+                    </p>
                   </div>
                 ) : (
-                  <div className="relative group">
-                    <img
-                      src={activeBank.vietQrQuickLink || (qrImageError ? fallbackQrUrl : vietQrUrl)}
-                      onError={() => setQrImageError(true)}
-                      alt="VietQR Napas247"
-                      className="w-52 h-52 object-contain rounded-lg shadow-2xs"
-                    />
-                    <div className="absolute inset-x-0 top-0 h-0.5 bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.8)] opacity-60 animate-pulse pointer-events-none" />
+                  <div className="py-8 text-center text-xs text-stone-500">
+                    <RefreshCw size={24} className="animate-spin mx-auto text-stone-400 mb-2" />
+                    Đang tạo mã thanh toán VietQR...
                   </div>
                 )}
-
-                <p className="text-[10px] text-stone-500 text-center mt-2.5 font-medium">
-                  Mở ứng dụng Mobile Banking của mọi ngân hàng để quét mã
-                </p>
               </div>
 
-              {/* Transfer Details */}
-              <div className="bg-stone-50/80 p-3.5 rounded-xl border border-stone-200 text-xs space-y-2 font-mono">
-                <div className="flex items-center justify-between pb-1 border-b border-stone-200">
-                  <span className="text-stone-500 font-sans">Ngân hàng:</span>
-                  <span className="font-bold text-stone-900 font-sans">{activeBank.bankName}</span>
+              {/* Transaction Details Grid */}
+              <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 text-xs space-y-2 font-mono">
+                <div className="flex justify-between items-center pb-2 border-b border-stone-200">
+                  <span className="text-stone-500 font-sans">Ngân hàng thụ hưởng:</span>
+                  <span className="text-stone-900 font-bold font-sans">
+                    MBBank (Ngân hàng TMCP Quân đội)
+                  </span>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-stone-500 font-sans">Chủ tài khoản:</span>
-                  <strong className="text-stone-900">{activeBank.accountName}</strong>
+                  <strong className="text-stone-900 font-bold">
+                    {payOsData.accountName || 'NGUYEN QUANG VINH'}
+                  </strong>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-stone-500 font-sans">Số tài khoản:</span>
-                  <div className="flex items-center gap-2">
-                    <strong className="text-red-800 text-sm font-bold">{activeBank.accountNumber}</strong>
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-sans">Số tài khoản nhận:</span>
+                  <div className="flex items-center gap-1.5">
+                    <strong className="text-stone-900 bg-white px-2 py-0.5 rounded border border-stone-200 text-sm font-bold">
+                      {payOsData.accountNumber}
+                    </strong>
                     <button
                       type="button"
-                      onClick={() => handleCopy(activeBank.accountNumber, 'Số tài khoản')}
+                      onClick={() => handleCopy(payOsData.accountNumber, 'Số tài khoản')}
                       className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
                       title="Sao chép số tài khoản"
                     >
@@ -933,20 +671,15 @@ export const StudentTuition = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-stone-500 font-sans">Số tiền cần nộp:</span>
-                  <div className="flex items-center gap-2">
-                    <strong className="text-stone-900 text-sm font-bold">
-                      {formatVnd(tuition?.remainingAmount || tuition?.totalAmount)}
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-sans">Số tiền:</span>
+                  <div className="flex items-center gap-1.5">
+                    <strong className="text-red-700 text-sm font-bold">
+                      {formatVnd(payOsData.amount)}
                     </strong>
                     <button
                       type="button"
-                      onClick={() =>
-                        handleCopy(
-                          String(tuition?.remainingAmount || tuition?.totalAmount || 0),
-                          'Số tiền'
-                        )
-                      }
+                      onClick={() => handleCopy(String(payOsData.amount), 'Số tiền')}
                       className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
                       title="Sao chép số tiền"
                     >
@@ -959,24 +692,21 @@ export const StudentTuition = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1 border-t border-stone-200">
-                  <span className="text-stone-500 font-sans">Nội dung chuyển:</span>
-                  <div className="flex items-center gap-2">
-                    <strong className="text-amber-900 bg-amber-100 px-2 py-0.5 rounded font-bold">
-                      {tuition?.transferContent || transferSyntax}
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-500 font-sans">Nội dung chuyển khoản:</span>
+                  <div className="flex items-center gap-1.5">
+                    <strong className="text-stone-900 bg-white px-2 py-0.5 rounded border border-stone-200">
+                      {payOsData.description}
                     </strong>
                     <button
                       type="button"
                       onClick={() =>
-                        handleCopy(
-                          tuition?.transferContent || transferSyntax,
-                          'Nội dung chuyển khoản'
-                        )
+                        handleCopy(payOsData.description, 'Nội dung chuyển khoản PayOS')
                       }
                       className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
-                      title="Sao chép cú pháp chuyển khoản"
+                      title="Sao chép nội dung"
                     >
-                      {copiedField === 'Nội dung chuyển khoản' ? (
+                      {copiedField === 'Nội dung chuyển khoản PayOS' ? (
                         <CheckCheck size={13} className="text-emerald-700" />
                       ) : (
                         <Copy size={13} />
@@ -986,470 +716,60 @@ export const StudentTuition = () => {
                 </div>
               </div>
 
-              {/* Raw VietQR Payload */}
-              {activeBank.vietQrPayload && (
-                <div className="border border-stone-200 rounded-lg p-2 text-left bg-stone-50/50">
-                  <button
-                    type="button"
-                    onClick={() => setShowRawPayload(!showRawPayload)}
-                    className="w-full flex items-center justify-between text-[11px] text-stone-600 hover:text-stone-900 font-medium cursor-pointer"
-                  >
-                    <span>Payload VietQR chuẩn Napas247 (EMVCo)</span>
-                    {showRawPayload ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </button>
-                  {showRawPayload && (
-                    <div className="mt-2 space-y-1">
-                      <div className="p-2 bg-stone-900 text-emerald-400 font-mono text-[10px] rounded break-all select-all">
-                        {activeBank.vietQrPayload}
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(activeBank.vietQrPayload, 'Chuỗi Payload VietQR')}
-                          className="text-[10px] text-red-700 hover:text-red-800 font-semibold flex items-center gap-1"
-                        >
-                          <Copy size={11} />
-                          <span>Sao chép chuỗi mã</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Warning */}
-              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-center gap-2">
-                <Info size={15} className="text-amber-700 shrink-0" />
-                <span>
-                  Hệ thống tự động ghi nhận gạch nợ sau 30-60 giây khi chuyển khoản đúng cú pháp.
-                </span>
-              </div>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="mt-5 space-y-2">
-              <button
-                disabled={paying || paymentSuccess}
-                onClick={handleSimulateBankingPayment}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                {paying ? (
-                  <>
-                    <RefreshCw size={14} className="animate-spin" />
-                    <span>
-                      {simulatingStep === 1 && 'Đang kết nối cổng Napas247...'}
-                      {simulatingStep === 2 && 'Đang đối soát mã sinh viên...'}
-                      {simulatingStep === 3 && 'Đang ghi nhận gạch nợ học phí...'}
-                      {simulatingStep === 0 && 'Đang xử lý giao dịch...'}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={14} className="text-amber-200 animate-pulse" />
-                    <span>Mô Phỏng Quét Mã &amp; Thanh Toán App Ngân Hàng (1-Click Settle)</span>
-                  </>
-                )}
-              </button>
-
-              <div className="flex gap-2">
-                <button
-                  disabled={paying}
-                  onClick={() => setShowQrModal(false)}
-                  className="flex-1 py-2 rounded-xl border border-stone-300 text-xs font-medium text-stone-700 hover:bg-stone-50 transition cursor-pointer"
-                >
-                  Đóng lại
-                </button>
-                <button
-                  disabled={paying || paymentSuccess}
-                  onClick={() => handleConfirmPayment('VietQR Napas247 Chuyển Khoản')}
-                  className="flex-1 py-2 rounded-xl bg-stone-900 hover:bg-black text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-                >
-                  <Check size={14} />
-                  <span>Xác nhận đã chuyển</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 4.5. PAYOS CHECKOUT MODAL */}
-      {showPayOsModal && payOsData && (
-        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 my-6 flex flex-col max-h-[92vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-stone-200 flex items-center justify-between bg-stone-50/70 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-red-700 via-rose-700 to-amber-600 text-white flex items-center justify-center shadow-xs">
-                  <Zap size={20} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm sm:text-base font-bold text-stone-900 font-mono tracking-tight">
-                      Cổng Thanh Toán Trực Tuyến PayOS
-                    </h3>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                      Live / Sandbox
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-stone-500">
-                    Mã đơn hàng:{' '}
-                    <strong className="text-red-700 font-mono font-bold">#{payOsData.orderCode}</strong>{' '}
-                    • Tự động gạch nợ tức thì
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  safeExitPayOs()
-                  setShowPayOsModal(false)
-                  setPollingActive(false)
-                }}
-                className="text-stone-400 hover:text-stone-700 text-2xl leading-none p-1 rounded-lg hover:bg-stone-100 transition cursor-pointer"
-                title="Đóng cửa sổ"
-              >
-                &times;
-              </button>
-            </div>
-
-            {/* Tab Navigation */}
-            <div className="px-5 pt-3 border-b border-stone-200 bg-white flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setActivePayOsTab('qr')}
-                className={`py-2 px-3.5 text-xs font-bold rounded-t-xl transition flex items-center gap-1.5 border-b-2 cursor-pointer ${
-                  activePayOsTab === 'qr'
-                    ? 'border-red-700 text-red-700 bg-red-50/50'
-                    : 'border-transparent text-stone-500 hover:text-stone-800'
-                }`}
-              >
-                <QrCode size={14} />
-                <span>Mã VietQR &amp; Chi Tiết Thanh Toán</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActivePayOsTab('embedded')}
-                className={`py-2 px-3.5 text-xs font-bold rounded-t-xl transition flex items-center gap-1.5 border-b-2 cursor-pointer ${
-                  activePayOsTab === 'embedded'
-                    ? 'border-red-700 text-red-700 bg-red-50/50'
-                    : 'border-transparent text-stone-500 hover:text-stone-800'
-                }`}
-              >
-                <Layers size={14} />
-                <span>Khung Nhúng PayOS Checkout</span>
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
-              {/* Status Note */}
-              <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl flex items-start gap-2.5 text-[11px] text-emerald-950">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping mt-1 shrink-0" />
-                <div>
-                  <span className="font-bold">Luồng Quyết Toán Tự Động (PayOS IPN):</span> Sau khi giao
-                  dịch hoàn tất trên giao diện PayOS hoặc qua App Ngân hàng, trạng thái học phí sẽ được
-                  tự động đổi sang <strong>ĐÃ HOÀN TẤT</strong> ngay lập tức.
-                </div>
-              </div>
-
-              {/* Tab 1: QR + Details (Primary & Default) */}
-              {activePayOsTab === 'qr' && (
-                <div className="space-y-4">
-                  <div className="relative mx-auto w-full max-w-sm bg-gradient-to-b from-stone-50 to-white border-2 border-stone-300 rounded-2xl p-4 flex flex-col items-center justify-center shadow-sm">
-                    <div className="w-full flex items-center justify-between pb-2 mb-3 border-b border-stone-200 text-[10px] font-mono font-bold">
-                      <span className="text-red-700 uppercase flex items-center gap-1">
-                        <QrCode size={12} /> PayOS VietQR 24/7
-                      </span>
-                      <span className="text-emerald-700 uppercase flex items-center gap-1">
-                        <CheckCircle2 size={12} /> Tự Động Gạch Nợ
-                      </span>
-                    </div>
-
-                    {payOsData.accountNumber ? (
-                      <div className="w-full flex flex-col items-center">
-                        <img
-                          src={`https://img.vietqr.io/image/${payOsData.bin || '970422'}-${payOsData.accountNumber}-vietqr_pro.svg?addInfo=${encodeURIComponent(
-                            payOsData.description || ''
-                          )}&amount=${payOsData.amount || 0}&accountName=${encodeURIComponent(
-                            payOsData.accountName || 'NGUYEN QUANG VINH'
-                          )}`}
-                          onError={(e) => {
-                            e.target.onerror = null
-                            e.target.src = `https://img.vietqr.io/image/${payOsData.bin || '970422'}-${payOsData.accountNumber}-compact2.png?addInfo=${encodeURIComponent(
-                              payOsData.description || ''
-                            )}&amount=${payOsData.amount || 0}&accountName=${encodeURIComponent(
-                              payOsData.accountName || 'NGUYEN QUANG VINH'
-                            )}`
-                          }}
-                          alt="PayOS VietQR Code"
-                          className="w-full max-w-[260px] h-auto object-contain rounded-xl shadow-2xs border border-stone-100 bg-white"
-                        />
-                        <p className="text-[11px] text-stone-600 text-center mt-3 font-medium">
-                          Mở App Ngân hàng bất kỳ &gt; Quét mã VietQR ở trên để thanh toán chính xác
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="py-8 text-center text-xs text-stone-500">
-                        <RefreshCw size={24} className="animate-spin mx-auto text-stone-400 mb-2" />
-                        Đang tạo mã thanh toán VietQR PayOS...
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="bg-stone-50/90 p-4 rounded-xl border border-stone-200 text-xs space-y-2.5 font-mono">
-                    <div className="flex justify-between items-center pb-2 border-b border-stone-200">
-                      <span className="text-stone-500 font-sans">Mã đơn hàng PayOS:</span>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="text-red-800 text-sm tracking-wide">
-                          #{payOsData.orderCode}
-                        </strong>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(String(payOsData.orderCode), 'Mã đơn hàng PayOS')}
-                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
-                          title="Sao chép mã đơn hàng"
-                        >
-                          {copiedField === 'Mã đơn hàng PayOS' ? (
-                            <CheckCheck size={13} className="text-emerald-700" />
-                          ) : (
-                            <Copy size={13} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-stone-500 font-sans">Ngân hàng thụ hưởng:</span>
-                      <span className="text-stone-900 font-bold font-sans">
-                        MBBank (Ngân hàng TMCP Quân đội)
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-stone-500 font-sans">Chủ tài khoản:</span>
-                      <strong className="text-stone-900 font-bold">
-                        {payOsData.accountName || 'NGUYEN QUANG VINH'}
-                      </strong>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-stone-500 font-sans">Số tài khoản nhận:</span>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="text-stone-900 bg-white px-2 py-0.5 rounded border border-stone-200 text-sm font-bold">
-                          {payOsData.accountNumber}
-                        </strong>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(payOsData.accountNumber, 'Số tài khoản')}
-                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
-                          title="Sao chép số tài khoản"
-                        >
-                          {copiedField === 'Số tài khoản' ? (
-                            <CheckCheck size={13} className="text-emerald-700" />
-                          ) : (
-                            <Copy size={13} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-stone-500 font-sans">Số tiền quyết toán:</span>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="text-red-700 text-sm font-bold">
-                          {formatVnd(payOsData.amount)}
-                        </strong>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(String(payOsData.amount), 'Số tiền')}
-                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
-                          title="Sao chép số tiền"
-                        >
-                          {copiedField === 'Số tiền' ? (
-                            <CheckCheck size={13} className="text-emerald-700" />
-                          ) : (
-                            <Copy size={13} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-stone-500 font-sans">Nội dung chuyển tiền:</span>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="text-stone-900 bg-white px-2 py-0.5 rounded border border-stone-200">
-                          {payOsData.description}
-                        </strong>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleCopy(payOsData.description, 'Nội dung chuyển khoản PayOS')
-                          }
-                          className="p-1 hover:bg-stone-200 rounded text-stone-600 transition cursor-pointer"
-                          title="Sao chép nội dung"
-                        >
-                          {copiedField === 'Nội dung chuyển khoản PayOS' ? (
-                            <CheckCheck size={13} className="text-emerald-700" />
-                          ) : (
-                            <Copy size={13} />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {payOsData.checkoutUrl && (
-                    <a
-                      href={payOsData.checkoutUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-stone-900 hover:bg-black text-white text-xs font-bold transition cursor-pointer shadow-sm"
-                    >
-                      <ExternalLink size={14} />
-                      <span>Mở Cổng Thanh Toán PayOS (pay.payos.vn) ↗</span>
-                    </a>
-                  )}
-                </div>
-              )}
-
-              {/* Tab 2: Embedded */}
-              {activePayOsTab === 'embedded' && (
-                <div className="space-y-3">
-                  <div
-                    id="payos-checkout-container"
-                    className="w-full h-[540px] rounded-2xl overflow-hidden border border-stone-200 bg-stone-50 relative flex flex-col items-center justify-center shadow-inner"
-                  >
-                    {payOsData.isMock ||
-                    payOsData.paymentLinkId?.startsWith('PAYOS-LINK-') ||
-                    payOsData.paymentLinkId?.startsWith('PAYOS-FALLBACK-') ? (
-                      <div className="w-full h-full p-6 flex flex-col items-center justify-center text-center space-y-4 bg-gradient-to-b from-stone-50 to-amber-50/30">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold shadow-2xs">
-                          <CreditCard size={24} />
-                        </div>
-                        <div className="max-w-md space-y-1">
-                          <h4 className="font-bold text-stone-900 text-sm">
-                            Cổng Thanh Toán PayOS (Chế Độ Thử Nghiệm Sandbox)
-                          </h4>
-                          <p className="text-xs text-stone-600">
-                            Hệ thống đang hoạt động ở chế độ Demo/Sandbox. Bạn có thể chuyển sang tab{' '}
-                            <strong>Mã VietQR</strong> để quét mã chuyển tiền hoặc bấm nút bên dưới để
-                            giả lập hoàn tất thanh toán tức thời.
-                          </p>
-                        </div>
-                        <div className="bg-white p-3.5 rounded-xl border border-stone-200 shadow-2xs text-xs space-y-1.5 w-full max-w-sm text-left font-mono">
-                          <div className="flex justify-between">
-                            <span className="text-stone-500 font-sans">Mã đơn hàng:</span>
-                            <strong className="text-red-700">#{payOsData.orderCode}</strong>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-stone-500 font-sans">Số tiền:</span>
-                            <strong className="text-stone-900 font-bold">{formatVnd(payOsData.amount)}</strong>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-stone-500 font-sans">Nội dung:</span>
-                            <strong className="text-stone-900">{payOsData.description}</strong>
-                          </div>
-                        </div>
-                        <div className="flex flex-col sm:flex-row items-center gap-2 pt-2 w-full max-w-sm">
-                          <button
-                            type="button"
-                            onClick={() => setActivePayOsTab('qr')}
-                            className="flex-1 px-4 py-2 bg-stone-900 hover:bg-black text-white text-xs font-semibold rounded-xl transition cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
-                          >
-                            <QrCode size={14} />
-                            <span>Mã VietQR & STK</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleSimulatePayOsWebhook}
-                            className="flex-1 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl transition cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
-                          >
-                            <Sparkles size={14} />
-                            <span>⚡ Gạch Nợ Tức Thì</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : !payOsData.checkoutUrl ? (
-                      <div className="text-center p-6 space-y-2">
-                        <RefreshCw size={24} className="animate-spin mx-auto text-stone-400" />
-                        <p className="text-xs text-stone-500 font-mono">
-                          Đang tải giao diện thanh toán PayOS Checkout...
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <p className="text-[11px] text-stone-500 text-center font-sans">
-                    Nếu khung thanh toán bị chặn do bảo mật trình duyệt, bạn có thể chuyển qua tab{' '}
-                    <strong>Mã VietQR</strong> hoặc bấm nút mở tab mới bên dưới.
-                  </p>
-                </div>
-              )}
-
-              {/* Sandbox Testing Helper */}
-              <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
-                <div>
-                  <span className="font-bold text-amber-900 font-mono text-[11px] block">
-                    Kiểm thử Sandbox / Developer IPN:
-                  </span>
-                  <span className="text-amber-800 text-[11px]">
-                    Gửi tín hiệu Webhook tức thì để mô phỏng sinh viên đã chuyển khoản thành công.
+              {/* Real-time Status Sync */}
+              <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-ping shrink-0" />
+                  <span className="text-emerald-950 text-[11px] font-medium">
+                    Hệ thống tự động kiểm tra giao dịch mỗi 2-3 giây.
                   </span>
                 </div>
                 <button
                   type="button"
-                  onClick={handleSimulatePayOsWebhook}
-                  className="px-3 py-1.5 text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-400 rounded-lg transition cursor-pointer flex items-center gap-1.5 shrink-0 shadow-2xs"
+                  onClick={handleCheckPayOsStatus}
+                  disabled={checkingStatus}
+                  className="px-3 py-1.5 text-xs font-bold bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-lg transition cursor-pointer flex items-center gap-1.5 shrink-0 shadow-2xs disabled:opacity-50"
                 >
-                  <Sparkles size={13} className="text-amber-700" />
-                  <span>⚡ Mô Phỏng PayOS Webhook</span>
+                  <RefreshCw size={13} className={checkingStatus ? 'animate-spin text-emerald-700' : 'text-emerald-700'} />
+                  <span>{checkingStatus ? 'Đang kiểm tra...' : 'Kiểm Tra Trạng Thái'}</span>
                 </button>
               </div>
             </div>
 
             {/* Modal Footer */}
             <div className="p-4 sm:p-5 border-t border-stone-200 bg-stone-50/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
-              {payOsData.checkoutUrl &&
-              !payOsData.isMock &&
-              !payOsData.paymentLinkId?.startsWith('PAYOS-LINK-') &&
-              !payOsData.paymentLinkId?.startsWith('PAYOS-FALLBACK-') ? (
+              {payOsData.checkoutUrl ? (
                 <a
                   href={payOsData.checkoutUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-stone-900 hover:bg-black text-white text-xs font-semibold transition cursor-pointer shadow-2xs"
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-xs font-semibold text-stone-700 hover:text-stone-900 transition"
                 >
-                  <ExternalLink size={14} />
-                  <span>Mở PayOS Checkout Tab Mới</span>
+                  <ExternalLink size={13} />
+                  <span>Mở Trang Thanh Toán PayOS (pay.payos.vn) ↗</span>
                 </a>
               ) : (
                 <div />
               )}
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <button
-                  onClick={() => {
-                    safeExitPayOs()
-                    setShowPayOsModal(false)
-                    setPollingActive(false)
-                  }}
-                  className="w-full sm:w-auto py-2 px-4 rounded-xl border border-stone-300 text-xs font-semibold text-stone-700 hover:bg-stone-100 transition cursor-pointer"
-                >
-                  Đóng cửa sổ
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  setShowPayOsModal(false)
+                  setPollingActive(false)
+                }}
+                className="w-full sm:w-auto py-2 px-5 rounded-xl bg-stone-900 hover:bg-black text-white text-xs font-semibold transition cursor-pointer shadow-2xs"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 5. ELECTRONIC RECEIPT MODAL */}
+      {/* 6. ELECTRONIC RECEIPT MODAL */}
       {showReceiptModal && (
         <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-stone-200 relative animate-in fade-in zoom-in-95 my-8">
-            {/* Top Toolbar */}
             <div className="flex items-center justify-between pb-3 border-b border-stone-200 print:hidden">
               <span className="text-xs font-mono font-bold text-stone-700 uppercase flex items-center gap-1.5">
                 <FileText size={14} className="text-red-700" />
@@ -1472,12 +792,7 @@ export const StudentTuition = () => {
               </div>
             </div>
 
-            {/* Receipt Content */}
             <div className="mt-4 p-6 sm:p-8 rounded-2xl border border-stone-300 bg-stone-50/40 relative overflow-hidden space-y-5 print:border-none print:p-0 print:m-0">
-              <div className="absolute right-6 top-32 opacity-20 pointer-events-none w-48 h-48 rotate-[-15deg]">
-                <img src="/images/stamp-seal.svg" alt="Official Stamp" className="w-full h-full" />
-              </div>
-
               <div className="text-center border-b border-stone-200 pb-4">
                 <p className="text-[10px] font-mono font-bold text-stone-500 uppercase tracking-wider">
                   BỘ GIÁO DỤC VÀ ĐÀO TẠO • HỌC VIỆN CÔNG NGHỆ RIKKEI

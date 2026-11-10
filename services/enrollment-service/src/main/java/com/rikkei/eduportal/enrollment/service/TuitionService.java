@@ -32,8 +32,8 @@ public class TuitionService {
 
     public static final String DEFAULT_ACCOUNT_NO = "999988882025";
     public static final String DEFAULT_ACCOUNT_NAME = "HOC VIEN CONG NGHE RIKKEI";
-    public static final BigDecimal CREDIT_UNIT_PRICE = BigDecimal.valueOf(450000.00); // BR-07: 450.000 VNĐ / 1 TC
-    public static final BigDecimal BASE_FACILITY_FEE = BigDecimal.valueOf(300000.00); // Phí CSVC định mức kỳ
+    public static final BigDecimal CREDIT_UNIT_PRICE = BigDecimal.valueOf(100.00); // 100 VNĐ / 1 TC (chế độ kiểm thử chuyển khoản thật qua PayOS)
+    public static final BigDecimal BASE_FACILITY_FEE = BigDecimal.valueOf(1000.00); // 1.000 VNĐ phí CSVC định mức kỳ
 
     private final TuitionFeeRepository tuitionFeeRepository;
     private final StudentProfileRepository studentProfileRepository;
@@ -89,6 +89,10 @@ public class TuitionService {
         // Nếu sinh viên đăng ký >= 1 TC => Tổng học phí = (Số tín chỉ * 450.000) + 300.000 (CSVC)
         BigDecimal facilityFee = (totalCredits > 0) ? BASE_FACILITY_FEE : BigDecimal.ZERO;
         BigDecimal calculatedTotalAmount = CREDIT_UNIT_PRICE.multiply(BigDecimal.valueOf(totalCredits)).add(facilityFee);
+        // Đảm bảo số tiền tối thiểu >= 2.000 VNĐ theo chuẩn thanh toán PayOS VietQR
+        if (totalCredits > 0 && calculatedTotalAmount.compareTo(BigDecimal.valueOf(2000.00)) < 0) {
+            calculatedTotalAmount = BigDecimal.valueOf(2000.00);
+        }
 
         TuitionFee tuition = tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), activeSemester)
                 .orElse(null);
