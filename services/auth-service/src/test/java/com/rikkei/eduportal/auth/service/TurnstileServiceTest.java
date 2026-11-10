@@ -74,12 +74,13 @@ class TurnstileServiceTest {
     }
 
     @Test
-    void testVerify_MissingSecret_ThrowsAccessDeniedException() {
+    void testVerify_MissingSecret_SkipsVerificationSafely() {
         TurnstileService noSecretService = new TurnstileService(
                 "", HOSTNAMES, VERIFY_URL, true, objectMapper, httpClient);
 
-        assertThrows(AccessDeniedException.class, () ->
+        assertDoesNotThrow(() ->
                 noSecretService.verify("some-valid-token", "127.0.0.1", "login"));
+        verifyNoInteractions(httpClient);
     }
 
     @Test

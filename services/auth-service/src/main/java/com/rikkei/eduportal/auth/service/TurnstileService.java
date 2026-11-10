@@ -66,14 +66,10 @@ public class TurnstileService {
     }
 
     public void verify(String token, String clientIp, String expectedAction) {
-        if (!enabled) {
-            log.debug("Turnstile verification is disabled by configuration");
+        if (!enabled || secret.isEmpty()) {
+            log.debug("Turnstile verification is disabled or unconfigured (enabled={}, secretSet={}); skipping verification",
+                    enabled, !secret.isEmpty());
             return;
-        }
-
-        if (secret.isEmpty()) {
-            log.warn("Turnstile secret is not configured; rejecting request");
-            throw new AccessDeniedException("Turnstile secret chưa được cấu hình");
         }
 
         if (token == null || token.isBlank() || token.length() > 2048 || expectedHostnames.isEmpty()) {
