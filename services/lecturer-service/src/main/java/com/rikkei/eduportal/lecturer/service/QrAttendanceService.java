@@ -234,7 +234,7 @@ public class QrAttendanceService {
      * 6. Ngăn chặn điểm danh trùng lặp (Idempotent 409 Conflict & Race condition): Trả về thông báo "ĐÃ ĐIỂM DANH TRƯỚC ĐÓ".
      * 7. Ghi nhận bản ghi và trả về phản hồi chi tiết.
      */
-    @Transactional
+    @Transactional(noRollbackFor = {InvalidQrException.class})
     public AttendanceCheckInResponse studentCheckIn(String studentUsername, AttendanceCheckInRequest request) {
         if (request == null || request.qrToken() == null || request.qrToken().isBlank()) {
             throw new InvalidQrException("Mã QR không hợp lệ.");
@@ -304,7 +304,7 @@ public class QrAttendanceService {
             session.setStatus("CLOSED");
             session.setClosedAt(LocalDateTime.now());
             sessionRepo.save(session);
-            throw new InvalidQrException("Phiên điểm danh đã quá hạn thời gian cho phép và đã tự động đóng.");
+            throw new InvalidQrException("Phiên điểm danh này đã hết hạn (quá 12 giờ). Giảng viên vui lòng mở phiên điểm danh mới.");
         }
 
         // 2. Nới lỏng dung sai chênh lệch đồng hồ (Time Drift Window ±15s đến 30s) & Đồng bộ Clock Mobile
@@ -405,10 +405,26 @@ public class QrAttendanceService {
     /**
      * Tìm phiên điểm danh đang hoạt động (OPEN hoặc ACTIVE).
      */
+    /**
+     * Tìm phiên điểm danh đang hoạt động (OPEN hoặc ACTIVE).
+     * Tự động lọc bỏ và đóng các phiên cũ quá 12 giờ để không phát sinh mã QR cho phiên đã hết hạn.
+     */
     private Optional<AttendanceSession> findActiveSession(Long sectionId) {
-        return sessionRepo.findFirstByClassSectionIdAndStatusInOrderByCreatedAtDesc(sectionId, List.of("ACTIVE", "OPEN"))
+        Optional<AttendanceSession> sessionOpt = sessionRepo.findFirstByClassSectionIdAndStatusInOrderByCreatedAtDesc(sectionId, List.of("ACTIVE", "OPEN"))
                 .or(() -> sessionRepo.findFirstByClassSectionIdAndStatusOrderByCreatedAtDesc(sectionId, "OPEN"))
                 .or(() -> sessionRepo.findFirstByClassSectionIdAndStatusOrderByCreatedAtDesc(sectionId, "ACTIVE"));
+
+        if (sessionOpt.isPresent()) {
+            AttendanceSession session = sessionOpt.get();
+            if (session.getCreatedAt() != null && session.getCreatedAt().isBefore(LocalDateTime.now().minusHours(12))) {
+                session.setStatus("CLOSED");
+                session.setClosedAt(LocalDateTime.now());
+                sessionRepo.save(session);
+                log.info("Auto-closed stale attendance session id={} created at {}", session.getId(), session.getCreatedAt());
+                return Optional.empty();
+            }
+        }
+        return sessionOpt;
     }
 
     private LecturerProfile resolveLecturer(String username) {
