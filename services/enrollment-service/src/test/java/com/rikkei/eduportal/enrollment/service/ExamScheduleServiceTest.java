@@ -200,4 +200,26 @@ class ExamScheduleServiceTest {
         assertEquals(1, count);
         verify(examScheduleRepository, times(1)).save(any(ExamSchedule.class));
     }
+
+    @Test
+    @DisplayName("Admin: Lấy chi tiết lịch thi theo ID thành công")
+    void testGetExamScheduleById_Success() {
+        when(examScheduleRepository.findById(1L)).thenReturn(Optional.of(exam));
+
+        ExamScheduleDto dto = examScheduleService.getExamScheduleById(1L);
+
+        assertNotNull(dto);
+        assertEquals(1L, dto.getId());
+        assertEquals("CS101", dto.getCourseCode());
+        assertEquals("LAB-301", dto.getRoomName());
+        verify(examScheduleRepository, times(1)).findById(1L);
+    }
+
+    @Test
+    @DisplayName("Admin: Lấy chi tiết lịch thi theo ID ném ResourceNotFoundException nếu không tìm thấy")
+    void testGetExamScheduleById_NotFound() {
+        when(examScheduleRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> examScheduleService.getExamScheduleById(999L));
+    }
 }
