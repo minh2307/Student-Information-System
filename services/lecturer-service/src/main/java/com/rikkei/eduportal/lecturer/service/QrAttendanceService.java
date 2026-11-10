@@ -246,6 +246,15 @@ public class QrAttendanceService {
             rawToken = rawToken.substring(1, rawToken.length() - 1).trim();
         }
 
+        // Tự động bóc tách token nếu quét được đường dẫn URL (vd: /attendance/check-in?token=... hoặc ?checkInToken=...)
+        if (rawToken.contains("checkInToken=")) {
+            rawToken = extractQueryParam(rawToken, "checkInToken=");
+        } else if (rawToken.contains("token=")) {
+            rawToken = extractQueryParam(rawToken, "token=");
+        } else if (rawToken.contains("qrToken=")) {
+            rawToken = extractQueryParam(rawToken, "qrToken=");
+        }
+
         String[] parts = rawToken.split("\\.");
         if (parts.length != 4) {
             throw new InvalidQrException("Định dạng mã QR không đúng cấu trúc điểm danh.");
@@ -342,7 +351,7 @@ public class QrAttendanceService {
         Enrollment enrollment = enrollmentRepo.findByClassSectionIdAndStudentId(sectionId, student.getId())
                 .orElseThrow(() -> new AccessDeniedException("Bạn không thuộc danh sách sinh viên lớp học phần này."));
 
-        if (enrollment.getStatus() != EnrollmentStatus.REGISTERED) {
+        if (enrollment.getStatus() != EnrollmentStatus.REGISTERED && enrollment.getStatus() != EnrollmentStatus.COMPLETED) {
             throw new AccessDeniedException("Trạng thái đăng ký môn học của bạn không hợp lệ để điểm danh (" + enrollment.getStatus() + ").");
         }
 
@@ -444,6 +453,23 @@ public class QrAttendanceService {
         } catch (WriterException | java.io.IOException e) {
             log.error("Failed to generate QR code image", e);
             return null;
+        }
+    }
+
+    private String extractQueryParam(String urlOrQuery, String paramPrefix) {
+        int idx = urlOrQuery.indexOf(paramPrefix);
+        if (idx == -1) return urlOrQuery;
+        String sub = urlOrQuery.substring(idx + paramPrefix.length()).trim();
+        int amp = sub.indexOf('&');
+        int hash = sub.indexOf('#');
+        int end = sub.length();
+        if (amp != -1 && amp < end) end = amp;
+        if (hash != -1 && hash < end) end = hash;
+        String paramVal = sub.substring(0, end).trim();
+        try {
+            return java.net.URLDecoder.decode(paramVal, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return paramVal;
         }
     }
 

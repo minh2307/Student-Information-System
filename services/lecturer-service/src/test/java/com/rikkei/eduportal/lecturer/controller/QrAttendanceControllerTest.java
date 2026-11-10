@@ -202,4 +202,39 @@ class QrAttendanceControllerTest {
                 .andExpect(jsonPath("$.status").value(200))
                 .andExpect(jsonPath("$.data.status").value("CLOSED"));
     }
+
+    @Test
+    @WithMockUser(username = "sv2024001", roles = {"STUDENT"})
+    @DisplayName("HTTP-08: Sinh viên quét check-in qua alias route /api/v1/student/attendance/check-in → HTTP 200 OK")
+    void studentCheckIn_StudentAliasRoute_ReturnsHttp200() throws Exception {
+        AttendanceCheckInResponse response = new AttendanceCheckInResponse(
+                10L, 88L, "IT4409-2024-02", "Kiến trúc Vi dịch vụ", "sv2024001", "Nguyễn Văn C",
+                LocalDateTime.now(), "Điểm danh thành công"
+        );
+        when(qrAttendanceService.studentCheckIn(eq("sv2024001"), any(AttendanceCheckInRequest.class)))
+                .thenReturn(response);
+
+        AttendanceCheckInRequest req = new AttendanceCheckInRequest("10.88.123456.hash", "Mobile");
+        mockMvc.perform(post("/api/v1/student/attendance/check-in")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Điểm danh thành công"));
+    }
+
+    @Test
+    @DisplayName("HTTP-09: Quét QR bằng Camera ngoài (GET fallback) → Không trả về lỗi 405 Method Not Allowed")
+    void studentCheckIn_GetFallback_DoesNotReturn405() throws Exception {
+        mockMvc.perform(get("/api/v1/attendance/check-in"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200));
+    }
+
+    @Test
+    @DisplayName("HTTP-10: Quét QR có chứa tham số token bằng Camera ngoài (GET) → Điều hướng sang timetable")
+    void studentCheckIn_GetWithToken_RedirectsToTimetable() throws Exception {
+        mockMvc.perform(get("/attendance/check-in?checkInToken=10.88.123456.hash"))
+                .andExpect(status().isFound());
+    }
 }

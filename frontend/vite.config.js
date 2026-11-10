@@ -29,6 +29,19 @@ export default defineConfig({
         target: 'http://localhost:8085',
         changeOrigin: true,
       },
+      // QR Attendance Check-in → lecturer-service:8085
+      '/api/v1/student/attendance': {
+        target: 'http://localhost:8085',
+        changeOrigin: true,
+      },
+      '/api/v1/attendance': {
+        target: 'http://localhost:8085',
+        changeOrigin: true,
+      },
+      '/attendance': {
+        target: 'http://localhost:8085',
+        changeOrigin: true,
+      },
       // Tất cả API còn lại → api-gateway:8080
       '/api': {
         target: 'http://localhost:8080',

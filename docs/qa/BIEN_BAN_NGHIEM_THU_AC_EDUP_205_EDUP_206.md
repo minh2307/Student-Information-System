@@ -124,3 +124,4 @@ Căn cứ vào kết quả trình diễn thực tế và toàn bộ biên bản 
 |:---:|:---:|:---:|
 | *(Đã ký duyệt)* | *(Đã ký)* | *(Đã ký)* |
 | **Trần Đình Khoa**<br>Product Owner – Rikkei EduPortal | **Hoàng Văn Lương**<br>Lead Full-stack Dev / CI-CD & QA | **Nguyễn Tuấn Minh**<br>Scrum Master / Technical Lead |
+

@@ -16,6 +16,7 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
         config.setAllowedOriginPatterns(List.of(
+                "*",
                 "http://localhost:[*]",
                 "http://127.0.0.1:[*]",
                 "https://*.rikkei.edu.vn",

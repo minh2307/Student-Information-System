@@ -50,7 +50,13 @@ public class GatewayProxyController {
             @Value("${gateway.timeout.connect:5000}") int connectTimeout,
             @Value("${gateway.timeout.read:30000}") int readTimeout,
             JwtGatewayValidator jwtValidator) {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(java.net.HttpURLConnection connection, String httpMethod) throws java.io.IOException {
+                super.prepareConnection(connection, httpMethod);
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
         factory.setConnectTimeout(connectTimeout);
         factory.setReadTimeout(readTimeout);
         this.restTemplate = new RestTemplate(factory);
@@ -87,7 +93,7 @@ public class GatewayProxyController {
         };
     }
 
-    @RequestMapping("/api/v1/**")
+    @RequestMapping({"/api/v1/**", "/attendance/**"})
     public ResponseEntity<?> proxyRequest(HttpServletRequest request, HttpEntity<byte[]> requestEntity) {
         String path = request.getRequestURI();
         String method = request.getMethod();
@@ -232,6 +238,14 @@ public class GatewayProxyController {
             return authServiceUrl;
         }
 
+        // Module Lecturer Portal & Attendance (bao gồm cả các route alias điểm danh của SV)
+        if (path.startsWith("/api/v1/student/attendance") ||
+            path.startsWith("/attendance") ||
+            path.startsWith("/api/v1/attendance") ||
+            path.startsWith("/api/v1/lecturer")) {
+            return lecturerServiceUrl;
+        }
+
         // Module Student Enrollment, Portal, Calendar & Public Verification
         if (path.startsWith("/api/v1/student") || path.startsWith("/api/v1/calendar") || path.startsWith("/api/v1/public")) {
             return enrollmentServiceUrl;
@@ -241,11 +255,6 @@ public class GatewayProxyController {
         if (path.startsWith("/api/v1/announcements") ||
             path.startsWith("/api/v1/notifications")) {
             return enrollmentServiceUrl;
-        }
-
-        // Module Lecturer Portal & Attendance
-        if (path.startsWith("/api/v1/lecturer") || path.startsWith("/api/v1/attendance")) {
-            return lecturerServiceUrl;
         }
 
         // Module AI Integration

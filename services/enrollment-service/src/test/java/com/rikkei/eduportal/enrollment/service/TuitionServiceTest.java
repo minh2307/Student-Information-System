@@ -88,7 +88,7 @@ class TuitionServiceTest {
     }
 
     @Test
-    @DisplayName("Fix công thức: Sinh viên đăng ký 15 TC => Học phí = 15 * 450.000 + 300.000 = 7.050.000 VNĐ")
+    @DisplayName("Fix công thức: Sinh viên đăng ký 15 TC => Học phí = 15 * 100 + 1.000 = 2.500 VNĐ")
     void testStandardCredits_CalculatesCorrectFormula() {
         Course course1 = new Course();
         course1.setCourseCode("CS101");
@@ -125,8 +125,8 @@ class TuitionServiceTest {
 
         assertNotNull(result);
         assertEquals(15, result.getTotalCredits());
-        // 450,000 * 15 + 300,000 = 7,050,000
-        BigDecimal expectedTotal = BigDecimal.valueOf(7050000.00);
+        // 100 * 15 + 1,000 = 2,500
+        BigDecimal expectedTotal = BigDecimal.valueOf(2500.00);
         assertEquals(0, expectedTotal.compareTo(result.getTotalAmount()));
         assertEquals(0, expectedTotal.compareTo(result.getRemainingAmount()));
         assertEquals("UNPAID", result.getStatus());
@@ -135,7 +135,7 @@ class TuitionServiceTest {
         assertNotNull(result.getVietQrPayload());
         assertTrue(result.getVietQrPayload().startsWith("000201010212"));
         assertTrue(result.getVietQrPayload().contains("999988882025"));
-        assertTrue(result.getVietQrPayload().contains("7050000"));
+        assertTrue(result.getVietQrPayload().contains("2500"));
         assertTrue(result.getVietQrPayload().contains("HP SV2024001 2024-25_SEM2"));
 
         // Kiểm tra QuickLink URL
