@@ -30,7 +30,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
       SPRING_PROFILES_ACTIVE: dev
-      JAVA_TOOL_OPTIONS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
+      JAVA_OPTS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,7 +47,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       SPRING_PROFILES_ACTIVE: dev
-      JAVA_TOOL_OPTIONS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
+      JAVA_OPTS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,7 +63,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       SPRING_PROFILES_ACTIVE: dev
-      JAVA_TOOL_OPTIONS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
+      JAVA_OPTS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,7 +79,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       SPRING_PROFILES_ACTIVE: dev
-      JAVA_TOOL_OPTIONS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
+      JAVA_OPTS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,7 +98,7 @@ services:
       AI_MAX_TOKENS: ${AI_MAX_TOKENS:-1500}
       ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
       SPRING_PROFILES_ACTIVE: dev
-      JAVA_TOOL_OPTIONS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
+      JAVA_OPTS: "-Xmx256m -Xms64m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
       - enrollment-service
     restart: unless-stopped

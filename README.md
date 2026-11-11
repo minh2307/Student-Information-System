@@ -23,7 +23,7 @@ Hệ thống được thiết kế theo kiến trúc Microservices phân tách t
 .
 ├── .github/
 │   └── workflows/
-│       └── ci.yml              # Pipeline CI/CD kiểm thử và build tự động
+│       └── ci-cd.yml           # Pipeline CI/CD kiểm thử, build Docker và tự động deploy Production
 ├── common-lib/                 # Thư viện dùng chung (ApiResponse, Enums: Role, UserStatus)
 ├── init-db/                    # DDL Schema (01-schema.sql) & Seed Data (02-seed-data.sql, 03-massive-seed.sql)
 ├── postman/                    # Bộ Newman/Postman Collection & CI Environment test tự động
@@ -124,7 +124,7 @@ Dựa theo mục 8 của tài liệu SRS `PRJ-QUICK-REVIEW-PRE-OJT-03`, phân ch
 | **Nguyễn Quang Vinh** | **Full-stack Dev 1 (Auth, User & DevOps Co-Lead)** | - **Auth & User Profile**:<br>  + BE: Spring Security + JWT Filter, API Auth (`/login`), API Profile (`/profile/me`), CRUD Hồ sơ Sinh viên & Giảng viên cho Admin.<br>  + FE: Trang Đăng nhập, Khung Layout chung (Header/Sidebar navigation), Trang Quản lý Hồ sơ.<br>- **DevOps Core**: Thiết lập Dockerfile từng service, Docker Compose cho môi trường dev/staging/prod. | `services/auth-service`, `frontend` (Auth & Layout), Docker |
 | **Hoàng Cương Cát** | **Full-stack Dev 2 (Academic Catalog & Class Operations)** | - **Quản lý Danh mục Môn học & Lớp học phần**:<br>  + BE: API CRUD Môn học (`courses`), API Mở lớp học phần (`class_sections`), validate trùng phòng học/giảng viên & API Admin duyệt đăng ký (`PENDING` → `REGISTERED`).<br>  + FE: Trang Quản lý Danh mục Môn học & Trang Quản lý Lớp học phần/Duyệt đăng ký (Admin Portal). | `services/course-service`, `frontend` (Admin Catalog & Sections) |
 | **Phạm Viết Quân** | **Full-stack Dev 3 (Student Portal & Registration)** | - **Cổng Sinh viên & Đăng ký học phần**:<br>  + BE: API `/student/dashboard`, Engine Đăng ký học phần (Logic check sĩ số, giới hạn 24 tín chỉ, trùng lịch `has_conflict`). Phối hợp tối ưu DB Locking.<br>  + FE: Giao diện Student Dashboard (4 thẻ chỉ số, tiến độ học tập) & Trang Đăng ký/Hủy học phần. | `services/enrollment-service`, `frontend` (Student Portal) |
-| **Hoàng Văn Lương** | **Full-stack Dev / CI-CD & QA (Lecturer Portal & Automation)** | - **Cổng Giảng viên & Quản lý điểm**:<br>  + BE: Tách và hoàn thiện `lecturer-service`, API danh sách lớp dạy, cập nhật chuyên cần, nhập/sửa điểm & tự động tính điểm tổng kết/C-GPA.<br>  + FE: Màn hình Cổng giảng viên & Trang Xem điểm sinh viên.<br>- **CI/CD & QA Automation**: Cấu hình GitHub Actions pipeline (`ci.yml`) & viết bộ Postman/Newman Collection kiểm thử tự động API. | `services/lecturer-service`, `frontend` (Lecturer Portal), CI/CD |
+| **Hoàng Văn Lương** | **Full-stack Dev / CI-CD & QA (Lecturer Portal & Automation)** | - **Cổng Giảng viên & Quản lý điểm**:<br>  + BE: Tách và hoàn thiện `lecturer-service`, API danh sách lớp dạy, cập nhật chuyên cần, nhập/sửa điểm & tự động tính điểm tổng kết/C-GPA.<br>  + FE: Màn hình Cổng giảng viên & Trang Xem điểm sinh viên.<br>- **CI/CD & QA Automation**: Cấu hình GitHub Actions pipeline (`ci-cd.yml`) & viết bộ Postman/Newman Collection kiểm thử tự động API. | `services/lecturer-service`, `frontend` (Lecturer Portal), CI/CD |
 
 ---
 
@@ -234,10 +234,14 @@ Giao diện frontend dev server hiển thị tại: `http://localhost:5173`
 
 ## 9. Kiểm thử Tự động & CI/CD Pipeline
 
-- **GitHub Actions (`.github/workflows/ci.yml`)**: Tự động thực thi mỗi khi push hoặc tạo PR lên nhánh `main` và `dev`:
+- **GitHub Actions (`.github/workflows/ci-cd.yml`)**: Tự động thực thi mỗi khi push hoặc tạo PR lên nhánh `main` và `dev`:
   1. Biên dịch và kiểm thử tự động toàn bộ 6 microservices backend qua Gradle.
   2. Kiểm tra lint và build Frontend qua Vite.
-  3. Khởi tạo container PostgreSQL trên runner để chạy integration test.
+  3. Khởi tạo container PostgreSQL trên runner để chạy integration test qua Newman.
+  4. Triển khai tự động độc quyền từ nhánh `main` lên VPS Production (kèm Pre-Migration Backup và Auto-Rollback).
+- **Tài liệu chuẩn hóa DevOps & Vận hành**:
+  - [Quy trình Git Workflow & CI/CD](docs/deployment/git-workflow.md)
+  - [Hướng dẫn Phục hồi Dữ liệu Thảm họa (Disaster Recovery)](docs/deployment/disaster-recovery.md)
 - **Newman / Postman Automated Test Suite**:
   Bộ test tự động trong thư mục `postman/` kiểm tra toàn bộ luồng Auth, RBAC, Đăng ký học phần, Nhập điểm giảng viên và Concurrency:
   ```bash
