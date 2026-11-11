@@ -54,10 +54,9 @@ Production (VPS duy nhất)
   - Nghiêm cấm push code trực tiếp vào `main`.
 - **Cơ chế CI/CD trên GitHub Actions (`.github/workflows/deploy.yml`)**:
   - Khi PR được merge vào `main` (hoặc kích hoạt `workflow_dispatch` có kiểm soát):
-    1. Chạy toàn bộ bộ kiểm thử CI (Backend, Frontend, Newman API).
-    2. Build Docker images cho 5 microservices backend và frontend qua matrix song song.
-    3. Gắn tag định danh bất biến (immutable tag: `main-<sha>` và `prod`) và push lên GHCR.
-    4. Kích hoạt SSH Remote Deploy tự động lên VPS Production.
+    1. Chạy riêng độc quyền job **Deploy Production** lên VPS (SSH, đồng bộ cấu hình, pull image mới nhất và restart stack).
+    2. Hỗ trợ tùy chọn tham số qua `workflow_dispatch`: chỉ định `image_tag` bất kỳ (ví dụ: `main-1d694fb`) và tùy chọn `skip_backup` để triển khai tức thì trong 1-2 phút.
+    3. Bộ kiểm thử CI độc lập nằm trong `.github/workflows/ci.yml` và quy trình build/publish Docker nằm trong `.github/workflows/docker-publish.yml`.
   - **Khóa bảo mật `workflow_dispatch`:** File workflow chỉ định nghĩa trigger cho `main`. Không thể vô tình deploy nhánh `dev` hay feature lên Production qua giao diện GitHub Actions.
 
 ---

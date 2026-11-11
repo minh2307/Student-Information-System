@@ -1,474 +1,43 @@
-name: Production CI/CD — Rikkei EduPortal
+name: Production Deploy — Rikkei EduPortal
 
 # ============================================================
-# Trigger: Chỉ chạy khi push vào main (sau khi merge PR từ dev)
-# hoặc kích hoạt thủ công (workflow_dispatch) trên nhánh main
-# - Chạy toàn diện: CI Tests -> Docker Publish GHCR -> Deploy Production VPS
+# Trigger: Chỉ chạy riêng mỗi phần deploy Production VPS
+# - Kích hoạt khi push vào nhánh main hoặc qua workflow_dispatch
+# - Tối ưu hóa: Bỏ qua toàn bộ các bước compile/test/docker build
+#   để tập trung triển khai nhanh và an toàn trực tiếp lên VPS
 # ============================================================
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag triển khai (để trống sẽ dùng commit SHA hiện tại, ví dụ: main-1d694fb)'
+        required: false
+        default: ''
+      skip_backup:
+        description: 'Bỏ qua bước sao lưu database (chỉ chạy deploy)'
+        type: boolean
+        default: false
 
-# Không tự động hủy job đang chạy để tránh lỗi "The operation was canceled"
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
-# ============================================================
-# Global env — ghi đè bằng Secrets ở repo Settings
-# ============================================================
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
 
 jobs:
-  build-backend:
-    name: 🔨 Backend Build & Test
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: academic_db
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d academic_db"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Java 21 (Temurin)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: gradle
-
-      - name: Make gradlew executable
-        run: chmod +x gradlew
-
-      - name: Init DB schema + seed
-        run: |
-          sudo apt-get install -y postgresql-client -q
-          PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db \
-            -f init-db/01-schema.sql
-          PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db \
-            -f init-db/02-seed-data.sql
-
-      - name: Compile (skip tests)
-        run: ./gradlew build -x test --no-daemon --parallel
-
-      - name: Run unit tests
-        run: >
-          ./gradlew test --no-daemon --parallel
-          -Pspring.datasource.url=jdbc:postgresql://localhost:5432/academic_db
-          -Pspring.datasource.username=postgres
-          -Pspring.datasource.password=postgres
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/academic_db
-          SPRING_DATASOURCE_USERNAME: postgres
-          SPRING_DATASOURCE_PASSWORD: postgres
-          JWT_SECRET: ${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }}
-
-      - name: Upload test reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-test-reports
-          path: '**/build/reports/tests/'
-          retention-days: 7
-
-      - name: Upload backend jars
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-jars
-          path: |
-            services/*/build/libs/*.jar
-            !services/*/build/libs/*-plain.jar
-          retention-days: 1
-
-  # ============================================================
-  # JOB 2: Build Frontend
-  # ============================================================
-  build-frontend:
-    name: 🎨 Frontend Build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          check-latest: false
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Vite build
-        working-directory: frontend
-        run: npm run build
-        env:
-          VITE_API_BASE_URL: /api/v1
-
-      - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend/dist/
-          retention-days: 7
-
-  # ============================================================
-  # JOB 3: API Tests (Postman/Newman)
-  # needs: backend build pass (frontend chạy song song không block)
-  # ============================================================
-  api-test:
-    name: 🧪 API Integration Tests (Newman)
-    runs-on: ubuntu-latest
-    needs: [build-backend]
-    permissions:
-      contents: read
-      checks: write
-
-    env:
-      JWT_SECRET: ${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }}
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: academic_db
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d academic_db"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Init DB
-        run: |
-          sudo apt-get install -y postgresql-client -q
-          PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db \
-            -f init-db/01-schema.sql
-          PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db \
-            -f init-db/02-seed-data.sql
-
-      # Tái sử dụng fat jars đã compile từ job build-backend
-      - name: Download backend jars
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-jars
-          path: services
-
-      # Khởi động auth-service (JWT issuance)
-      - name: Start auth-service (port 8081)
-        run: |
-          AUTH_JAR=$(find services/auth-service/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
-          [ -z "$AUTH_JAR" ] && AUTH_JAR=$(find . -name "auth-service*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
-          if [ -z "$AUTH_JAR" ] || [ ! -f "$AUTH_JAR" ]; then
-            echo "❌ Cannot find auth-service JAR! Workspace jars:"
-            find . -name "*.jar"
-            exit 1
-          fi
-          echo "Starting auth-service with jar: $AUTH_JAR"
-          nohup java -jar "$AUTH_JAR" \
-            --server.port=8081 \
-            --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
-            --spring.datasource.username=postgres \
-            --spring.datasource.password=postgres \
-            --spring.jpa.hibernate.ddl-auto=validate \
-            --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
-            > /tmp/auth-service.log 2>&1 &
-          echo "AUTH_PID=$!" >> $GITHUB_ENV
-
-      # Khởi động lecturer-service (chủ thể test chính)
-      - name: Start lecturer-service (port 8085)
-        run: |
-          LECTURER_JAR=$(find services/lecturer-service/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
-          [ -z "$LECTURER_JAR" ] && LECTURER_JAR=$(find . -name "lecturer-service*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
-          if [ -z "$LECTURER_JAR" ] || [ ! -f "$LECTURER_JAR" ]; then
-            echo "❌ Cannot find lecturer-service JAR! Workspace jars:"
-            find . -name "*.jar"
-            exit 1
-          fi
-          echo "Starting lecturer-service with jar: $LECTURER_JAR"
-          nohup java -jar "$LECTURER_JAR" \
-            --server.port=8085 \
-            --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
-            --spring.datasource.username=postgres \
-            --spring.datasource.password=postgres \
-            --spring.jpa.hibernate.ddl-auto=validate \
-            --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
-            > /tmp/lecturer-service.log 2>&1 &
-          echo "LECTURER_PID=$!" >> $GITHUB_ENV
-
-      # Khởi động enrollment-service (nếu jar tồn tại — merge với Quân)
-      - name: Start enrollment-service (port 8083) — optional
-        run: |
-          ENROLL_JAR=$(find services/enrollment-service/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
-          [ -z "$ENROLL_JAR" ] && ENROLL_JAR=$(find . -name "enrollment-service*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
-          if [ -n "$ENROLL_JAR" ] && [ -f "$ENROLL_JAR" ]; then
-            echo "Starting enrollment-service with jar: $ENROLL_JAR"
-            nohup java -jar "$ENROLL_JAR" \
-              --server.port=8083 \
-              --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
-              --spring.datasource.username=postgres \
-              --spring.datasource.password=postgres \
-              --spring.jpa.hibernate.ddl-auto=validate \
-              --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
-              > /tmp/enrollment-service.log 2>&1 &
-            echo "ENROLLMENT_PID=$!" >> $GITHUB_ENV
-            echo "HAS_ENROLLMENT=true" >> $GITHUB_ENV
-          else
-            echo "enrollment-service jar not found, skipping."
-            echo "HAS_ENROLLMENT=false" >> $GITHUB_ENV
-          fi
-
-      # Chờ services sẵn sàng (polling /actuator/health)
-      - name: Wait for services to be ready
-        run: |
-          echo "Waiting for auth-service:8081..."
-          AUTH_READY=false
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1 || [ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/api/v1/auth/login)" = "405" ]; then
-              echo "auth-service ready ✓"; AUTH_READY=true; break
-            fi
-            sleep 3
-          done
-          if [ "$AUTH_READY" != "true" ]; then
-            echo "❌ auth-service failed to start! Dumping log:"
-            cat /tmp/auth-service.log || true
-            exit 1
-          fi
-
-          echo "Waiting for lecturer-service:8085..."
-          LECTURER_READY=false
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8085/actuator/health > /dev/null 2>&1; then
-              echo "lecturer-service ready ✓"; LECTURER_READY=true; break
-            fi
-            sleep 3
-          done
-          if [ "$LECTURER_READY" != "true" ]; then
-            echo "❌ lecturer-service failed to start! Dumping log:"
-            cat /tmp/lecturer-service.log || true
-            exit 1
-          fi
-
-          if [ "$HAS_ENROLLMENT" = "true" ]; then
-            echo "Waiting for enrollment-service:8083..."
-            ENROLL_READY=false
-            for i in $(seq 1 30); do
-              if curl -sf http://localhost:8083/actuator/health > /dev/null 2>&1 || [ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8083/api/v1/student/dashboard)" = "200" ]; then
-                echo "enrollment-service ready ✓"; ENROLL_READY=true; break
-              fi
-              sleep 3
-            done
-            if [ "$ENROLL_READY" != "true" ]; then
-              echo "❌ enrollment-service failed to start! Dumping log:"
-              cat /tmp/enrollment-service.log || true
-              exit 1
-            fi
-          fi
-
-      - name: Setup Node.js (Newman)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          check-latest: false
-
-      - name: Cache npm packages (Newman)
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-newman-cache-v1
-          restore-keys: |
-            ${{ runner.os }}-newman-cache-
-
-      - name: Install Newman + reporters
-        run: npm install -g --prefer-offline newman newman-reporter-htmlextra
-
-      # Chạy test collection
-      - name: Run Postman/Newman API tests
-        run: |
-          newman run postman/eduportal.postman_collection.json \
-            -e postman/ci.postman_environment.json \
-            --reporters cli,junit,htmlextra \
-            --reporter-junit-export /tmp/newman-results/junit.xml \
-            --reporter-htmlextra-export /tmp/newman-results/report.html \
-            --bail \
-            --timeout-request 15000
-        env:
-          NEWMAN_BASE_AUTH_URL: http://localhost:8081
-          NEWMAN_BASE_LECTURER_URL: http://localhost:8085
-          NEWMAN_BASE_ENROLLMENT_URL: http://localhost:8083
-
-      # Upload kết quả dù pass hay fail
-      - name: Upload Newman reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: newman-reports
-          path: /tmp/newman-results/
-          retention-days: 14
-
-      # Publish JUnit results vào GitHub UI
-      - name: Publish test results
-        if: always()
-        continue-on-error: true
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: /tmp/newman-results/junit.xml
-
-      # Debug log nếu fail
-      - name: Print service logs on failure
-        if: failure()
-        run: |
-          echo "=== auth-service.log ===" && tail -50 /tmp/auth-service.log || true
-          echo "=== lecturer-service.log ===" && tail -50 /tmp/lecturer-service.log || true
-          echo "=== enrollment-service.log ===" && tail -50 /tmp/enrollment-service.log || true
-
-  # ============================================================
-  # JOB 4: Docker Build & Push to GHCR (Song song hóa qua Matrix)
-  # Chỉ chạy khi push vào nhánh main hoặc kích hoạt thủ công (workflow_dispatch)
-  # Nhánh dev chỉ chạy test & build, không build Docker để tiết kiệm tài nguyên
-  # ============================================================
-  docker-publish:
-    name: 🐳 Build & Push ${{ matrix.service.name }}
-    runs-on: ubuntu-latest
-    needs: [api-test, build-frontend]
-    if: github.ref_name == 'main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    permissions:
-      contents: read
-      packages: write
-
-    strategy:
-      fail-fast: true
-      matrix:
-        service:
-          - name: auth-service
-            context: .
-            file: services/auth-service/Dockerfile
-            artifact: backend-jars
-            build_args: JAR_FILE=services/auth-service/build/libs/auth-service-0.0.1-SNAPSHOT.jar
-          - name: course-service
-            context: .
-            file: services/course-service/Dockerfile
-            artifact: backend-jars
-            build_args: JAR_FILE=services/course-service/build/libs/course-service-0.0.1-SNAPSHOT.jar
-          - name: lecturer-service
-            context: .
-            file: services/lecturer-service/Dockerfile
-            artifact: backend-jars
-            build_args: JAR_FILE=services/lecturer-service/build/libs/lecturer-service-0.0.1-SNAPSHOT.jar
-          - name: enrollment-service
-            context: .
-            file: services/enrollment-service/Dockerfile
-            artifact: backend-jars
-            build_args: JAR_FILE=services/enrollment-service/build/libs/enrollment-service-0.0.1-SNAPSHOT.jar
-          - name: ai-service
-            context: .
-            file: services/ai-service/Dockerfile
-            artifact: backend-jars
-            build_args: JAR_FILE=services/ai-service/build/libs/ai-service-0.0.1-SNAPSHOT.jar
-          - name: frontend
-            context: ./frontend
-            file: frontend/Dockerfile
-            artifact: frontend-dist
-            build_args: ""
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set image tags
-        id: tags
-        run: |
-          BRANCH=$(echo "${GITHUB_REF_NAME}" | tr '/' '-')
-          SHA=${GITHUB_SHA::7}
-          echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
-          echo "tag=${BRANCH}-${SHA}" >> $GITHUB_OUTPUT
-
-      - name: Download backend jars
-        if: matrix.service.artifact == 'backend-jars'
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-jars
-          path: services
-
-      - name: Download frontend dist
-        if: matrix.service.artifact == 'frontend-dist'
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend/dist
-
-      - name: Build & push ${{ matrix.service.name }}
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ matrix.service.context }}
-          file: ${{ matrix.service.file }}
-          push: true
-          build-args: ${{ matrix.service.build_args }}
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}:${{ steps.tags.outputs.tag }}
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}:${{ steps.tags.outputs.branch }}
-          cache-from: type=gha,scope=${{ matrix.service.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
-
-  # ============================================================
-  # JOB 5: Deploy Production — Chỉ deploy tự động từ nhánh main
-  # VPS duy nhất 1GB RAM chỉ chạy Production stack
-  # ============================================================
   deploy:
     name: 🚀 Deploy Production
     runs-on: ubuntu-latest
-    needs: [docker-publish]
     if: github.ref_name == 'main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: read
       packages: read
 
-    # Deploy vào môi trường production trên VPS
     environment:
       name: production
 
@@ -482,10 +51,16 @@ jobs:
           ENV_NAME="prod"
           COMPOSE_FILE="docker-compose.prod.yml"
           FRONTEND_PORT="3000"
+          TAG_INPUT="${{ inputs.image_tag }}"
+          if [ -n "$TAG_INPUT" ]; then
+            TAG="$TAG_INPUT"
+          else
+            TAG="$(echo ${GITHUB_REF_NAME} | tr '/' '-')-${GITHUB_SHA::7}"
+          fi
           echo "env_name=${ENV_NAME}"           >> $GITHUB_OUTPUT
           echo "compose_file=${COMPOSE_FILE}"   >> $GITHUB_OUTPUT
           echo "frontend_port=${FRONTEND_PORT}" >> $GITHUB_OUTPUT
-          echo "tag=$(echo ${GITHUB_REF_NAME} | tr '/' '-')-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}"                     >> $GITHUB_OUTPUT
 
       - name: Setup SSH
         env:
@@ -552,6 +127,7 @@ jobs:
           PAYOS_CHECKSUM_KEY: ${{ secrets.PAYOS_CHECKSUM_KEY || '2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a' }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
+          SKIP_BACKUP: ${{ inputs.skip_backup || 'false' }}
         run: |
           if [ ! -s ~/.ssh/deploy_key ]; then
             echo "::error::Không tìm thấy ~/.ssh/deploy_key. Hủy bỏ deploy."
@@ -580,6 +156,7 @@ jobs:
           PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY}
           GHCR_TOKEN=${GHCR_TOKEN}
           GHCR_USER=${GHCR_USER}
+          SKIP_BACKUP=${SKIP_BACKUP}
           EOF
           chmod 600 /tmp/.env.incoming
 
