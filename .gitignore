@@ -18,13 +18,16 @@ hs_err_pid*
 replay_pid*
 
 # ====================================================================
-# Node.js & Frontend (Vite / React)
+# Node.js, Frontend & Mobile (Vite / React / Expo)
 # ====================================================================
 node_modules/
 dist/
 dist-ssr/
 .npm
 .vite/
+.expo/
+web-build/
+*.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -102,6 +105,7 @@ reports/*
 !reports/staging/
 !reports/acceptance/
 .scannerwork/
+.sonar/
 
 # ====================================================================
 # Python (Scripts & Utilities)
@@ -146,8 +150,9 @@ $RECYCLE.BIN/
 skills-lock.json
 
 # ====================================================================
-# Office & Reports (Internal / Non-git)
+# Documentation & Reports (Internal / Non-git)
 # ====================================================================
+docs/
 *.docx
 *Project_Proposal*
 *Bao_Cao_De_Cuong*
@@ -155,4 +160,3 @@ BAO_CAO_DE_CUONG_DU_AN*
 *REPORT*
 REPORT*
 SRS_Specification*
-
