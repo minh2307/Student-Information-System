@@ -408,8 +408,9 @@
                   "pm.test(\"Profile matches student sv2024001 details\", function () {",
                   "    var res = pm.response.json();",
                   "    pm.expect(res.status).to.eql(200);",
-                  "    pm.expect(res.data.username).to.eql(\"sv2024001\");",
-                  "    pm.expect(res.data.role).to.eql(\"STUDENT\");",
+                  "    pm.expect(res.data.user.username).to.eql(\"sv2024001\");",
+                  "    pm.expect(res.data.user.role).to.eql(\"STUDENT\");",
+                  "    pm.expect(res.data.studentProfile.studentCode).to.eql(\"SV2024001\");",
                   "});"
                 ]
               }
@@ -725,7 +726,8 @@
                   "        var res = pm.response.json();",
                   "        pm.expect(res.status).to.eql(200);",
                   "        pm.expect(res.data).to.be.an(\"object\");",
-                  "        pm.expect(res.data).to.have.property(\"studentCode\");",
+                  "        pm.expect(res.data).to.have.property(\"stats\");",
+                  "        pm.expect(res.data).to.have.property(\"semesterProgress\");",
                   "    }",
                   "} else {",
                   "    pm.test(\"enrollment-service reachable\", function () { pm.expect(true).to.be.true; });",
@@ -807,7 +809,7 @@
                   "    });",
                   "    if (pm.response.code === 200) {",
                   "        var res = pm.response.json();",
-                  "        pm.expect(res.data).to.have.property(\"reservedUntil\");",
+                  "        pm.expect(res.data).to.have.property(\"expiresAt\");",
                   "    }",
                   "} else {",
                   "    pm.test(\"enrollment-service reachable\", function () { pm.expect(true).to.be.true; });",
@@ -1764,7 +1766,7 @@
           ]
         },
         {
-          "name": "36. GET /lecturer/classes/1/early-warning — Báo cáo cảnh báo sớm học vụ -> 200 OK",
+          "name": "36. GET /lecturer/early-warnings/section/1 — Báo cáo cảnh báo sớm học vụ -> 200 OK",
           "request": {
             "method": "GET",
             "header": [
@@ -1775,9 +1777,9 @@
               }
             ],
             "url": {
-              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes/{{section_id_gv001}}/early-warning",
+              "raw": "{{base_lecturer_url}}{{api_prefix}}/lecturer/early-warnings/section/{{section_id_gv001}}",
               "host": [
-                "{{base_lecturer_url}}{{api_prefix}}/lecturer/classes/{{section_id_gv001}}/early-warning"
+                "{{base_lecturer_url}}{{api_prefix}}/lecturer/early-warnings/section/{{section_id_gv001}}"
               ]
             }
           },
@@ -2111,9 +2113,9 @@
               }
             ],
             "url": {
-              "raw": "{{base_course_url}}{{api_prefix}}/admin/class-sections",
+              "raw": "{{base_gateway_url}}{{api_prefix}}/admin/class-sections",
               "host": [
-                "{{base_course_url}}{{api_prefix}}/admin/class-sections"
+                "{{base_gateway_url}}{{api_prefix}}/admin/class-sections"
               ]
             },
             "body": {

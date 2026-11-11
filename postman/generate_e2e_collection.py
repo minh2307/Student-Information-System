@@ -213,8 +213,9 @@ folder1_items.append(make_request(
 pm.test("Profile matches student sv2024001 details", function () {
     var res = pm.response.json();
     pm.expect(res.status).to.eql(200);
-    pm.expect(res.data.username).to.eql("sv2024001");
-    pm.expect(res.data.role).to.eql("STUDENT");
+    pm.expect(res.data.user.username).to.eql("sv2024001");
+    pm.expect(res.data.user.role).to.eql("STUDENT");
+    pm.expect(res.data.studentProfile.studentCode).to.eql("SV2024001");
 });"""
 ))
 
@@ -370,7 +371,8 @@ folder3_items.append(make_request(
         var res = pm.response.json();
         pm.expect(res.status).to.eql(200);
         pm.expect(res.data).to.be.an("object");
-        pm.expect(res.data).to.have.property("studentCode");
+        pm.expect(res.data).to.have.property("stats");
+        pm.expect(res.data).to.have.property("semesterProgress");
     }
 } else {
     pm.test("enrollment-service reachable", function () { pm.expect(true).to.be.true; });
@@ -406,7 +408,7 @@ folder3_items.append(make_request(
     });
     if (pm.response.code === 200) {
         var res = pm.response.json();
-        pm.expect(res.data).to.have.property("reservedUntil");
+        pm.expect(res.data).to.have.property("expiresAt");
     }
 } else {
     pm.test("enrollment-service reachable", function () { pm.expect(true).to.be.true; });
@@ -841,9 +843,9 @@ pm.test("Total score formula: 0.1*9.0 + 0.4*7.5 + 0.5*8.0 = 7.90 (B)", function 
 ))
 
 folder6_items.append(make_request(
-    name='36. GET /lecturer/classes/1/early-warning — Báo cáo cảnh báo sớm học vụ -> 200 OK',
+    name='36. GET /lecturer/early-warnings/section/1 — Báo cáo cảnh báo sớm học vụ -> 200 OK',
     method='GET',
-    url_str='{{base_lecturer_url}}{{api_prefix}}/lecturer/classes/{{section_id_gv001}}/early-warning',
+    url_str='{{base_lecturer_url}}{{api_prefix}}/lecturer/early-warnings/section/{{section_id_gv001}}',
     headers={'Authorization': 'Bearer {{token_lecturer}}'},
     tests="""pm.test("Status code is 200 OK", function () {
     pm.response.to.have.status(200);
@@ -994,7 +996,7 @@ folder8_items.append(make_request(
 folder8_items.append(make_request(
     name='43. STUDENT gọi POST /admin/class-sections -> 403 Forbidden',
     method='POST',
-    url_str='{{base_course_url}}{{api_prefix}}/admin/class-sections',
+    url_str='{{base_gateway_url}}{{api_prefix}}/admin/class-sections',
     headers={
         'Content-Type': 'application/json',
         'Authorization': 'Bearer {{token_student}}'

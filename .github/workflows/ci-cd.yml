@@ -1,13 +1,13 @@
 name: CI/CD Pipeline — Rikkei EduPortal
 
 # ============================================================
-# Trigger: push & PR vào main hoặc dev
-# - Nhánh dev: chỉ chạy CI (test, build, kiểm tra chất lượng)
+# Trigger: push & PR vào main, dev và nhánh QA phát hành
+# - Nhánh dev / Full-stack-Dev-/-CI-CD-&-QA-Luong: chạy CI (Gradle, Frontend, Newman)
 # - Nhánh main: chạy CI/CD đầy đủ (build image & tự động deploy Production)
 # ============================================================
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, 'Full-stack-Dev-/-CI-CD-&-QA-Luong']
   pull_request:
     branches: [main, dev]
   workflow_dispatch:
@@ -123,6 +123,10 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Run frontend unit & component tests
+        working-directory: frontend
+        run: npm test
 
       - name: Vite build
         working-directory: frontend
@@ -256,6 +260,42 @@ jobs:
             echo "HAS_ENROLLMENT=false" >> $GITHUB_ENV
           fi
 
+      # Khởi động course-service (port 8082)
+      - name: Start course-service (port 8082)
+        run: |
+          COURSE_JAR=$(find services/course-service/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          [ -z "$COURSE_JAR" ] && COURSE_JAR=$(find . -name "course-service*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          nohup java -jar "$COURSE_JAR" \
+            --server.port=8082 \
+            --spring.datasource.url=jdbc:postgresql://localhost:5432/academic_db \
+            --spring.datasource.username=postgres \
+            --spring.datasource.password=postgres \
+            --spring.jpa.hibernate.ddl-auto=validate \
+            > /tmp/course-service.log 2>&1 &
+          echo "COURSE_PID=$!" >> $GITHUB_ENV
+
+      # Khởi động ai-service (port 8084)
+      - name: Start ai-service (port 8084)
+        run: |
+          AI_JAR=$(find services/ai-service/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          [ -z "$AI_JAR" ] && AI_JAR=$(find . -name "ai-service*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          nohup java -jar "$AI_JAR" \
+            --server.port=8084 \
+            --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
+            > /tmp/ai-service.log 2>&1 &
+          echo "AI_PID=$!" >> $GITHUB_ENV
+
+      # Khởi động api-gateway (port 8080)
+      - name: Start api-gateway (port 8080)
+        run: |
+          GW_JAR=$(find services/api-gateway/ -name "*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          [ -z "$GW_JAR" ] && GW_JAR=$(find . -name "api-gateway*.jar" 2>/dev/null | grep -v 'plain' | head -n 1)
+          nohup java -jar "$GW_JAR" \
+            --server.port=8080 \
+            --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
+            > /tmp/api-gateway.log 2>&1 &
+          echo "GATEWAY_PID=$!" >> $GITHUB_ENV
+
       # Chờ services sẵn sàng (polling /actuator/health)
       - name: Wait for services to be ready
         run: |
@@ -303,6 +343,23 @@ jobs:
             fi
           fi
 
+          echo "Waiting for course-service:8082, ai-service:8084, api-gateway:8080..."
+          EXTRA_READY=false
+          for i in $(seq 1 30); do
+            C_OK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8082/api/v1/courses)
+            A_OK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8084/actuator/health)
+            G_OK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/v1/courses)
+            if [ "$C_OK" = "200" ] && [ "$A_OK" = "200" ] && [ "$G_OK" = "200" ]; then
+              echo "course-service, ai-service, api-gateway ready ✓"; EXTRA_READY=true; break
+            fi
+            sleep 3
+          done
+          if [ "$EXTRA_READY" != "true" ]; then
+            echo "❌ One of course/ai/gateway failed to start! C=$C_OK A=$A_OK G=$G_OK"
+            cat /tmp/course-service.log /tmp/ai-service.log /tmp/api-gateway.log || true
+            exit 1
+          fi
+
       - name: Setup Node.js (Newman)
         uses: actions/setup-node@v4
         with:
@@ -320,9 +377,10 @@ jobs:
       - name: Install Newman + reporters
         run: npm install -g --prefer-offline newman newman-reporter-htmlextra
 
-      # Chạy test collection
-      - name: Run Postman/Newman API tests
+      # Chạy test collection CI (26 requests)
+      - name: Run Postman/Newman CI API tests
         run: |
+          mkdir -p /tmp/newman-results
           newman run postman/eduportal.postman_collection.json \
             -e postman/ci.postman_environment.json \
             --reporters cli,junit,htmlextra \
@@ -334,6 +392,19 @@ jobs:
           NEWMAN_BASE_AUTH_URL: http://localhost:8081
           NEWMAN_BASE_LECTURER_URL: http://localhost:8085
           NEWMAN_BASE_ENROLLMENT_URL: http://localhost:8083
+
+      # Reset DB sạch trước khi chạy bộ E2E 5 microservices (45 requests)
+      - name: Reset PostgreSQL seed data & Run Full E2E Newman suite (5 microservices)
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db -f init-db/01-schema.sql
+          PGPASSWORD=postgres psql -h localhost -U postgres -d academic_db -f init-db/02-seed-data.sql
+          newman run postman/rikkei-eduportal-e2e.json \
+            --reporters cli,junit,htmlextra \
+            --reporter-junit-export /tmp/newman-results/e2e-junit.xml \
+            --reporter-htmlextra-export /tmp/newman-results/e2e-report.html \
+            --bail \
+            --timeout-request 15000
 
       # Upload kết quả dù pass hay fail
       - name: Upload Newman reports
@@ -350,15 +421,18 @@ jobs:
         continue-on-error: true
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
-          files: /tmp/newman-results/junit.xml
+          files: /tmp/newman-results/*.xml
 
       # Debug log nếu fail
       - name: Print service logs on failure
         if: failure()
         run: |
           echo "=== auth-service.log ===" && tail -50 /tmp/auth-service.log || true
+          echo "=== course-service.log ===" && tail -50 /tmp/course-service.log || true
           echo "=== lecturer-service.log ===" && tail -50 /tmp/lecturer-service.log || true
           echo "=== enrollment-service.log ===" && tail -50 /tmp/enrollment-service.log || true
+          echo "=== ai-service.log ===" && tail -50 /tmp/ai-service.log || true
+          echo "=== api-gateway.log ===" && tail -50 /tmp/api-gateway.log || true
 
   # ============================================================
   # JOB 4: Docker Build & Push to GHCR (Song song hóa qua Matrix)
