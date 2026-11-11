@@ -117,6 +117,15 @@ export default defineConfig(({ mode }) => {
           target: 'http://localhost:8085',
           changeOrigin: true,
         },
+        // Enrollment Service: Admin Exam Schedules & Exam Management (bypass course-service)
+        '/api/v1/admin/exam-schedules': {
+          target: 'http://localhost:8083',
+          changeOrigin: true,
+        },
+        '/api/v1/admin/exams': {
+          target: 'http://localhost:8083',
+          changeOrigin: true,
+        },
         // Tất cả API còn lại → api-gateway:8080
         '/api': {
           target: 'http://localhost:8080',
