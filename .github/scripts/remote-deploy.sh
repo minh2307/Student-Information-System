@@ -191,10 +191,10 @@ docker compose -f "${COMPOSE_FILE}" exec -T postgres sh -c \
 # -----------------------------------------------------------
 # 7. Health Check toàn diện CẢ 5 MICROSERVICES VÀ FRONTEND
 # -----------------------------------------------------------
-echo "=== Đang thực hiện Health Check toàn diện (tối đa 150 giây)... ==="
+echo "=== Đang thực hiện Health Check toàn diện (tối đa 300 giây)... ==="
 SERVICES_READY=false
 
-for i in $(seq 1 50); do
+for i in $(seq 1 100); do
   ALL_OK=true
 
   # Quét cổng 5 Java Microservices: 8081(auth), 8082(course), 8083(enrollment), 8084(ai), 8085(lecturer)
@@ -213,12 +213,12 @@ for i in $(seq 1 50); do
   fi
 
   if [ "$ALL_OK" = "true" ]; then
-    echo "✅ Tất cả 5 microservices backend và Frontend đã phản hồi HTTP 200 thành công (lần thử ${i}/50)!"
+    echo "✅ Tất cả 5 microservices backend và Frontend đã phản hồi HTTP 200 thành công (lần thử ${i}/100)!"
     SERVICES_READY=true
     break
   fi
 
-  echo "Đang đợi microservices khởi động hoàn tất... (lần ${i}/50, FE: ${FE_CODE})"
+  echo "Đang đợi microservices khởi động hoàn tất... (lần ${i}/100, FE: ${FE_CODE})"
   sleep 3
 done
 
@@ -230,7 +230,7 @@ docker compose -f "${COMPOSE_FILE}" ps
 # 8. Xử lý Thất bại & Cơ chế Rollback Ứng dụng An toàn
 # -----------------------------------------------------------
 if [ "$SERVICES_READY" != "true" ]; then
-  echo "❌ [DEPLOY THẤT BẠI] Microservices không vượt qua kiểm tra Health Check sau 60s!"
+  echo "❌ [DEPLOY THẤT BẠI] Microservices không vượt qua kiểm tra Health Check sau 300s!"
   echo "=== Logs chi tiết của stack ==="
   docker compose -f "${COMPOSE_FILE}" logs --tail 40
 
