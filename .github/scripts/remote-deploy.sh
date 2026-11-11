@@ -116,11 +116,22 @@ else
 fi
 
 # -----------------------------------------------------------
-# 4. Kéo images mới trước khi khởi động lại containers
+# 4. Kéo images mới trước khi khởi động lại containers (Retry 3 lần chống rớt mạng)
 # -----------------------------------------------------------
 echo "=== Đang kéo images mới (${COMPOSE_FILE})... ==="
-if ! docker compose -f "${COMPOSE_FILE}" pull; then
-  echo "❌ Kéo Docker images thất bại! Giữ nguyên phiên bản hiện tại đang chạy."
+PULL_SUCCESS=false
+for attempt in 1 2 3; do
+  echo "Thử kéo images (lần ${attempt}/3)..."
+  if docker compose -f "${COMPOSE_FILE}" pull; then
+    PULL_SUCCESS=true
+    break
+  fi
+  echo "⚠️ Lần thử ${attempt} gặp sự cố kết nối registry, thử lại sau 3 giây..."
+  sleep 3
+done
+
+if [ "$PULL_SUCCESS" != "true" ]; then
+  echo "❌ Kéo Docker images thất bại sau 3 lần thử! Giữ nguyên phiên bản hiện tại đang chạy."
   exit 1
 fi
 
@@ -180,10 +191,10 @@ docker compose -f "${COMPOSE_FILE}" exec -T postgres sh -c \
 # -----------------------------------------------------------
 # 7. Health Check toàn diện CẢ 5 MICROSERVICES VÀ FRONTEND
 # -----------------------------------------------------------
-echo "=== Đang thực hiện Health Check toàn diện (tối đa 60 giây)... ==="
+echo "=== Đang thực hiện Health Check toàn diện (tối đa 150 giây)... ==="
 SERVICES_READY=false
 
-for i in $(seq 1 20); do
+for i in $(seq 1 50); do
   ALL_OK=true
 
   # Quét cổng 5 Java Microservices: 8081(auth), 8082(course), 8083(enrollment), 8084(ai), 8085(lecturer)
@@ -202,12 +213,12 @@ for i in $(seq 1 20); do
   fi
 
   if [ "$ALL_OK" = "true" ]; then
-    echo "✅ Tất cả 5 microservices backend và Frontend đã phản hồi HTTP 200 thành công (lần thử ${i}/20)!"
+    echo "✅ Tất cả 5 microservices backend và Frontend đã phản hồi HTTP 200 thành công (lần thử ${i}/50)!"
     SERVICES_READY=true
     break
   fi
 
-  echo "Đang đợi microservices khởi động hoàn tất... (lần ${i}/20, FE: ${FE_CODE})"
+  echo "Đang đợi microservices khởi động hoàn tất... (lần ${i}/50, FE: ${FE_CODE})"
   sleep 3
 done
 
