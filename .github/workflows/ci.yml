@@ -1,32 +1,33 @@
-name: CI/CD Pipeline — Rikkei EduPortal
+name: CI Pipeline — Rikkei EduPortal
 
 # ============================================================
-# Trigger: push & PR vào main hoặc dev
-# - Nhánh dev: chỉ chạy CI (test, build, kiểm tra chất lượng)
-# - Nhánh main: chạy CI/CD đầy đủ (build image & tự động deploy Production)
+# Trigger: push vào dev, các nhánh tính năng & PR vào dev/main
+# - Nhánh dev & PR: Chỉ chạy CI (Build Backend, Build Frontend, Newman API Tests)
+# - Tuyệt đối không khai báo Docker Publish & Deploy Production VPS
 # ============================================================
 on:
   push:
-    branches: [main, dev]
+    branches:
+      - dev
+      - 'feature/**'
+      - 'fix/**'
+      - 'refactor/**'
+      - 'BE-*'
+      - 'FE-*'
+      - 'QA-*'
+      - 'DevOps-*'
+      - 'Team-Lead-*'
   pull_request:
-    branches: [main, dev]
+    branches:
+      - dev
+      - main
   workflow_dispatch:
 
 # Không tự động hủy job đang chạy để tránh lỗi "The operation was canceled"
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: false
 
-# ============================================================
-# Global env — ghi đè bằng Secrets ở repo Settings
-# ============================================================
-env:
-  REGISTRY: ghcr.io
-  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
-
-# ============================================================
-# JOB 1: Build & Unit-test Backend
-# ============================================================
 jobs:
   build-backend:
     name: 🔨 Backend Build & Test
@@ -359,254 +360,3 @@ jobs:
           echo "=== auth-service.log ===" && tail -50 /tmp/auth-service.log || true
           echo "=== lecturer-service.log ===" && tail -50 /tmp/lecturer-service.log || true
           echo "=== enrollment-service.log ===" && tail -50 /tmp/enrollment-service.log || true
-
-  # ============================================================
-  # JOB 4: Docker Build & Push to GHCR (Song song hóa qua Matrix)
-  # Chỉ chạy khi push vào nhánh main hoặc kích hoạt thủ công (workflow_dispatch)
-  # Nhánh dev chỉ chạy test & build, không build Docker để tiết kiệm tài nguyên
-  # ============================================================
-  docker-publish:
-    name: 🐳 Build & Push ${{ matrix.service.name }}
-    runs-on: ubuntu-latest
-    needs: [api-test, build-frontend]
-    if: github.ref_name == 'main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    permissions:
-      contents: read
-      packages: write
-
-    strategy:
-      fail-fast: true
-      matrix:
-        service:
-          - name: auth-service
-            context: .
-            file: services/auth-service/Dockerfile
-            artifact: backend-jars
-            build_args: JAR_FILE=services/auth-service/build/libs/auth-service-0.0.1-SNAPSHOT.jar
-          - name: course-service
-            context: .
-            file: services/course-service/Dockerfile
-            artifact: backend-jars
-            build_args: JAR_FILE=services/course-service/build/libs/course-service-0.0.1-SNAPSHOT.jar
-          - name: lecturer-service
-            context: .
-            file: services/lecturer-service/Dockerfile
-            artifact: backend-jars
-            build_args: JAR_FILE=services/lecturer-service/build/libs/lecturer-service-0.0.1-SNAPSHOT.jar
-          - name: enrollment-service
-            context: .
-            file: services/enrollment-service/Dockerfile
-            artifact: backend-jars
-            build_args: JAR_FILE=services/enrollment-service/build/libs/enrollment-service-0.0.1-SNAPSHOT.jar
-          - name: ai-service
-            context: .
-            file: services/ai-service/Dockerfile
-            artifact: backend-jars
-            build_args: JAR_FILE=services/ai-service/build/libs/ai-service-0.0.1-SNAPSHOT.jar
-          - name: frontend
-            context: ./frontend
-            file: frontend/Dockerfile
-            artifact: frontend-dist
-            build_args: ""
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set image tags
-        id: tags
-        run: |
-          BRANCH=$(echo "${GITHUB_REF_NAME}" | tr '/' '-')
-          SHA=${GITHUB_SHA::7}
-          echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
-          echo "tag=${BRANCH}-${SHA}" >> $GITHUB_OUTPUT
-
-      - name: Download backend jars
-        if: matrix.service.artifact == 'backend-jars'
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-jars
-          path: services
-
-      - name: Download frontend dist
-        if: matrix.service.artifact == 'frontend-dist'
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend/dist
-
-      - name: Build & push ${{ matrix.service.name }}
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ matrix.service.context }}
-          file: ${{ matrix.service.file }}
-          push: true
-          build-args: ${{ matrix.service.build_args }}
-          tags: |
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}:${{ steps.tags.outputs.tag }}
-            ${{ env.IMAGE_PREFIX }}/${{ matrix.service.name }}:${{ steps.tags.outputs.branch }}
-          cache-from: type=gha,scope=${{ matrix.service.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
-
-  # ============================================================
-  # JOB 5: Deploy Production — Chỉ deploy tự động từ nhánh main
-  # VPS duy nhất 1GB RAM chỉ chạy Production stack
-  # ============================================================
-  deploy:
-    name: 🚀 Deploy Production
-    runs-on: ubuntu-latest
-    needs: [docker-publish]
-    if: github.ref_name == 'main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    permissions:
-      contents: read
-      packages: read
-
-    # Deploy vào môi trường production trên VPS
-    environment:
-      name: production
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Resolve compose file & env
-        id: resolve
-        run: |
-          ENV_NAME="prod"
-          COMPOSE_FILE="docker-compose.prod.yml"
-          FRONTEND_PORT="3000"
-          echo "env_name=${ENV_NAME}"           >> $GITHUB_OUTPUT
-          echo "compose_file=${COMPOSE_FILE}"   >> $GITHUB_OUTPUT
-          echo "frontend_port=${FRONTEND_PORT}" >> $GITHUB_OUTPUT
-          echo "tag=$(echo ${GITHUB_REF_NAME} | tr '/' '-')-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
-
-      - name: Setup SSH
-        env:
-          SSH_KEY: ${{ secrets.SSH_KEY }}
-          SSH_HOST: ${{ secrets.SSH_HOST || '221.121.3.201' }}
-        run: |
-          if [ -z "$SSH_KEY" ]; then
-            echo "::error::Secret SSH_KEY chưa được cấu hình trong GitHub Secrets! Hủy bỏ deploy."
-            exit 1
-          fi
-          mkdir -p ~/.ssh
-          python3 -c "
-          import os, re, base64
-          raw = os.environ.get('SSH_KEY', '').strip()
-          if '-----BEGIN' not in raw:
-              try:
-                  dec = base64.b64decode(raw).decode('utf-8', errors='ignore')
-                  if '-----BEGIN' in dec:
-                      raw = dec
-              except Exception:
-                  pass
-          raw = raw.replace('\\\\n', '\n').replace('\r', '')
-          m = re.search(r'(-----BEGIN [A-Z0-9 ]+ PRIVATE KEY-----)(.*?)(-----END [A-Z0-9 ]+ PRIVATE KEY-----)', raw, re.DOTALL)
-          if m:
-              header = m.group(1).strip()
-              body = m.group(2).replace(' ', '').replace('\n', '')
-              footer = m.group(3).strip()
-              formatted = '\n'.join([body[i:i+64] for i in range(0, len(body), 64)])
-              clean = f'{header}\n{formatted}\n{footer}\n'
-          else:
-              clean = raw.strip() + '\n'
-          with open(os.path.expanduser('~/.ssh/deploy_key'), 'w') as f:
-              f.write(clean)
-          "
-          chmod 600 ~/.ssh/deploy_key
-          if ! ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null 2>&1; then
-            echo "::error::SSH private key không đúng định dạng OpenSSH/PEM! Vui lòng kiểm tra lại secret SSH_KEY."
-            rm -f ~/.ssh/deploy_key
-            exit 1
-          fi
-          echo "SSH deploy key loaded successfully ✓"
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Deploy via SSH
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST || '221.121.3.201' }}
-          SSH_USER: ${{ secrets.SSH_USER || 'root' }}
-          COMPOSE_FILE: ${{ steps.resolve.outputs.compose_file }}
-          ENV_NAME: ${{ steps.resolve.outputs.env_name }}
-          IMAGE_TAG: ${{ steps.resolve.outputs.tag }}
-          REGISTRY: ${{ env.REGISTRY }}
-          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
-          FRONTEND_PORT: ${{ vars.FRONTEND_PORT || steps.resolve.outputs.frontend_port }}
-          FRONTEND_ALT_PORT: ${{ vars.FRONTEND_ALT_PORT || '3000' }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          AI_API_KEY: ${{ secrets.AI_API_KEY }}
-          AI_BASE_URL: ${{ secrets.AI_BASE_URL || 'https://openrouter.ai/api' }}
-          AI_MODEL: ${{ secrets.AI_MODEL || 'google/gemini-2.5-flash' }}
-          AI_PROVIDER: ${{ secrets.AI_PROVIDER || 'openrouter' }}
-          AI_MAX_TOKENS: '1500'
-          PAYOS_CLIENT_ID: ${{ secrets.PAYOS_CLIENT_ID || '57fb1006-9ba1-472c-ba21-8536efcda5aa' }}
-          PAYOS_API_KEY: ${{ secrets.PAYOS_API_KEY || '22f2d865-a236-4f93-9f66-e845a1dae134' }}
-          PAYOS_CHECKSUM_KEY: ${{ secrets.PAYOS_CHECKSUM_KEY || '2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a' }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_USER: ${{ github.actor }}
-        run: |
-          if [ ! -s ~/.ssh/deploy_key ]; then
-            echo "::error::Không tìm thấy ~/.ssh/deploy_key. Hủy bỏ deploy."
-            exit 1
-          fi
-
-          # Đăng ký trap xóa file secret tạm ngay khi step shell này kết thúc (kể cả khi thành công hoặc gặp lỗi)
-          trap 'rm -f /tmp/.env.incoming' EXIT
-
-          # Chuẩn bị file cấu hình môi trường an toàn trên runner (tránh lộ secret qua command line arguments)
-          cat << EOF > /tmp/.env.incoming
-          DB_PASSWORD=${DB_PASSWORD}
-          JWT_SECRET=${JWT_SECRET}
-          REGISTRY=${REGISTRY}
-          IMAGE_TAG=${IMAGE_TAG}
-          IMAGE_PREFIX=${IMAGE_PREFIX}
-          AI_API_KEY=${AI_API_KEY}
-          AI_BASE_URL=${AI_BASE_URL}
-          AI_MODEL=${AI_MODEL}
-          AI_PROVIDER=${AI_PROVIDER}
-          AI_MAX_TOKENS=${AI_MAX_TOKENS}
-          FRONTEND_PORT=${FRONTEND_PORT}
-          FRONTEND_ALT_PORT=${FRONTEND_ALT_PORT}
-          PAYOS_CLIENT_ID=${PAYOS_CLIENT_ID}
-          PAYOS_API_KEY=${PAYOS_API_KEY}
-          PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY}
-          GHCR_TOKEN=${GHCR_TOKEN}
-          GHCR_USER=${GHCR_USER}
-          EOF
-          chmod 600 /tmp/.env.incoming
-
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            "${SSH_USER}@${SSH_HOST}" "mkdir -p /opt/eduportal"
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            /tmp/.env.incoming "${SSH_USER}@${SSH_HOST}:/opt/eduportal/.env.incoming"
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -r \
-            docker-compose*.yml init-db .github/scripts/remote-deploy.sh \
-            "${SSH_USER}@${SSH_HOST}:/opt/eduportal/"
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            "${SSH_USER}@${SSH_HOST}" \
-            "COMPOSE_FILE='${COMPOSE_FILE}' ENV_NAME='${ENV_NAME}' bash /opt/eduportal/remote-deploy.sh"
-
-      - name: Cleanup runner temporary secrets
-        if: always()
-        run: |
-          rm -f /tmp/.env.incoming ~/.ssh/deploy_key
-          echo "Temporary secrets cleaned up from runner ✓"
-
-      - name: Notify deploy result
-        if: always()
-        run: |
-          echo "Deploy to ${{ steps.resolve.outputs.env_name }} → ${{ job.status }}"
-          echo "Image tag: ${{ steps.resolve.outputs.tag }}"
-          echo "Compose file: ${{ steps.resolve.outputs.compose_file }}"

@@ -40,25 +40,25 @@ Production (VPS duy nhất)
 
 ### 2.2. Nhánh `dev` (Tích hợp & Kiểm thử toàn diện)
 - Là nhánh nhận code từ các nhánh tính năng để tích hợp.
-- **Cơ chế CI trên GitHub Actions**:
-  - Tự động chạy khi có Push hoặc PR vào `dev`:
+- **Cơ chế CI trên GitHub Actions (`.github/workflows/ci.yml`)**:
+  - Tự động chạy khi có Push hoặc PR vào `dev` và các nhánh tính năng:
     1. `build-backend`: Compile Java 21, chạy Unit test với PostgreSQL test database, tạo file JAR.
     2. `build-frontend`: Cài đặt thư viện npm và chạy Vite build.
     3. `api-test`: Khởi chạy các service trong container CI và chạy trọn bộ kiểm thử tự động API bằng Postman/Newman.
-  - **Quy tắc quan trọng:** Nhánh `dev` **KHÔNG TỰ ĐỘNG DEPLOY LÊN VPS** để bảo toàn tài nguyên cho máy chủ Production.
+  - **Quy tắc quan trọng:** Nhánh `dev` **KHÔNG TỰ ĐỘNG DEPLOY LÊN VPS** và file workflow độc lập này **không chứa bất kỳ khai báo deploy nào**, giúp sơ đồ pipeline trên GitHub Actions của nhánh `dev` luôn tinh gọn, chỉ hiển thị đúng 3 job CI.
 
 ### 2.3. Nhánh `main` (Phát hành Production)
 - Nhánh `main` là nhánh duy nhất đại diện cho phiên bản Production và là nhánh duy nhất được phép triển khai lên VPS Production.
 - **Quy tắc merge:**
   - `main` chỉ nhận code từ `dev` thông qua Pull Request sau khi toàn bộ sprint/milestone đã pass đầy đủ các bài test và được xác nhận sẵn sàng phát hành.
   - Nghiêm cấm push code trực tiếp vào `main`.
-- **Cơ chế CI/CD trên GitHub Actions**:
+- **Cơ chế CI/CD trên GitHub Actions (`.github/workflows/deploy.yml`)**:
   - Khi PR được merge vào `main` (hoặc kích hoạt `workflow_dispatch` có kiểm soát):
     1. Chạy toàn bộ bộ kiểm thử CI (Backend, Frontend, Newman API).
-    2. Build Docker images cho 5 microservices backend và frontend.
+    2. Build Docker images cho 5 microservices backend và frontend qua matrix song song.
     3. Gắn tag định danh bất biến (immutable tag: `main-<sha>` và `prod`) và push lên GHCR.
     4. Kích hoạt SSH Remote Deploy tự động lên VPS Production.
-  - **Khóa bảo mật `workflow_dispatch`:** Chỉ cho phép thực thi khi ref_name là `main`. Không thể vô tình deploy nhánh `dev` hay feature lên Production qua giao diện GitHub Actions.
+  - **Khóa bảo mật `workflow_dispatch`:** File workflow chỉ định nghĩa trigger cho `main`. Không thể vô tình deploy nhánh `dev` hay feature lên Production qua giao diện GitHub Actions.
 
 ---
 

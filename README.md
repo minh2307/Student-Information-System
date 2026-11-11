@@ -23,7 +23,8 @@ Hệ thống được thiết kế theo kiến trúc Microservices phân tách t
 .
 ├── .github/
 │   └── workflows/
-│       └── ci-cd.yml           # Pipeline CI/CD kiểm thử, build Docker và tự động deploy Production
+│       ├── ci.yml              # Pipeline CI kiểm thử tự động cho nhánh dev & PR (3 jobs)
+│       └── deploy.yml          # Pipeline CI/CD tự động build Docker và deploy Production VPS cho nhánh main
 ├── common-lib/                 # Thư viện dùng chung (ApiResponse, Enums: Role, UserStatus)
 ├── init-db/                    # DDL Schema (01-schema.sql) & Seed Data (02-seed-data.sql, 03-massive-seed.sql)
 ├── postman/                    # Bộ Newman/Postman Collection & CI Environment test tự động
@@ -234,11 +235,9 @@ Giao diện frontend dev server hiển thị tại: `http://localhost:5173`
 
 ## 9. Kiểm thử Tự động & CI/CD Pipeline
 
-- **GitHub Actions (`.github/workflows/ci-cd.yml`)**: Tự động thực thi mỗi khi push hoặc tạo PR lên nhánh `main` và `dev`:
-  1. Biên dịch và kiểm thử tự động toàn bộ 6 microservices backend qua Gradle.
-  2. Kiểm tra lint và build Frontend qua Vite.
-  3. Khởi tạo container PostgreSQL trên runner để chạy integration test qua Newman.
-  4. Triển khai tự động độc quyền từ nhánh `main` lên VPS Production (kèm Pre-Migration Backup và Auto-Rollback).
+- **GitHub Actions Pipelines**:
+  - **`.github/workflows/ci.yml`**: Tự động thực thi mỗi khi push hoặc tạo PR lên nhánh `dev` và các nhánh tính năng (gồm 3 job: Backend Build & Test, Frontend Build, Newman API Tests). Tách biệt hoàn toàn, không hiển thị và không can thiệp vào các bước deploy Production.
+  - **`.github/workflows/deploy.yml`**: Tự động thực thi độc quyền trên nhánh `main` (chạy trọn bộ kiểm thử, build Docker images qua matrix, publish GHCR và deploy tự động lên VPS Production kèm Pre-Migration Backup và Auto-Rollback).
 - **Tài liệu chuẩn hóa DevOps & Vận hành**:
   - [Quy trình Git Workflow & CI/CD](docs/deployment/git-workflow.md)
   - [Hướng dẫn Phục hồi Dữ liệu Thảm họa (Disaster Recovery)](docs/deployment/disaster-recovery.md)
