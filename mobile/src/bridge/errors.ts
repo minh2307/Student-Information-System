@@ -78,3 +78,47 @@ export class RefreshAmbiguousError extends BridgeAuthError {
     this.cause = cause;
   }
 }
+
+/**
+ * Thrown when Bridge receives a message from an unverified or disallowed origin.
+ */
+export class InvalidOriginError extends BridgeAuthError {
+  public readonly code = 'INVALID_ORIGIN';
+
+  constructor(message = 'Message rejected: Origin is not in the allowlist') {
+    super(message, false);
+  }
+}
+
+/**
+ * Thrown when Bridge envelope fails schema validation or contains unallowed type.
+ */
+export class InvalidEnvelopeError extends BridgeAuthError {
+  public readonly code = 'INVALID_ENVELOPE';
+
+  constructor(message = 'Message rejected: Malformed or unallowed envelope') {
+    super(message, false);
+  }
+}
+
+/**
+ * Thrown when a duplicate nonce/ID is re-submitted or timestamp is outside sliding window.
+ */
+export class ReplayAttackError extends BridgeAuthError {
+  public readonly code = 'REPLAY_ATTACK_DETECTED';
+
+  constructor(message = 'Message rejected: Duplicate nonce or expired timestamp') {
+    super(message, false);
+  }
+}
+
+/**
+ * Thrown when a message carries an epoch or session ID different from current active session.
+ */
+export class StaleEpochError extends BridgeAuthError {
+  public readonly code = 'STALE_EPOCH';
+
+  constructor(message = 'Message rejected: Stale epoch or session binding mismatch') {
+    super(message, true);
+  }
+}

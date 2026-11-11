@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { useAuthStore } from '../store/authStore.js'
+import { hybridBridge } from './hybridBridge.js'
 
 const api = axios.create({
   baseURL: import.meta.env?.VITE_API_BASE_URL || '/api/v1',
@@ -52,6 +53,42 @@ api.interceptors.response.use(
     const originalRequest = error.config
 
     if (error.response && error.response.status === 401 && originalRequest && !originalRequest._retry) {
+      // 1. HYBRID BRIDGE MODE (Native TokenBroker Delegation)
+      if (hybridBridge.isHybridEnvironment()) {
+        if (!hybridBridge.isHybridActive()) {
+          return Promise.reject(new Error('Hybrid bridge session is not active'))
+        }
+
+        originalRequest._retry = true
+
+        if (isRefreshing) {
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject })
+          })
+            .then((newToken) => {
+              originalRequest.headers.Authorization = `Bearer ${newToken}`
+              return api(originalRequest)
+            })
+            .catch((err) => Promise.reject(err))
+        }
+
+        isRefreshing = true
+
+        try {
+          const newAccessToken = await hybridBridge.requestTokenRefresh()
+          useAuthStore.getState().setTokens(newAccessToken, null)
+          processQueue(null, newAccessToken)
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+          return api(originalRequest)
+        } catch (bridgeRefreshErr) {
+          processQueue(bridgeRefreshErr, null)
+          return Promise.reject(bridgeRefreshErr)
+        } finally {
+          isRefreshing = false
+        }
+      }
+
+      // 2. STANDALONE WEB DESKTOP / PWA MODE (EXISTING UNCHANGED LOGIC)
       const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh')
       const refreshToken = useAuthStore.getState().refreshToken || localStorage.getItem('eduportal_refresh_token')
 

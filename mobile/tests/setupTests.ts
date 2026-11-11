@@ -141,3 +141,21 @@ jest.mock('@expo/vector-icons', () => ({
   MaterialIcons: (props: any) => null,
   FontAwesome: (props: any) => null,
 }));
+
+// Mock react-native-webview
+jest.mock('react-native-webview', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  class MockWebView extends React.Component {
+    postMessage = jest.fn();
+    injectJavaScript = jest.fn();
+    reload = jest.fn();
+    render() {
+      return React.createElement(View, { ...this.props, testID: 'mock-webview' });
+    }
+  }
+  return {
+    WebView: MockWebView,
+    default: MockWebView,
+  };
+});

@@ -1,6 +1,7 @@
-import React, { Suspense, lazy } from 'react'
+import React, { Suspense, lazy, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
+import { hybridBridge } from './services/hybridBridge'
 import { MainLayout } from './components/MainLayout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ToastContainer } from './components/ui/ToastContainer'
@@ -109,6 +110,14 @@ const RootRedirect = () => {
 }
 
 export default function App() {
+  useEffect(() => {
+    if (hybridBridge.isHybridEnvironment()) {
+      hybridBridge.initHandshake().catch((err) => {
+        console.warn('App: Hybrid handshake failed', err);
+      });
+    }
+  }, []);
+
   return (
     <ErrorBoundary>
       <BrowserRouter>

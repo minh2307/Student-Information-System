@@ -472,10 +472,9 @@ describe('Student Screens Rendering & UX Tests', () => {
       const html = renderWithProviders(<ProfileScreen />);
       expect(html).toContain('Nguyễn Văn C');
       expect(html).toContain('SV2024001');
-      expect(html).toContain('B.Tech - Computer Science');
-      expect(html).toContain('Kỳ 6');
-      expect(html).toContain('84 / 160');
-      expect(html).toContain('Đăng xuất khỏi thiết bị');
+      expect(html).toContain('Đăng xuất');
+      expect(html).toContain('hybrid-profile-webview');
+      expect(html).toContain('mock-webview');
     });
   });
 });
