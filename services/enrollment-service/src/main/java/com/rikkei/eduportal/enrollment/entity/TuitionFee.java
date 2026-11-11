@@ -46,7 +46,7 @@ public class TuitionFee {
     @Column(name = "payment_date")
     private LocalDateTime paymentDate;
 
-    @Column(name = "transaction_code", length = 100)
+    @Column(name = "transaction_code", length = 255)
     private String transactionCode;
 
     @Column(name = "payment_method", length = 50)

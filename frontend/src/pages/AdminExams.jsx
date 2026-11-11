@@ -65,15 +65,8 @@ export const AdminExams = () => {
     const fetchSemesters = async () => {
       try {
         const res = await api.get('/semesters')
-        if (res.data?.data && Array.isArray(res.data.data) && res.data.data.length > 0) {
+        if (res.data?.data && Array.isArray(res.data.data)) {
           setSemestersList(res.data.data)
-          const exists = res.data.data.some((s) => s.semesterCode === selectedSemester)
-          if (!exists) {
-            const active = res.data.data.find((s) => s.isActive) || res.data.data[0]
-            if (active?.semesterCode) {
-              setSelectedSemester(active.semesterCode)
-            }
-          }
         }
       } catch (err) {
         setSemestersList([
@@ -92,10 +85,8 @@ export const AdminExams = () => {
         const res = await api.get('/admin/class-sections', {
           params: { semester: selectedSemester },
         })
-        if (res.data?.data && Array.isArray(res.data.data)) {
+        if (res.data?.data) {
           setSectionsList(res.data.data)
-        } else {
-          setSectionsList([])
         }
       } catch (err) {
         // Fallback
@@ -103,14 +94,10 @@ export const AdminExams = () => {
           const resFallback = await api.get('/student/class-sections', {
             params: { semester: selectedSemester },
           })
-          if (resFallback.data?.data && Array.isArray(resFallback.data.data)) {
+          if (resFallback.data?.data) {
             setSectionsList(resFallback.data.data)
-          } else {
-            setSectionsList([])
           }
-        } catch (ignored) {
-          setSectionsList([])
-        }
+        } catch (ignored) {}
       }
     }
     fetchSections()
@@ -625,26 +612,12 @@ export const AdminExams = () => {
                     <option value="">-- Chọn lớp học phần --</option>
                     {sectionsList.map((sec) => (
                       <option key={sec.id} value={sec.id}>
-                        [{sec.sectionCode}] {sec.courseName || sec.course?.name || 'Môn học'} - {sec.roomName || 'Chưa xếp phòng'}
+                        [{sec.sectionCode}] {sec.course?.name || sec.courseName} - {sec.roomName}
                       </option>
                     ))}
                   </select>
-                  {sectionsList.length === 0 && (
-                    <p className="text-[11px] text-amber-600 mt-1">
-                      Chưa có lớp học phần nào trong học kỳ này để xếp lịch thi.
-                    </p>
-                  )}
                 </div>
-              ) : (
-                <div className="p-3.5 bg-stone-50 border border-stone-200 rounded-2xl text-xs space-y-1">
-                  <div className="text-stone-500 font-mono text-[11px] uppercase">Lớp học phần đang chỉnh sửa:</div>
-                  <div className="font-bold text-stone-900 text-sm flex items-center gap-2">
-                    <span className="font-mono text-red-700 font-extrabold">{exams.find((e) => e.id === editingExamId)?.sectionCode}</span>
-                    <span>&bull;</span>
-                    <span>{exams.find((e) => e.id === editingExamId)?.courseName}</span>
-                  </div>
-                </div>
-              )}
+              ) : null}
 
               {/* Date & Room */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -1,19 +1,20 @@
-name: CI/CD Pipeline — Rikkei EduPortal
+name: Production CI/CD — Rikkei EduPortal
 
 # ============================================================
-# Trigger: push & PR vào 3 nhánh chính
+# Trigger: Chỉ chạy khi push vào main (sau khi merge PR từ dev)
+# hoặc kích hoạt thủ công (workflow_dispatch) trên nhánh main
+# - Chạy toàn diện: CI Tests -> Docker Publish GHCR -> Deploy Production VPS
 # ============================================================
 on:
   push:
-    branches: [main, staging, dev]
-  pull_request:
-    branches: [main, staging, dev]
+    branches:
+      - main
   workflow_dispatch:
 
-# Tránh pipeline đè nhau trên cùng nhánh/PR
+# Không tự động hủy job đang chạy để tránh lỗi "The operation was canceled"
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 # ============================================================
 # Global env — ghi đè bằng Secrets ở repo Settings
@@ -22,9 +23,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
 
-# ============================================================
-# JOB 1: Build & Unit-test Backend
-# ============================================================
 jobs:
   build-backend:
     name: 🔨 Backend Build & Test
@@ -114,6 +112,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          check-latest: false
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -304,6 +303,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          check-latest: false
 
       - name: Cache npm packages (Newman)
         uses: actions/cache@v4
@@ -358,13 +358,14 @@ jobs:
 
   # ============================================================
   # JOB 4: Docker Build & Push to GHCR (Song song hóa qua Matrix)
-  # Chỉ chạy khi push (không chạy cho PR)
+  # Chỉ chạy khi push vào nhánh main hoặc kích hoạt thủ công (workflow_dispatch)
+  # Nhánh dev chỉ chạy test & build, không build Docker để tiết kiệm tài nguyên
   # ============================================================
   docker-publish:
     name: 🐳 Build & Push ${{ matrix.service.name }}
     runs-on: ubuntu-latest
     needs: [api-test, build-frontend]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.ref_name == 'main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: read
       packages: write
@@ -455,25 +456,21 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
 
   # ============================================================
-  # JOB 5: Deploy — map nhánh → môi trường
+  # JOB 5: Deploy Production — Chỉ deploy tự động từ nhánh main
+  # VPS duy nhất 1GB RAM chỉ chạy Production stack
   # ============================================================
   deploy:
-    name: 🚀 Deploy
+    name: 🚀 Deploy Production
     runs-on: ubuntu-latest
     needs: [docker-publish]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.ref_name == 'main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: read
       packages: read
 
-    # Resolve environment theo nhánh
+    # Deploy vào môi trường production trên VPS
     environment:
-      name: >-
-        ${{
-          github.ref_name == 'main'    && 'production'  ||
-          github.ref_name == 'staging' && 'staging'     ||
-          'development'
-        }}
+      name: production
 
     steps:
       - name: Checkout
@@ -482,11 +479,9 @@ jobs:
       - name: Resolve compose file & env
         id: resolve
         run: |
-          case "${GITHUB_REF_NAME}" in
-            main)    ENV_NAME="prod"    ; COMPOSE_FILE="docker-compose.prod.yml"    ; FRONTEND_PORT="3000" ;;
-            staging) ENV_NAME="staging" ; COMPOSE_FILE="docker-compose.staging.yml" ; FRONTEND_PORT="3000" ;;
-            *)       ENV_NAME="dev"     ; COMPOSE_FILE="docker-compose.dev.yml"     ; FRONTEND_PORT="3000" ;;
-          esac
+          ENV_NAME="prod"
+          COMPOSE_FILE="docker-compose.prod.yml"
+          FRONTEND_PORT="3000"
           echo "env_name=${ENV_NAME}"           >> $GITHUB_OUTPUT
           echo "compose_file=${COMPOSE_FILE}"   >> $GITHUB_OUTPUT
           echo "frontend_port=${FRONTEND_PORT}" >> $GITHUB_OUTPUT
@@ -498,8 +493,8 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST || '221.121.3.201' }}
         run: |
           if [ -z "$SSH_KEY" ]; then
-            echo "::warning::Secret SSH_KEY chưa được cấu hình trong GitHub Secrets. Bỏ qua bước Deploy."
-            exit 0
+            echo "::error::Secret SSH_KEY chưa được cấu hình trong GitHub Secrets! Hủy bỏ deploy."
+            exit 1
           fi
           mkdir -p ~/.ssh
           python3 -c "
@@ -538,6 +533,13 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.SSH_HOST || '221.121.3.201' }}
           SSH_USER: ${{ secrets.SSH_USER || 'root' }}
+          COMPOSE_FILE: ${{ steps.resolve.outputs.compose_file }}
+          ENV_NAME: ${{ steps.resolve.outputs.env_name }}
+          IMAGE_TAG: ${{ steps.resolve.outputs.tag }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+          FRONTEND_PORT: ${{ vars.FRONTEND_PORT || steps.resolve.outputs.frontend_port }}
+          FRONTEND_ALT_PORT: ${{ vars.FRONTEND_ALT_PORT || '3000' }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
@@ -545,31 +547,58 @@ jobs:
           AI_MODEL: ${{ secrets.AI_MODEL || 'google/gemini-2.5-flash' }}
           AI_PROVIDER: ${{ secrets.AI_PROVIDER || 'openrouter' }}
           AI_MAX_TOKENS: '1500'
-          FRONTEND_PORT: ${{ vars.FRONTEND_PORT || steps.resolve.outputs.frontend_port }}
-          FRONTEND_ALT_PORT: ${{ vars.FRONTEND_ALT_PORT || '3000' }}
           PAYOS_CLIENT_ID: ${{ secrets.PAYOS_CLIENT_ID || '57fb1006-9ba1-472c-ba21-8536efcda5aa' }}
           PAYOS_API_KEY: ${{ secrets.PAYOS_API_KEY || '22f2d865-a236-4f93-9f66-e845a1dae134' }}
           PAYOS_CHECKSUM_KEY: ${{ secrets.PAYOS_CHECKSUM_KEY || '2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a' }}
-          COMPOSE_FILE: ${{ steps.resolve.outputs.compose_file }}
-          ENV_NAME: ${{ steps.resolve.outputs.env_name }}
-          IMAGE_TAG: ${{ steps.resolve.outputs.tag }}
-          REGISTRY: ${{ env.REGISTRY }}
-          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
         run: |
           if [ ! -s ~/.ssh/deploy_key ]; then
-            echo "Bo qua Deploy vi khong co SSH key."
-            exit 0
+            echo "::error::Không tìm thấy ~/.ssh/deploy_key. Hủy bỏ deploy."
+            exit 1
           fi
+
+          # Đăng ký trap xóa file secret tạm ngay khi step shell này kết thúc (kể cả khi thành công hoặc gặp lỗi)
+          trap 'rm -f /tmp/.env.incoming' EXIT
+
+          # Chuẩn bị file cấu hình môi trường an toàn trên runner (tránh lộ secret qua command line arguments)
+          cat << EOF > /tmp/.env.incoming
+          DB_PASSWORD=${DB_PASSWORD}
+          JWT_SECRET=${JWT_SECRET}
+          REGISTRY=${REGISTRY}
+          IMAGE_TAG=${IMAGE_TAG}
+          IMAGE_PREFIX=${IMAGE_PREFIX}
+          AI_API_KEY=${AI_API_KEY}
+          AI_BASE_URL=${AI_BASE_URL}
+          AI_MODEL=${AI_MODEL}
+          AI_PROVIDER=${AI_PROVIDER}
+          AI_MAX_TOKENS=${AI_MAX_TOKENS}
+          FRONTEND_PORT=${FRONTEND_PORT}
+          FRONTEND_ALT_PORT=${FRONTEND_ALT_PORT}
+          PAYOS_CLIENT_ID=${PAYOS_CLIENT_ID}
+          PAYOS_API_KEY=${PAYOS_API_KEY}
+          PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY}
+          GHCR_TOKEN=${GHCR_TOKEN}
+          GHCR_USER=${GHCR_USER}
+          EOF
+          chmod 600 /tmp/.env.incoming
+
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             "${SSH_USER}@${SSH_HOST}" "mkdir -p /opt/eduportal"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            /tmp/.env.incoming "${SSH_USER}@${SSH_HOST}:/opt/eduportal/.env.incoming"
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -r \
             docker-compose*.yml init-db .github/scripts/remote-deploy.sh \
             "${SSH_USER}@${SSH_HOST}:/opt/eduportal/"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             "${SSH_USER}@${SSH_HOST}" \
-            "COMPOSE_FILE='${COMPOSE_FILE}' ENV_NAME='${ENV_NAME}' IMAGE_TAG='${IMAGE_TAG}' REGISTRY='${REGISTRY}' IMAGE_PREFIX='${IMAGE_PREFIX}' DB_PASSWORD='${DB_PASSWORD}' JWT_SECRET='${JWT_SECRET}' AI_API_KEY='${AI_API_KEY}' AI_BASE_URL='${AI_BASE_URL}' AI_MODEL='${AI_MODEL}' AI_PROVIDER='${AI_PROVIDER}' AI_MAX_TOKENS='${AI_MAX_TOKENS}' FRONTEND_PORT='${FRONTEND_PORT}' FRONTEND_ALT_PORT='${FRONTEND_ALT_PORT}' PAYOS_CLIENT_ID='${PAYOS_CLIENT_ID}' PAYOS_API_KEY='${PAYOS_API_KEY}' PAYOS_CHECKSUM_KEY='${PAYOS_CHECKSUM_KEY}' GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' bash /opt/eduportal/remote-deploy.sh"
+            "COMPOSE_FILE='${COMPOSE_FILE}' ENV_NAME='${ENV_NAME}' bash /opt/eduportal/remote-deploy.sh"
+
+      - name: Cleanup runner temporary secrets
+        if: always()
+        run: |
+          rm -f /tmp/.env.incoming ~/.ssh/deploy_key
+          echo "Temporary secrets cleaned up from runner ✓"
 
       - name: Notify deploy result
         if: always()

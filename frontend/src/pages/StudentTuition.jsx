@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
@@ -19,6 +19,7 @@ import {
   ExternalLink,
   RefreshCw,
   AlertTriangle,
+  Info,
   X
 } from 'lucide-react'
 
@@ -27,10 +28,11 @@ export { numberToVietnameseWords }
 
 export const StudentTuition = () => {
   // ─────────────────────────────────────────
-  // 1. Store & URL SearchParams
+  // 1. Store & URL SearchParams & Navigation
   // ─────────────────────────────────────────
   const { user } = useAuthStore()
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   // ─────────────────────────────────────────
   // 2. State
@@ -255,8 +257,12 @@ export const StudentTuition = () => {
     }
   }
 
-  const isPaid = tuition?.status === 'PAID'
-  const isPartial = tuition?.status === 'PARTIAL'
+  // ─────────────────────────────────────────
+  // 9. Giá trị Boolean dẫn xuất (không phải hook)
+  // ─────────────────────────────────────────
+  const isNotEnrolled = tuition?.status === 'NOT_ENROLLED' || (!tuition?.totalCredits && (!tuition?.paidAmount || tuition?.paidAmount === 0))
+  const isPaid = !isNotEnrolled && tuition?.status === 'PAID'
+  const isPartial = !isNotEnrolled && tuition?.status === 'PARTIAL'
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans pb-12">
@@ -368,11 +374,66 @@ export const StudentTuition = () => {
             Không tìm thấy biểu phí học phần cho kỳ đào tạo này.
           </p>
         </div>
+      ) : isNotEnrolled ? (
+        <>
+          {/* 2. Financial Standing Card for Unenrolled Semester */}
+          <div className="rounded-2xl p-6 border shadow-2xs relative overflow-hidden bg-stone-50 border-stone-200/90">
+            <div className="space-y-4 relative z-10">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 bg-stone-200/80 text-stone-700 border border-stone-300">
+                  <Info size={13} className="text-stone-600" />
+                  <span>CHƯA ĐĂNG KÝ HỌC PHẦN (CHƯA PHÁT SINH HỌC PHÍ)</span>
+                </span>
+                <span className="text-xs text-stone-600 font-mono">
+                  Kỳ đào tạo: <strong className="text-stone-900">{tuition.semesterName}</strong>
+                </span>
+              </div>
+
+              {/* 3 Chỉ Tiêu Tài Chính: 0đ khi chưa đăng ký môn */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-white p-3.5 rounded-xl border border-stone-200 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 font-medium block">Tổng học phí</span>
+                  <span className="text-lg font-bold font-mono text-stone-900 block mt-0.5">0 đ</span>
+                </div>
+                <div className="bg-white p-3.5 rounded-xl border border-stone-200 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 font-medium block">Đã thanh toán</span>
+                  <span className="text-lg font-bold font-mono text-emerald-700 block mt-0.5">0 đ</span>
+                </div>
+                <div className="bg-white p-3.5 rounded-xl border border-stone-200 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 font-medium block">Còn phải thanh toán</span>
+                  <span className="text-lg font-bold font-mono text-stone-700 block mt-0.5">0 đ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Unenrolled Notification Card */}
+          <div className="bg-white rounded-2xl p-10 sm:p-14 border border-stone-200/90 shadow-2xs text-center space-y-3">
+            <div className="w-14 h-14 mx-auto bg-amber-50 rounded-2xl flex items-center justify-center border border-amber-200 text-amber-700">
+              <Info size={28} />
+            </div>
+            <h3 className="text-base font-bold text-stone-900">
+              Chưa Phát Sinh Nghĩa Vụ Học Phí
+            </h3>
+            <p className="text-xs text-stone-600 max-w-md mx-auto leading-relaxed">
+              Bạn chưa đăng ký học phần trong học kỳ này. Chưa phát sinh học phí.
+            </p>
+            <div className="pt-2">
+              <button
+                onClick={() => navigate('/student/registration')}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-red-700 hover:bg-red-800 text-white transition shadow-sm cursor-pointer"
+              >
+                <Zap size={15} className="text-amber-300" />
+                <span>Đăng Ký Học Phần Kỳ Này</span>
+              </button>
+            </div>
+          </div>
+        </>
       ) : (
         <>
           {/* 3. Financial Standing Card */}
           <div
-            className={`rounded-2xl p-6 border shadow-2xs relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6 ${
+            className={`rounded-2xl p-6 border shadow-2xs relative overflow-hidden flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 ${
               isPaid
                 ? 'bg-stone-50 border-stone-200/90'
                 : isPartial
@@ -380,7 +441,11 @@ export const StudentTuition = () => {
                 : 'bg-stone-50 border-stone-200/90'
             }`}
           >
-            <div className="space-y-3 relative z-10">
+            <div className="absolute right-4 -bottom-4 opacity-5 pointer-events-none w-52 h-52">
+              <img src="/images/stamp-seal.svg" alt="Seal" className="w-full h-full" />
+            </div>
+
+            <div className="space-y-4 relative z-10 flex-1">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 ${
@@ -413,7 +478,53 @@ export const StudentTuition = () => {
                 </span>
               </div>
 
-              <div className="flex items-baseline gap-2.5">
+              {/* 3 Chỉ Tiêu Tài Chính Cốt Lõi: Phân biệt rõ Tổng học phí - Đã thanh toán - Còn phải thanh toán */}
+              <div className={`grid grid-cols-1 ${tuition.excessAmount > 0 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-3`}>
+                <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-stone-200 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 font-medium block">Tổng học phí</span>
+                  <span className="text-lg font-bold font-mono text-stone-900 block mt-0.5">
+                    {formatVnd(tuition.totalAmount)}
+                  </span>
+                </div>
+                <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-stone-200 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 font-medium block">Đã thanh toán</span>
+                  <span className="text-lg font-bold font-mono text-emerald-700 block mt-0.5">
+                    {formatVnd(tuition.paidAmount)}
+                  </span>
+                </div>
+                <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-xl border border-stone-200 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 font-medium block">Còn phải thanh toán</span>
+                  <span className={`text-lg font-bold font-mono block mt-0.5 ${
+                    (tuition.remainingAmount || 0) > 0 ? 'text-red-700' : 'text-emerald-700'
+                  }`}>
+                    {formatVnd(tuition.remainingAmount != null ? tuition.remainingAmount : 0)}
+                  </span>
+                </div>
+                {tuition.excessAmount > 0 && (
+                  <div className="bg-emerald-50/90 backdrop-blur-xs p-3.5 rounded-xl border border-emerald-300 shadow-2xs">
+                    <span className="text-[11px] text-emerald-800 font-semibold block flex items-center gap-1">
+                      <CheckCircle2 size={12} className="text-emerald-700" />
+                      Số dư bảo lưu
+                    </span>
+                    <span className="text-lg font-bold font-mono text-emerald-800 block mt-0.5">
+                      {formatVnd(tuition.excessAmount)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {tuition.excessAmount > 0 && (
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-950">
+                  <Info size={16} className="text-emerald-700 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Ghi nhận số dư bảo lưu:</strong> Bạn có khoản tiền đã nộp vượt học phí là{' '}
+                    <strong>{formatVnd(tuition.excessAmount)}</strong> (do điều chỉnh/hủy môn học sau khi đã thanh toán).
+                    Khoản tiền dư này được nhà trường bảo lưu nguyên vẹn và tự động cấn trừ cho nghĩa vụ học phí các kỳ tiếp theo.
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-baseline gap-2.5 pt-1">
                 <h2 className="text-2xl sm:text-4xl font-mono font-bold text-stone-900 tracking-tight">
                   {formatVnd(tuition.remainingAmount != null ? tuition.remainingAmount : tuition.totalAmount)}
                 </h2>
@@ -439,7 +550,7 @@ export const StudentTuition = () => {
               </div>
             </div>
 
-            <div className="relative z-10 flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+            <div className="relative z-10 flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
               {!isPaid ? (
                 <button
                   onClick={handleOpenPayOs}

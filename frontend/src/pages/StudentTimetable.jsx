@@ -80,6 +80,7 @@ export const StudentTimetable = () => {
   const [timetable, setTimetable] = useState([])
   const [loading, setLoading] = useState(true)
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false)
+  const [isOfflineData, setIsOfflineData] = useState(false)
   const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 768) ? 'list' : 'grid') // Mobile auto 'list', Desktop 'grid'
   const [selectedClassDetail, setSelectedClassDetail] = useState(null)
   const [weekOffset, setWeekOffset] = useState(0)
@@ -265,6 +266,7 @@ export const StudentTimetable = () => {
           setSemesters(res.data.data)
           try {
             localStorage.setItem('eduportal_offline_semesters', JSON.stringify(res.data.data))
+            localStorage.setItem('eduportal_cached_semesters', JSON.stringify(res.data.data))
           } catch (e) {}
           const active = res.data.data.find(s => s.isActive) || res.data.data[0]
           setSelectedSemester(active.semesterCode)
@@ -304,8 +306,10 @@ export const StudentTimetable = () => {
           setTimetable(res.data.data)
           try {
             localStorage.setItem(`eduportal_offline_timetable_${selectedSemester}`, JSON.stringify(res.data.data))
+            localStorage.setItem(`eduportal_cached_timetable_${selectedSemester}`, JSON.stringify(res.data.data))
           } catch (e) {}
           setIsOffline(typeof navigator !== 'undefined' ? !navigator.onLine : false)
+          setIsOfflineData(false)
           return
         }
       } catch (err) {
@@ -313,13 +317,14 @@ export const StudentTimetable = () => {
       }
 
       // Offline Fallback: Đọc từ localStorage cache
-      const cached = localStorage.getItem(`eduportal_offline_timetable_${selectedSemester}`)
+      const cached = localStorage.getItem(`eduportal_offline_timetable_${selectedSemester}`) || localStorage.getItem(`eduportal_cached_timetable_${selectedSemester}`)
       if (cached) {
         try {
           const parsed = JSON.parse(cached)
           if (Array.isArray(parsed) && parsed.length > 0) {
             setTimetable(parsed)
             setIsOffline(true)
+            setIsOfflineData(true)
             return
           }
         } catch (e) {}
@@ -367,7 +372,15 @@ export const StudentTimetable = () => {
               <CalendarDays size={22} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Thời Khóa Biểu Học Tập</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-slate-900">Thời Khóa Biểu Học Tập</h1>
+                {isOfflineData && (
+                  <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                    <WifiOff size={11} className="text-amber-700" />
+                    <span>Bộ nhớ ngoại tuyến (Offline)</span>
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500">Tra cứu lịch học dạng lưới trực quan theo tuần và học kỳ</p>
             </div>
           </div>
@@ -886,6 +899,18 @@ export const StudentTimetable = () => {
                     <span>{copying ? 'Đã chép' : 'Sao chép'}</span>
                   </button>
                 </div>
+
+                {syncInfo?.webcalUrl && (
+                  <div className="pt-1">
+                    <a
+                      href={syncInfo.webcalUrl}
+                      className="w-full py-2 px-3 bg-slate-900 hover:bg-black text-white text-center rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
+                    >
+                      <Smartphone size={14} className="text-amber-300" />
+                      <span>Thêm trực tiếp vào Apple Calendar trên iPhone (webcal://)</span>
+                    </a>
+                  </div>
+                )}
 
                 {/* Hướng dẫn ngắn */}
                 <div className="text-[11px] text-slate-600 space-y-1.5 pt-1 border-t border-red-100/60 font-sans">

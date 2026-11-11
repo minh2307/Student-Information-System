@@ -21,6 +21,7 @@ export const StudentGrades = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false)
+  const [isOfflineData, setIsOfflineData] = useState(false)
   const [selectedSemester, setSelectedSemester] = useState('ALL')
   const [showCredentialModal, setShowCredentialModal] = useState(false)
 
@@ -51,8 +52,10 @@ export const StudentGrades = () => {
         const res = await api.get('/student/grades')
         if (res.data?.data) {
           setGrades(res.data.data)
+          setIsOfflineData(false)
           try {
             localStorage.setItem('eduportal_offline_grades', JSON.stringify(res.data.data))
+            localStorage.setItem('eduportal_cached_grades', JSON.stringify(res.data.data))
           } catch (e) {}
           setIsOffline(typeof navigator !== 'undefined' ? !navigator.onLine : false)
           return
@@ -62,13 +65,14 @@ export const StudentGrades = () => {
       }
 
       // Offline Fallback: Đọc dữ liệu từ localStorage Cache
-      const cached = localStorage.getItem('eduportal_offline_grades')
+      const cached = localStorage.getItem('eduportal_offline_grades') || localStorage.getItem('eduportal_cached_grades')
       if (cached) {
         try {
           const parsed = JSON.parse(cached)
           if (Array.isArray(parsed) && parsed.length > 0) {
             setGrades(parsed)
             setIsOffline(true)
+            setIsOfflineData(true)
             setError(null)
             return
           }

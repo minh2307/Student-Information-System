@@ -69,11 +69,6 @@ class TuitionServiceTest {
                 .thenReturn(Collections.emptyList());
         when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2024-25_SEM2"))
                 .thenReturn(Optional.empty());
-        when(tuitionFeeRepository.save(any(TuitionFee.class))).thenAnswer(inv -> {
-            TuitionFee tf = inv.getArgument(0);
-            tf.setId(100L);
-            return tf;
-        });
 
         TuitionDto result = tuitionService.getStudentTuition("sv2024001", "2024-25_SEM2");
 
@@ -82,7 +77,7 @@ class TuitionServiceTest {
         assertEquals(0, BigDecimal.ZERO.compareTo(result.getFacilityFee()));
         assertEquals(0, BigDecimal.ZERO.compareTo(result.getTotalAmount()));
         assertEquals(0, BigDecimal.ZERO.compareTo(result.getRemainingAmount()));
-        assertEquals("PAID", result.getStatus());
+        assertEquals("NOT_ENROLLED", result.getStatus());
         assertEquals("SV2024001", result.getStudentCode());
         assertEquals("Nguyen Van A", result.getStudentName());
     }

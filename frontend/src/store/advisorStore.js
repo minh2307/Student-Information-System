@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import api from '../services/api'
+import api from '../services/api.js'
+import { subscribeAuth } from './authStore.js'
 
 export const ADVISOR_STORAGE_KEY = 'eduportal_student_advisor_history'
 
@@ -18,11 +19,43 @@ export const DEFAULT_SUGGESTIONS = [
   'Gợi ý lộ trình học tập ngành CNTT?',
 ]
 
-const loadInitialMessages = () => {
+/**
+ * Tạo khóa lưu trữ riêng biệt theo User ID (hoặc Guest nếu chưa xác thực)
+ */
+export const getAdvisorStorageKey = (userOrId) => {
+  const id = typeof userOrId === 'object' ? userOrId?.id : userOrId
+  if (id !== undefined && id !== null && id !== '') {
+    return `${ADVISOR_STORAGE_KEY}_${id}`
+  }
+  return `${ADVISOR_STORAGE_KEY}_guest`
+}
+
+/**
+ * Trích xuất User ID đã lưu từ phiên đăng nhập
+ */
+export const getInitialUserId = () => {
   try {
+    const raw =
+      typeof localStorage !== 'undefined'
+        ? localStorage.getItem('eduportal_user')
+        : null
+    if (raw) {
+      const u = JSON.parse(raw)
+      return u?.id ?? null
+    }
+  } catch (e) {}
+  return null
+}
+
+/**
+ * Tải lịch sử hội thoại cho một User ID cụ thể từ Storage
+ */
+export const loadMessagesForUser = (userId) => {
+  try {
+    const key = getAdvisorStorageKey(userId)
     const saved =
-      localStorage.getItem(ADVISOR_STORAGE_KEY) ||
-      sessionStorage.getItem(ADVISOR_STORAGE_KEY)
+      (typeof localStorage !== 'undefined' && localStorage.getItem(key)) ||
+      (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(key))
     if (saved) {
       const parsed = JSON.parse(saved)
       if (Array.isArray(parsed) && parsed.length > 0) return parsed
@@ -33,11 +66,19 @@ const loadInitialMessages = () => {
   return [DEFAULT_GREETING]
 }
 
-const saveMessagesToStorage = (messages) => {
+/**
+ * Lưu lịch sử hội thoại của User ID cụ thể vào Storage
+ */
+export const saveMessagesForUser = (userId, messages) => {
   try {
+    const key = getAdvisorStorageKey(userId)
     const serialized = JSON.stringify(messages)
-    localStorage.setItem(ADVISOR_STORAGE_KEY, serialized)
-    sessionStorage.setItem(ADVISOR_STORAGE_KEY, serialized)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, serialized)
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(key, serialized)
+    }
   } catch (e) {
     console.warn('Failed to save advisor chat history to storage', e)
   }
@@ -45,18 +86,69 @@ const saveMessagesToStorage = (messages) => {
 
 let streamInterval = null
 
+const initialUserId = getInitialUserId()
+
 export const useAdvisorStore = create((set, get) => ({
-  messages: loadInitialMessages(),
+  currentUserId: initialUserId,
+  messages: loadMessagesForUser(initialUserId),
   suggestions: DEFAULT_SUGGESTIONS,
   loading: false,
   isStreaming: false,
   streamingText: '',
   streamingFullText: '',
 
+  getCurrentStorageKey: () => getAdvisorStorageKey(get().currentUserId),
+
+  /**
+   * Nạp lại lịch sử hội thoại khi chuyển đổi tài khoản
+   */
+  loadUserHistory: (userOrId) => {
+    if (streamInterval) {
+      clearInterval(streamInterval)
+      streamInterval = null
+    }
+    const targetUserId = typeof userOrId === 'object' ? userOrId?.id : userOrId
+    const targetId = targetUserId !== undefined ? targetUserId : null
+    const loaded = loadMessagesForUser(targetId)
+    set({
+      currentUserId: targetId,
+      messages: loaded,
+      suggestions: DEFAULT_SUGGESTIONS,
+      loading: false,
+      isStreaming: false,
+      streamingText: '',
+      streamingFullText: '',
+    })
+  },
+
+  /**
+   * Reset in-memory session khi Logout (bảo toàn dữ liệu trong localStorage)
+   */
+  resetSession: () => {
+    if (streamInterval) {
+      clearInterval(streamInterval)
+      streamInterval = null
+    }
+    set({
+      currentUserId: null,
+      messages: [DEFAULT_GREETING],
+      suggestions: DEFAULT_SUGGESTIONS,
+      loading: false,
+      isStreaming: false,
+      streamingText: '',
+      streamingFullText: '',
+    })
+  },
+
   sendMessage: async (queryText, userContext = {}) => {
     const query = (queryText || '').trim()
-    const { loading, isStreaming, messages } = get()
+    const { loading, isStreaming, messages, currentUserId } = get()
     if (!query || loading || isStreaming) return
+
+    const effectiveUserId = userContext?.id ?? currentUserId
+    if (effectiveUserId !== currentUserId) {
+      set({ currentUserId: effectiveUserId })
+    }
 
     const userMsg = {
       id: String(Date.now()),
@@ -67,7 +159,7 @@ export const useAdvisorStore = create((set, get) => ({
 
     const updated = [...messages, userMsg]
     set({ messages: updated, loading: true })
-    saveMessagesToStorage(updated)
+    saveMessagesForUser(get().currentUserId, updated)
 
     // Build history payload (last 6 turns)
     const historyPayload = updated
@@ -150,7 +242,7 @@ export const useAdvisorStore = create((set, get) => ({
           streamingText: '',
           streamingFullText: '',
         })
-        saveMessagesToStorage(newMessages)
+        saveMessagesForUser(get().currentUserId, newMessages)
       } else {
         set({ streamingText: fullReply.slice(0, index) })
       }
@@ -177,7 +269,7 @@ export const useAdvisorStore = create((set, get) => ({
       streamingText: '',
       streamingFullText: '',
     })
-    saveMessagesToStorage(newMessages)
+    saveMessagesForUser(get().currentUserId, newMessages)
   },
 
   clearHistory: () => {
@@ -185,6 +277,7 @@ export const useAdvisorStore = create((set, get) => ({
       clearInterval(streamInterval)
       streamInterval = null
     }
+    const currentId = get().currentUserId
     const resetMessages = [DEFAULT_GREETING]
     set({
       messages: resetMessages,
@@ -195,16 +288,18 @@ export const useAdvisorStore = create((set, get) => ({
       loading: false,
     })
     try {
-      localStorage.removeItem(ADVISOR_STORAGE_KEY)
-      sessionStorage.removeItem(ADVISOR_STORAGE_KEY)
+      const key = getAdvisorStorageKey(currentId)
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(key)
+      if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(key)
     } catch (e) {}
   },
 }))
 
-// Cross-tab / Window storage sync
+// Cross-tab / Window storage sync cho đúng user đang active
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
-    if (e.key === ADVISOR_STORAGE_KEY) {
+    const currentKey = getAdvisorStorageKey(useAdvisorStore.getState().currentUserId)
+    if (e.key === currentKey) {
       try {
         if (e.newValue) {
           const parsed = JSON.parse(e.newValue)
@@ -218,3 +313,12 @@ if (typeof window !== 'undefined') {
     }
   })
 }
+
+// Decoupled Auth Listener: Tự động nạp lịch sử hoặc reset phiên khi đăng nhập/đăng xuất
+subscribeAuth((event, data) => {
+  if (event === 'LOGIN') {
+    useAdvisorStore.getState().loadUserHistory(data?.id)
+  } else if (event === 'LOGOUT') {
+    useAdvisorStore.getState().resetSession()
+  }
+})
