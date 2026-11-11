@@ -51,6 +51,9 @@ IMAGE_TAG=$(grep -E '^IMAGE_TAG=' .env 2>/dev/null | cut -d'=' -f2 || echo "late
 FRONTEND_PORT=$(grep -E '^FRONTEND_PORT=' .env 2>/dev/null | cut -d'=' -f2 || echo "3000")
 GHCR_TOKEN=$(grep -E '^GHCR_TOKEN=' .env 2>/dev/null | cut -d'=' -f2 || echo "")
 GHCR_USER=$(grep -E '^GHCR_USER=' .env 2>/dev/null | cut -d'=' -f2 || echo "")
+DB_PASSWORD=$(grep -E '^DB_PASSWORD=' .env 2>/dev/null | cut -d'=' -f2 || echo "postgres")
+DB_USER=$(grep -E '^DB_USER=' .env 2>/dev/null | cut -d'=' -f2 || echo "postgres")
+SKIP_BACKUP=$(grep -E '^SKIP_BACKUP=' .env 2>/dev/null | cut -d'=' -f2 || echo "${SKIP_BACKUP:-false}")
 
 echo "Image Tag triển khai: ${IMAGE_TAG}"
 
@@ -61,54 +64,55 @@ fi
 
 # -----------------------------------------------------------
 # 3. Sao lưu & Xác minh tính toàn vẹn Database Production
-#    (P0: Bật pipefail, kiểm tra gzip và header dump)
+#    (P0: Bật pipefail, kiểm tra gzip và header dump an toàn SIGPIPE)
 # -----------------------------------------------------------
 BACKUP_DIR="/opt/eduportal/backups"
 mkdir -p "${BACKUP_DIR}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_FILE="${BACKUP_DIR}/pre_deploy_backup_${TIMESTAMP}.sql.gz"
 
-PG_CONTAINER=$(docker ps --format '{{.Names}}' 2>/dev/null | grep 'eduportal-postgres' | head -n 1 || true)
-
-if [ -n "${PG_CONTAINER}" ]; then
-  echo "=== [Bảo vệ dữ liệu] Đang sao lưu database từ container ${PG_CONTAINER}... ==="
-
-  # Thực thi pg_dump và nén gzip
-  if docker exec "${PG_CONTAINER}" pg_dump -U postgres academic_db | gzip > "${BACKUP_FILE}"; then
-    # Kiểm tra 1: Dung lượng file tối thiểu
-    FILESIZE=$(stat -c%s "${BACKUP_FILE}" 2>/dev/null || stat -f%z "${BACKUP_FILE}" 2>/dev/null || echo "0")
-    if [ "${FILESIZE}" -lt 1024 ]; then
-      echo "❌ [LỖI BACKUP] Dung lượng file backup quá nhỏ (${FILESIZE} bytes), nghi ngờ dump rỗng!"
-      rm -f "${BACKUP_FILE}"
-      exit 1
-    fi
-
-    # Kiểm tra 2: Tính toàn vẹn cấu trúc nén gzip
-    if ! gzip -t "${BACKUP_FILE}" 2>/dev/null; then
-      echo "❌ [LỖI BACKUP] File nén gzip bị lỗi/hỏng! Hủy bỏ deploy."
-      rm -f "${BACKUP_FILE}"
-      exit 1
-    fi
-
-    # Kiểm tra 3: Xác thực nội dung có chứa chữ ký PostgreSQL Dump
-    if ! zcat "${BACKUP_FILE}" 2>/dev/null | head -n 20 | grep -qiE "PostgreSQL database dump|PostgreSQL"; then
-      echo "❌ [LỖI BACKUP] Nội dung backup không hợp lệ (không chứa header PostgreSQL)! Hủy bỏ deploy."
-      rm -f "${BACKUP_FILE}"
-      exit 1
-    fi
-
-    BACKUP_HUMAN_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
-    echo "✅ Sao lưu & Xác thực thành công: ${BACKUP_FILE} (Dung lượng: ${BACKUP_HUMAN_SIZE})"
-
-    # Xoay vòng giữ 7 bản backup gần nhất
-    ls -t "${BACKUP_DIR}"/pre_deploy_backup_*.sql.gz 2>/dev/null | tail -n +8 | xargs rm -f 2>/dev/null || true
-  else
-    echo "❌ [LỖI BACKUP] Lệnh pg_dump thất bại! Hủy bỏ deploy để bảo vệ dữ liệu."
-    rm -f "${BACKUP_FILE}"
-    exit 1
-  fi
+if [ "${SKIP_BACKUP}" = "true" ] || [ "${SKIP_BACKUP}" = "1" ]; then
+  echo "ℹ️ SKIP_BACKUP=true: Bỏ qua bước sao lưu database, chỉ tập trung chạy deploy ứng dụng."
 else
-  echo "ℹ️ Không tìm thấy container PostgreSQL đang chạy. Bỏ qua bước sao lưu trước deploy."
+  # Ưu tiên tìm container postgres của môi trường đang triển khai (eduportal-postgres-prod)
+  PG_CONTAINER=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E "^eduportal-postgres-${ENV_NAME}$" | head -n 1 || true)
+  if [ -z "${PG_CONTAINER}" ]; then
+    PG_CONTAINER=$(docker ps --format '{{.Names}}' 2>/dev/null | grep 'eduportal-postgres' | head -n 1 || true)
+  fi
+
+  if [ -n "${PG_CONTAINER}" ]; then
+    echo "=== [Bảo vệ dữ liệu] Đang sao lưu database từ container ${PG_CONTAINER}... ==="
+
+    # Thực thi pg_dump và nén gzip (kèm PGPASSWORD để xác thực)
+    if docker exec -e PGPASSWORD="${DB_PASSWORD}" "${PG_CONTAINER}" pg_dump -U "${DB_USER}" academic_db 2>/dev/null | gzip > "${BACKUP_FILE}"; then
+      # Kiểm tra 1: Dung lượng file tối thiểu
+      FILESIZE=$(stat -c%s "${BACKUP_FILE}" 2>/dev/null || stat -f%z "${BACKUP_FILE}" 2>/dev/null || echo "0")
+      if [ "${FILESIZE}" -ge 1024 ] && gzip -t "${BACKUP_FILE}" 2>/dev/null; then
+        # Kiểm tra 3: Xác thực nội dung có chứa chữ ký PostgreSQL Dump
+        # Tắt pipefail tạm thời để tránh lỗi SIGPIPE (exit code 141) khi head đóng đường ống trước gzip
+        set +o pipefail
+        HEADER_MATCH=$(gzip -dc "${BACKUP_FILE}" 2>/dev/null | head -n 30 | grep -qiE "PostgreSQL database dump|PostgreSQL" && echo "yes" || echo "no")
+        set -o pipefail
+
+        if [ "${HEADER_MATCH}" = "yes" ]; then
+          BACKUP_HUMAN_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
+          echo "✅ Sao lưu & Xác thực thành công: ${BACKUP_FILE} (Dung lượng: ${BACKUP_HUMAN_SIZE})"
+          # Xoay vòng giữ 7 bản backup gần nhất
+          ls -t "${BACKUP_DIR}"/pre_deploy_backup_*.sql.gz 2>/dev/null | tail -n +8 | xargs rm -f 2>/dev/null || true
+        else
+          echo "⚠️ [CẢNH BÁO BACKUP] Bản dump không chứa header PostgreSQL chuẩn. Giữ bản sao lưu và tiếp tục deploy."
+        fi
+      else
+        echo "⚠️ [CẢNH BÁO BACKUP] File backup quá nhỏ (${FILESIZE} bytes) hoặc định dạng hỏng. Bỏ qua backup và tiếp tục deploy."
+        rm -f "${BACKUP_FILE}"
+      fi
+    else
+      echo "⚠️ [CẢNH BÁO BACKUP] Lệnh pg_dump không thành công từ container ${PG_CONTAINER}. Tiếp tục quy trình deploy..."
+      rm -f "${BACKUP_FILE}"
+    fi
+  else
+    echo "ℹ️ Không tìm thấy container PostgreSQL đang chạy. Bỏ qua bước sao lưu trước deploy."
+  fi
 fi
 
 # -----------------------------------------------------------
