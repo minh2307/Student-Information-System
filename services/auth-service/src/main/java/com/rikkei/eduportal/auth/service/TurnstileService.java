@@ -106,6 +106,10 @@ public class TurnstileService {
             }
 
             result = objectMapper.readValue(httpResponse.body(), TurnstileVerifyResponse.class);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Turnstile siteverify thread was interrupted: {}", e.getMessage(), e);
+            throw new AccessDeniedException("Lỗi xác thực bảo mật Turnstile do luồng bị ngắt: " + e.getMessage(), e);
         } catch (AccessDeniedException e) {
             throw e;
         } catch (Exception e) {

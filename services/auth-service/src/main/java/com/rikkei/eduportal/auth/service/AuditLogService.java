@@ -42,6 +42,65 @@ public class AuditLogService {
     public AuditLog recordLog(String action, String actorUsername, String actorRole,
                               String targetEntity, String targetId, String summary,
                               String oldValue, String newValue, String ipAddress) {
+        return doRecordLog(action, actorUsername, actorRole, targetEntity, targetId, summary, oldValue, newValue, ipAddress);
+    }
+
+    /**
+     * Ghi nhận kiểm toán kèm cấu trúc JSON Delta chi tiết từng trường (Field-level diff).
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public AuditLog recordDeltaLog(String action, String actorUsername, String actorRole,
+                                   String targetEntity, String targetId, String summary,
+                                   AuditDeltaPayload deltaPayload, String ipAddress) {
+        return doRecordDeltaLog(action, actorUsername, actorRole, targetEntity, targetId, summary, deltaPayload, ipAddress);
+    }
+
+    /**
+     * Tự động tính toán Field-level Diff giữa 2 trạng thái Object Map và lưu JSON Delta.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public AuditLog recordDiffLog(String action, String actorUsername, String actorRole,
+                                  String targetEntity, String targetId, String summary,
+                                  Map<String, Object> oldState, Map<String, Object> newState,
+                                  Map<String, Object> metadata, String ipAddress) {
+        AuditDeltaPayload payload = buildDiffPayload(targetEntity, targetId, oldState, newState, metadata);
+        return doRecordDeltaLog(action, actorUsername, actorRole, targetEntity, targetId, summary, payload, ipAddress);
+    }
+
+    /**
+     * Ghi nhận từ request DTO (hỗ trợ REST Controller và liên microservice).
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public AuditLog recordFromRequest(CreateAuditLogRequest request, String ipAddress) {
+        if (request.getDelta() != null) {
+            return doRecordDeltaLog(
+                    request.getAction(),
+                    request.getActorUsername(),
+                    request.getActorRole(),
+                    request.getTargetEntity(),
+                    request.getTargetId(),
+                    request.getSummary(),
+                    request.getDelta(),
+                    ipAddress
+            );
+        }
+
+        return doRecordLog(
+                request.getAction(),
+                request.getActorUsername(),
+                request.getActorRole(),
+                request.getTargetEntity(),
+                request.getTargetId(),
+                request.getSummary(),
+                request.getOldValue(),
+                request.getNewValue(),
+                ipAddress
+        );
+    }
+
+    private AuditLog doRecordLog(String action, String actorUsername, String actorRole,
+                                 String targetEntity, String targetId, String summary,
+                                 String oldValue, String newValue, String ipAddress) {
         AuditLog auditLog = new AuditLog(
                 action,
                 actorUsername != null ? actorUsername : "system",
@@ -60,13 +119,9 @@ public class AuditLogService {
         return saved;
     }
 
-    /**
-     * Ghi nhận kiểm toán kèm cấu trúc JSON Delta chi tiết từng trường (Field-level diff).
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public AuditLog recordDeltaLog(String action, String actorUsername, String actorRole,
-                                   String targetEntity, String targetId, String summary,
-                                   AuditDeltaPayload deltaPayload, String ipAddress) {
+    private AuditLog doRecordDeltaLog(String action, String actorUsername, String actorRole,
+                                      String targetEntity, String targetId, String summary,
+                                      AuditDeltaPayload deltaPayload, String ipAddress) {
         String deltaJson = null;
         if (deltaPayload != null) {
             try {
@@ -76,18 +131,13 @@ public class AuditLogService {
                 deltaJson = "{}";
             }
         }
-        return recordLog(action, actorUsername, actorRole, targetEntity, targetId, summary,
+        return doRecordLog(action, actorUsername, actorRole, targetEntity, targetId, summary,
                 null, deltaJson, ipAddress);
     }
 
-    /**
-     * Tự động tính toán Field-level Diff giữa 2 trạng thái Object Map và lưu JSON Delta.
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public AuditLog recordDiffLog(String action, String actorUsername, String actorRole,
-                                  String targetEntity, String targetId, String summary,
-                                  Map<String, Object> oldState, Map<String, Object> newState,
-                                  Map<String, Object> metadata, String ipAddress) {
+    private AuditDeltaPayload buildDiffPayload(String targetEntity, String targetId,
+                                               Map<String, Object> oldState, Map<String, Object> newState,
+                                               Map<String, Object> metadata) {
         AuditDeltaPayload payload = new AuditDeltaPayload(targetEntity, targetId);
 
         Set<String> allKeys = new LinkedHashSet<>();
@@ -107,38 +157,7 @@ public class AuditLogService {
             metadata.forEach(payload::addMetadata);
         }
 
-        return recordDeltaLog(action, actorUsername, actorRole, targetEntity, targetId, summary, payload, ipAddress);
-    }
-
-    /**
-     * Ghi nhận từ request DTO (hỗ trợ REST Controller và liên microservice).
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public AuditLog recordFromRequest(CreateAuditLogRequest request, String ipAddress) {
-        if (request.getDelta() != null) {
-            return recordDeltaLog(
-                    request.getAction(),
-                    request.getActorUsername(),
-                    request.getActorRole(),
-                    request.getTargetEntity(),
-                    request.getTargetId(),
-                    request.getSummary(),
-                    request.getDelta(),
-                    ipAddress
-            );
-        }
-
-        return recordLog(
-                request.getAction(),
-                request.getActorUsername(),
-                request.getActorRole(),
-                request.getTargetEntity(),
-                request.getTargetId(),
-                request.getSummary(),
-                request.getOldValue(),
-                request.getNewValue(),
-                ipAddress
-        );
+        return payload;
     }
 
     /**
