@@ -129,4 +129,29 @@ class TurnstileServiceTest {
                 turnstileService.verify("expired-or-invalid-token", "127.0.0.1", "login"));
         assertTrue(ex.getMessage().contains("không hợp lệ hoặc đã hết hạn"));
     }
+
+    @Test
+    void testVerify_InterruptedException_RestoresInterruptFlagAndThrowsAccessDeniedException() throws Exception {
+        when(httpClient.send(any(HttpRequest.class), any())).thenThrow(new InterruptedException("Simulation of thread interrupt"));
+
+        try {
+            AccessDeniedException ex = assertThrows(AccessDeniedException.class, () ->
+                    turnstileService.verify("valid-turnstile-token", "127.0.0.1", "login"));
+            assertTrue(ex.getMessage().contains("ngắt"));
+            assertTrue(Thread.currentThread().isInterrupted(), "Thread interrupt flag must be restored when InterruptedException occurs");
+        } finally {
+            // Clear interrupt status so subsequent tests are unaffected
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void testVerify_IOException_ThrowsAccessDeniedExceptionWithoutInterruption() throws Exception {
+        when(httpClient.send(any(HttpRequest.class), any())).thenThrow(new java.io.IOException("Network connection reset"));
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class, () ->
+                turnstileService.verify("valid-turnstile-token", "127.0.0.1", "login"));
+        assertTrue(ex.getMessage().contains("Lỗi xác thực bảo mật Turnstile"));
+        assertFalse(Thread.currentThread().isInterrupted(), "Thread should not be interrupted on standard IOException");
+    }
 }

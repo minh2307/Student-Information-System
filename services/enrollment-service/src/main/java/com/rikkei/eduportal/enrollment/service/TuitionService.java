@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -33,6 +34,8 @@ public class TuitionService {
     public static final String DEFAULT_ACCOUNT_NAME = "HOC VIEN CONG NGHE RIKKEI";
     public static final BigDecimal CREDIT_UNIT_PRICE = BigDecimal.valueOf(100.00); // 100 VNĐ / 1 TC (chế độ kiểm thử chuyển khoản thật qua PayOS)
     public static final BigDecimal BASE_FACILITY_FEE = BigDecimal.valueOf(1000.00); // 1.000 VNĐ phí CSVC định mức kỳ
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final TuitionFeeRepository tuitionFeeRepository;
     private final StudentProfileRepository studentProfileRepository;
@@ -266,7 +269,8 @@ public class TuitionService {
         tuition.setStatus("PAID");
         tuition.setPaymentDate(LocalDateTime.now());
         tuition.setPaymentMethod(paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "VietQR Napas247");
-        String txnCode = "TXN-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 8999 + 1000);
+        int randomSuffix = SECURE_RANDOM.nextInt(9000) + 1000;
+        String txnCode = "TXN-" + System.currentTimeMillis() + "-" + randomSuffix;
         tuition.setTransactionCode(txnCode);
         tuitionFeeRepository.save(tuition);
 

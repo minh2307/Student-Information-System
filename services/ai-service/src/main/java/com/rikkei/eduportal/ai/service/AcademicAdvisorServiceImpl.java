@@ -6,6 +6,7 @@ import com.rikkei.eduportal.ai.dto.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -27,19 +28,31 @@ public class AcademicAdvisorServiceImpl implements AcademicAdvisorService {
     private final EnrollmentServiceClient enrollmentClient;
     private final ExecutorService executorService;
 
+    @Autowired
     public AcademicAdvisorServiceImpl(ChatClient chatClient,
                                       AiConfig aiConfig,
                                       AdvisorPromptBuilder promptBuilder,
                                       AdvisorFallbackService fallbackService,
                                       AcademicKnowledgeBase knowledgeBase,
                                       EnrollmentServiceClient enrollmentClient) {
+        this(chatClient, aiConfig, promptBuilder, fallbackService, knowledgeBase, enrollmentClient,
+                Executors.newVirtualThreadPerTaskExecutor());
+    }
+
+    AcademicAdvisorServiceImpl(ChatClient chatClient,
+                               AiConfig aiConfig,
+                               AdvisorPromptBuilder promptBuilder,
+                               AdvisorFallbackService fallbackService,
+                               AcademicKnowledgeBase knowledgeBase,
+                               EnrollmentServiceClient enrollmentClient,
+                               ExecutorService executorService) {
         this.chatClient = chatClient;
         this.aiConfig = aiConfig;
         this.promptBuilder = promptBuilder;
         this.fallbackService = fallbackService;
         this.knowledgeBase = knowledgeBase;
         this.enrollmentClient = enrollmentClient;
-        this.executorService = Executors.newVirtualThreadPerTaskExecutor();
+        this.executorService = executorService;
     }
 
     @Override
@@ -85,8 +98,9 @@ public class AcademicAdvisorServiceImpl implements AcademicAdvisorService {
 
         // 5. Execute Gemini AI Call with Timeout & Bounded Fallback
         int timeout = aiConfig.getTimeoutSeconds();
+        Future<String> future = null;
         try {
-            Future<String> future = executorService.submit(() -> {
+            future = executorService.submit(() -> {
                 log.debug("Dispatching academic question to Gemini (model={}, baseUrl={})...",
                         aiConfig.getEffectiveModel(), aiConfig.getEffectiveBaseUrl());
                 return chatClient.prompt()
@@ -126,10 +140,22 @@ public class AcademicAdvisorServiceImpl implements AcademicAdvisorService {
             return response;
 
         } catch (TimeoutException te) {
+            if (future != null) {
+                future.cancel(true);
+            }
             long latencyMs = System.currentTimeMillis() - startTime;
             log.error("GEMINI_FALLBACK: Academic Advisor call timed out after {}ms (limit: {}s). Invoking fallback.",
                     latencyMs, timeout);
             return fallbackService.generateFallback(request, context, "Gemini timeout sau " + timeout + " giây");
+        } catch (InterruptedException ie) {
+            if (future != null) {
+                future.cancel(true);
+            }
+            Thread.currentThread().interrupt();
+            long latencyMs = System.currentTimeMillis() - startTime;
+            log.error("GEMINI_FALLBACK: Academic Advisor call was interrupted after {}ms: {}. Invoking fallback.",
+                    latencyMs, ie.getMessage());
+            return fallbackService.generateFallback(request, context, "Gemini call bị gián đoạn: " + ie.getMessage());
         } catch (Exception ex) {
             long latencyMs = System.currentTimeMillis() - startTime;
             log.error("GEMINI_FALLBACK: Gemini call encountered error after {}ms: {}. Invoking fallback.",
