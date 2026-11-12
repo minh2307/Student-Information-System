@@ -63,6 +63,29 @@ class LecturerServiceTest {
     // =========================================================================
 
     @Test
+    @DisplayName("checkOwnership: giảng viên được phân công giảng dạy → thành công không ném ngoại lệ")
+    void checkOwnership_whenLecturerIsOwner_succeeds() {
+        ClassSection section = buildSection(1L, 1L);
+        when(classSectionRepo.findByIdAndLecturerId(1L, 1L)).thenReturn(Optional.of(section));
+
+        lecturerService.checkOwnership(1L, 1L);
+
+        verify(classSectionRepo, times(1)).findByIdAndLecturerId(1L, 1L);
+    }
+
+    @Test
+    @DisplayName("checkOwnership: giảng viên không được phân công → ném 403 AccessDeniedException")
+    void checkOwnership_whenLecturerNotOwner_throwsAccessDeniedException() {
+        when(classSectionRepo.findByIdAndLecturerId(1L, 99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> lecturerService.checkOwnership(1L, 99L))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("Giảng viên không được phân công giảng dạy (không có quyền thao tác) trên lớp id: 1");
+
+        verify(classSectionRepo, times(1)).findByIdAndLecturerId(1L, 99L);
+    }
+
+    @Test
     @DisplayName("updateGrade: giảng viên khác sectionId → 403 AccessDeniedException")
     void updateGrade_wrongLecturer_throws403() {
         // Setup: lecturer profile của user "other_lecturer" (lecturerId=99)
@@ -82,6 +105,59 @@ class LecturerServiceTest {
 
         assertThatThrownBy(() ->
                 lecturerService.updateGrade("other_lecturer", 10L, req))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("1");
+    }
+
+    @Test
+    @DisplayName("getStudentsOfSection: giảng viên không dạy sectionId → ném 403 AccessDeniedException")
+    void getStudentsOfSection_wrongLecturer_throws403() {
+        LecturerProfile otherLecturer = buildLecturerProfile(99L, "other_lecturer");
+        when(lecturerProfileRepo.findByUsername("other_lecturer")).thenReturn(Optional.of(otherLecturer));
+        when(classSectionRepo.findByIdAndLecturerId(1L, 99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> lecturerService.getStudentsOfSection("other_lecturer", 1L))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("1");
+    }
+
+    @Test
+    @DisplayName("getStudentsOfSection: giảng viên sở hữu lớp → lấy danh sách sinh viên thành công")
+    void getStudentsOfSection_success_returnsStudents() {
+        LecturerProfile lecturer = buildLecturerProfile(1L, "gv001");
+        when(lecturerProfileRepo.findByUsername("gv001")).thenReturn(Optional.of(lecturer));
+
+        ClassSection section = buildSection(1L, 1L);
+        when(classSectionRepo.findByIdAndLecturerId(1L, 1L)).thenReturn(Optional.of(section));
+
+        Enrollment enrollment = buildEnrollment(10L, 1L);
+        when(enrollmentRepo.findBySectionIdAndStatus(1L, EnrollmentStatus.REGISTERED))
+                .thenReturn(List.of(enrollment));
+
+        Grade grade = new Grade();
+        grade.setEnrollment(enrollment);
+        grade.setAttendanceScore(new BigDecimal("9.00"));
+        grade.setMidtermScore(new BigDecimal("8.00"));
+        grade.setFinalScore(new BigDecimal("8.50"));
+        grade.setTotalScore(new BigDecimal("8.35"));
+        grade.setLetterGrade("B+");
+        when(gradeRepo.findBySectionId(1L)).thenReturn(List.of(grade));
+
+        var response = lecturerService.getStudentsOfSection("gv001", 1L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).studentCode()).isEqualTo("SV2024001");
+        assertThat(response.get(0).letterGrade()).isEqualTo("B+");
+    }
+
+    @Test
+    @DisplayName("lockGrades: giảng viên không dạy sectionId → ném 403 AccessDeniedException")
+    void lockGrades_wrongLecturer_throws403() {
+        LecturerProfile otherLecturer = buildLecturerProfile(99L, "other_lecturer");
+        when(lecturerProfileRepo.findByUsername("other_lecturer")).thenReturn(Optional.of(otherLecturer));
+        when(classSectionRepo.findByIdAndLecturerId(1L, 99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> lecturerService.lockGrades("other_lecturer", 1L))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("1");
     }

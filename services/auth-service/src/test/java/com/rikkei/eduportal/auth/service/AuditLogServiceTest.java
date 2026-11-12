@@ -1,9 +1,11 @@
 package com.rikkei.eduportal.auth.service;
 
 import com.rikkei.eduportal.auth.dto.AuditLogResponse;
+import com.rikkei.eduportal.auth.dto.CreateAuditLogRequest;
 import com.rikkei.eduportal.auth.entity.AuditLog;
 import com.rikkei.eduportal.auth.exception.ResourceNotFoundException;
 import com.rikkei.eduportal.auth.repository.AuditLogRepository;
+import com.rikkei.eduportal.common.AuditDeltaPayload;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,7 +13,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -273,5 +278,105 @@ class AuditLogServiceTest {
         assertThat(auditLogService.parseDelta("invalid-json")).isEmpty();
         assertThat(auditLogService.parseDelta("")).isEmpty();
         assertThat(auditLogService.parseDelta(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("TC-AUDIT-12: Ghi nhận kiểm toán từ CreateAuditLogRequest có kèm Delta payload")
+    void testRecordFromRequest_withDelta_success() {
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateAuditLogRequest request = new CreateAuditLogRequest();
+        request.setAction("COURSE_UPDATED");
+        request.setActorUsername("admin");
+        request.setActorRole("ROLE_ADMIN");
+        request.setTargetEntity("Course");
+        request.setTargetId("CS101");
+        request.setSummary("Cập nhật số tín chỉ môn học");
+
+        AuditDeltaPayload delta = new AuditDeltaPayload("Course", "CS101");
+        delta.addDiff("credits", 3, 4);
+        request.setDelta(delta);
+
+        AuditLog saved = auditLogService.recordFromRequest(request, "127.0.0.1");
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getAction()).isEqualTo("COURSE_UPDATED");
+        assertThat(saved.getNewValue()).contains("\"credits\"");
+        assertThat(saved.getNewValue()).contains("\"from\":3");
+        assertThat(saved.getNewValue()).contains("\"to\":4");
+        verify(auditLogRepository, times(1)).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("TC-AUDIT-13: Ghi nhận kiểm toán từ CreateAuditLogRequest không kèm Delta (oldValue & newValue)")
+    void testRecordFromRequest_withoutDelta_success() {
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateAuditLogRequest request = new CreateAuditLogRequest();
+        request.setAction("USER_STATUS_CHANGE");
+        request.setActorUsername("supervisor");
+        request.setActorRole("ROLE_ADMIN");
+        request.setTargetEntity("User");
+        request.setTargetId("99");
+        request.setSummary("Đổi trạng thái tài khoản sang ACTIVE");
+        request.setOldValue("INACTIVE");
+        request.setNewValue("ACTIVE");
+
+        AuditLog saved = auditLogService.recordFromRequest(request, "192.168.1.50");
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getAction()).isEqualTo("USER_STATUS_CHANGE");
+        assertThat(saved.getOldValue()).isEqualTo("INACTIVE");
+        assertThat(saved.getNewValue()).isEqualTo("ACTIVE");
+        verify(auditLogRepository, times(1)).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("TC-AUDIT-14: Ghi nhận recordDeltaLog khi payload là null")
+    void testRecordDeltaLog_nullPayload_success() {
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuditLog saved = auditLogService.recordDeltaLog(
+                "USER_DELETED",
+                "admin",
+                "ROLE_ADMIN",
+                "User",
+                "123",
+                "Xóa người dùng",
+                null,
+                "127.0.0.1"
+        );
+
+        assertThat(saved).isNotNull();
+        assertThat(saved.getNewValue()).isNull();
+        verify(auditLogRepository, times(1)).save(any(AuditLog.class));
+    }
+
+    @Test
+    @DisplayName("TC-AUDIT-15: Đảm bảo tất cả các method ghi log đều được khai báo @Transactional(propagation = REQUIRES_NEW)")
+    void testTransactionPropagationRequiresNew_onAllRecordMethods() throws NoSuchMethodException {
+        Method recordLogMethod = AuditLogService.class.getMethod(
+                "recordLog", String.class, String.class, String.class, String.class, String.class, String.class, String.class, String.class, String.class);
+        Transactional txRecordLog = recordLogMethod.getAnnotation(Transactional.class);
+        assertThat(txRecordLog).isNotNull();
+        assertThat(txRecordLog.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
+
+        Method recordDeltaLogMethod = AuditLogService.class.getMethod(
+                "recordDeltaLog", String.class, String.class, String.class, String.class, String.class, String.class, AuditDeltaPayload.class, String.class);
+        Transactional txRecordDeltaLog = recordDeltaLogMethod.getAnnotation(Transactional.class);
+        assertThat(txRecordDeltaLog).isNotNull();
+        assertThat(txRecordDeltaLog.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
+
+        Method recordDiffLogMethod = AuditLogService.class.getMethod(
+                "recordDiffLog", String.class, String.class, String.class, String.class, String.class, String.class, java.util.Map.class, java.util.Map.class, java.util.Map.class, String.class);
+        Transactional txRecordDiffLog = recordDiffLogMethod.getAnnotation(Transactional.class);
+        assertThat(txRecordDiffLog).isNotNull();
+        assertThat(txRecordDiffLog.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
+
+        Method recordFromRequestMethod = AuditLogService.class.getMethod(
+                "recordFromRequest", CreateAuditLogRequest.class, String.class);
+        Transactional txRecordFromRequest = recordFromRequestMethod.getAnnotation(Transactional.class);
+        assertThat(txRecordFromRequest).isNotNull();
+        assertThat(txRecordFromRequest.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
     }
 }

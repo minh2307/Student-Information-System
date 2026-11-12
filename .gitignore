@@ -162,6 +162,7 @@ SRS_Specification*
 # ====================================================================
 # Documentation, Reports, Reviews & Backlog
 # ====================================================================
+docs/
 reports/
 TASK_FEE_03_PRE_PRODUCTION_REVIEW.md
 JIRA_SPRINT_BACKLOG.md

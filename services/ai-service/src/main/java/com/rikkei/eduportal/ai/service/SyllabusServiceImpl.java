@@ -9,6 +9,7 @@ import com.rikkei.eduportal.ai.dto.WeeklyTopicDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -26,17 +27,28 @@ public class SyllabusServiceImpl implements SyllabusService {
     private final ObjectMapper objectMapper;
     private final ExecutorService executorService;
 
+    @Autowired
     public SyllabusServiceImpl(ChatClient chatClient,
                                AiConfig aiConfig,
                                SyllabusPromptBuilder promptBuilder,
                                SyllabusFallbackService fallbackService,
                                ObjectMapper objectMapper) {
+        this(chatClient, aiConfig, promptBuilder, fallbackService, objectMapper,
+                Executors.newVirtualThreadPerTaskExecutor());
+    }
+
+    SyllabusServiceImpl(ChatClient chatClient,
+                        AiConfig aiConfig,
+                        SyllabusPromptBuilder promptBuilder,
+                        SyllabusFallbackService fallbackService,
+                        ObjectMapper objectMapper,
+                        ExecutorService executorService) {
         this.chatClient = chatClient;
         this.aiConfig = aiConfig;
         this.promptBuilder = promptBuilder;
         this.fallbackService = fallbackService;
         this.objectMapper = objectMapper;
-        this.executorService = Executors.newVirtualThreadPerTaskExecutor();
+        this.executorService = executorService;
     }
 
     @Override
@@ -56,8 +68,9 @@ public class SyllabusServiceImpl implements SyllabusService {
 
         // Step 3: Execute AI Call with Timeout & Fallback
         int timeout = aiConfig.getTimeoutSeconds();
+        Future<String> future = null;
         try {
-            Future<String> future = executorService.submit(() -> {
+            future = executorService.submit(() -> {
                 log.debug("Dispatching request to Spring AI ChatClient (model={})...", aiConfig.getEffectiveModel());
                 return chatClient.prompt()
                         .system(systemPrompt)
@@ -98,9 +111,20 @@ public class SyllabusServiceImpl implements SyllabusService {
             return response;
 
         } catch (TimeoutException te) {
+            if (future != null) {
+                future.cancel(true);
+            }
             log.error("AI Syllabus generation timed out after {}s for course '{}'. Invoking fallback.",
                     timeout, request.getCourseName());
             return fallbackService.generateFallback(request, "AI timeout sau " + timeout + " giây");
+        } catch (InterruptedException ie) {
+            if (future != null) {
+                future.cancel(true);
+            }
+            Thread.currentThread().interrupt();
+            log.error("AI Syllabus generation was interrupted for course '{}': {}. Invoking fallback.",
+                    request.getCourseName(), ie.getMessage(), ie);
+            return fallbackService.generateFallback(request, "AI generation bị gián đoạn: " + ie.getMessage());
         } catch (Exception ex) {
             log.error("AI Syllabus generation encountered an issue: {}. Invoking fallback.", ex.getMessage(), ex);
             return fallbackService.generateFallback(request, "AI error: " + ex.getMessage());
