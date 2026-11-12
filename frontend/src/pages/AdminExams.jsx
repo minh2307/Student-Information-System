@@ -113,11 +113,14 @@ export const AdminExams = () => {
           keyword: searchKeyword || undefined,
         },
       })
-      if (res.data?.data) {
+      if (res.data?.data && Array.isArray(res.data.data)) {
         setExams(res.data.data)
+      } else {
+        setExams([])
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Không thể tải danh sách lịch thi', 'error')
+      setExams([])
     } finally {
       setLoading(false)
     }
@@ -202,16 +205,23 @@ export const AdminExams = () => {
 
     setFormSubmitting(true)
     try {
+      const payload = {
+        ...formData,
+        classSectionId: formData.classSectionId ? Number(formData.classSectionId) : undefined,
+        startTime: formData.startTime?.length === 5 ? `${formData.startTime}:00` : formData.startTime,
+        endTime: formData.endTime?.length === 5 ? `${formData.endTime}:00` : formData.endTime,
+      }
+
       if (modalMode === 'create') {
-        if (!formData.classSectionId) {
+        if (!payload.classSectionId) {
           setFormError('Vui lòng chọn lớp học phần')
           setFormSubmitting(false)
           return
         }
-        await api.post('/admin/exam-schedules', formData)
+        await api.post('/admin/exam-schedules', payload)
         showToast('Tạo lịch thi mới thành công!', 'success')
       } else {
-        await api.put(`/admin/exam-schedules/${editingExamId}`, formData)
+        await api.put(`/admin/exam-schedules/${editingExamId}`, payload)
         showToast('Cập nhật thông tin ca thi thành công!', 'success')
       }
       setIsModalOpen(false)

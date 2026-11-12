@@ -1,11 +1,22 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 cd /opt/eduportal
 
-# Đảm bảo có tối thiểu 2GB Swap để chống OOM treo máy ảo khi chạy 5 microservices Java trên VPS 1GB RAM
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
+ENV_NAME="${ENV_NAME:-prod}"
+
+echo "========================================================"
+echo "🚀 Bắt đầu triển khai Production: ${ENV_NAME}"
+echo "Compose File: ${COMPOSE_FILE}"
+echo "Thời gian: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+echo "========================================================"
+
+# -----------------------------------------------------------
+# 1. Host Swap Check (2GB) để chống OOM trên VPS 1GB RAM
+# -----------------------------------------------------------
 if [ $(free -m 2>/dev/null | awk '/^Swap:/ {print $2}' || echo "0") -lt 1024 ]; then
-  echo "=== Configuring 2GB Swap space on host to prevent OOM crash... ==="
+  echo "=== Cấu hình 2GB Swap space trên host chống OOM crash... ==="
   if [ ! -f /swapfile ]; then
     fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 2>/dev/null || true
     chmod 600 /swapfile 2>/dev/null || true
@@ -17,162 +28,251 @@ if [ $(free -m 2>/dev/null | awk '/^Swap:/ {print $2}' || echo "0") -lt 1024 ]; 
   fi
 fi
 
-echo "=== Diagnostic: Checking ports 80 and 3000 on host ==="
-if command -v ss >/dev/null 2>&1; then
-  ss -tulpn 2>/dev/null | grep -E ':(80|3000)\b' || echo "No sockets listening on 80/3000 via ss"
-elif command -v netstat >/dev/null 2>&1; then
-  netstat -tulpn 2>/dev/null | grep -E ':(80|3000)\b' || echo "No sockets listening on 80/3000 via netstat"
+# -----------------------------------------------------------
+# 2. Xử lý file cấu hình .env (Ưu tiên nhận từ .env.incoming an toàn)
+# -----------------------------------------------------------
+if [ -f .env ]; then
+  cp .env .env.rollback
+  PREV_IMAGE_TAG=$(grep -E '^IMAGE_TAG=' .env 2>/dev/null | cut -d'=' -f2 || echo "unknown")
+  echo "=== Đã lưu snapshot rollback (.env.rollback). Previous IMAGE_TAG: ${PREV_IMAGE_TAG} ==="
+else
+  PREV_IMAGE_TAG="none"
 fi
-docker ps --filter "publish=80" --filter "publish=3000" --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}\t{{.Status}}" 2>/dev/null || true
 
-# Dừng và dọn sạch các container từ tất cả các file compose có thể tồn tại (prod/dev/staging/default)
-# Tránh trường hợp chuyển đổi giữa dev <-> prod nhưng stack kia vẫn chiếm port 80/3000/5432/8081/8085.
-# Lưu ý: Named volumes vẫn được giữ nguyên an toàn, không mất dữ liệu DB.
-echo "=== Removing stale containers and freeing occupied ports... ==="
-for compose_spec in docker-compose.prod.yml docker-compose.staging.yml docker-compose.dev.yml docker-compose.yml; do
-  if [ -f "$compose_spec" ]; then
-    docker compose -f "$compose_spec" down --remove-orphans 2>/dev/null || true
+if [ -f .env.incoming ]; then
+  echo "=== Cập nhật file .env từ nguồn bảo mật .env.incoming ==="
+  mv .env.incoming .env
+  chmod 600 .env
+fi
+rm -f .env.incoming 2>/dev/null || true
+
+# Đọc cấu hình từ .env
+IMAGE_TAG=$(grep -E '^IMAGE_TAG=' .env 2>/dev/null | cut -d'=' -f2 || echo "latest")
+FRONTEND_PORT=$(grep -E '^FRONTEND_PORT=' .env 2>/dev/null | cut -d'=' -f2 || echo "3000")
+GHCR_TOKEN=$(grep -E '^GHCR_TOKEN=' .env 2>/dev/null | cut -d'=' -f2 || echo "")
+GHCR_USER=$(grep -E '^GHCR_USER=' .env 2>/dev/null | cut -d'=' -f2 || echo "")
+DB_PASSWORD=$(grep -E '^DB_PASSWORD=' .env 2>/dev/null | cut -d'=' -f2 || echo "postgres")
+DB_USER=$(grep -E '^DB_USER=' .env 2>/dev/null | cut -d'=' -f2 || echo "postgres")
+SKIP_BACKUP=$(grep -E '^SKIP_BACKUP=' .env 2>/dev/null | cut -d'=' -f2 || echo "${SKIP_BACKUP:-false}")
+
+echo "Image Tag triển khai: ${IMAGE_TAG}"
+
+# Đăng nhập GHCR nếu có thông tin xác thực
+if [ -n "${GHCR_TOKEN}" ] && [ -n "${GHCR_USER}" ]; then
+  echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin 2>/dev/null || true
+fi
+
+# -----------------------------------------------------------
+# 3. Sao lưu & Xác minh tính toàn vẹn Database Production
+#    (P0: Bật pipefail, kiểm tra gzip và header dump an toàn SIGPIPE)
+# -----------------------------------------------------------
+BACKUP_DIR="/opt/eduportal/backups"
+mkdir -p "${BACKUP_DIR}"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+BACKUP_FILE="${BACKUP_DIR}/pre_deploy_backup_${TIMESTAMP}.sql.gz"
+
+if [ "${SKIP_BACKUP}" = "true" ] || [ "${SKIP_BACKUP}" = "1" ]; then
+  echo "ℹ️ SKIP_BACKUP=true: Bỏ qua bước sao lưu database, chỉ tập trung chạy deploy ứng dụng."
+else
+  # Ưu tiên tìm container postgres của môi trường đang triển khai (eduportal-postgres-prod)
+  PG_CONTAINER=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E "^eduportal-postgres-${ENV_NAME}$" | head -n 1 || true)
+  if [ -z "${PG_CONTAINER}" ]; then
+    PG_CONTAINER=$(docker ps --format '{{.Names}}' 2>/dev/null | grep 'eduportal-postgres' | head -n 1 || true)
+  fi
+
+  if [ -n "${PG_CONTAINER}" ]; then
+    echo "=== [Bảo vệ dữ liệu] Đang sao lưu database từ container ${PG_CONTAINER}... ==="
+
+    # Thực thi pg_dump và nén gzip (kèm PGPASSWORD để xác thực)
+    if docker exec -e PGPASSWORD="${DB_PASSWORD}" "${PG_CONTAINER}" pg_dump -U "${DB_USER}" academic_db 2>/dev/null | gzip > "${BACKUP_FILE}"; then
+      # Kiểm tra 1: Dung lượng file tối thiểu
+      FILESIZE=$(stat -c%s "${BACKUP_FILE}" 2>/dev/null || stat -f%z "${BACKUP_FILE}" 2>/dev/null || echo "0")
+      if [ "${FILESIZE}" -ge 1024 ] && gzip -t "${BACKUP_FILE}" 2>/dev/null; then
+        # Kiểm tra 3: Xác thực nội dung có chứa chữ ký PostgreSQL Dump
+        # Tắt pipefail tạm thời để tránh lỗi SIGPIPE (exit code 141) khi head đóng đường ống trước gzip
+        set +o pipefail
+        HEADER_MATCH=$(gzip -dc "${BACKUP_FILE}" 2>/dev/null | head -n 30 | grep -qiE "PostgreSQL database dump|PostgreSQL" && echo "yes" || echo "no")
+        set -o pipefail
+
+        if [ "${HEADER_MATCH}" = "yes" ]; then
+          BACKUP_HUMAN_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
+          echo "✅ Sao lưu & Xác thực thành công: ${BACKUP_FILE} (Dung lượng: ${BACKUP_HUMAN_SIZE})"
+          # Xoay vòng giữ 7 bản backup gần nhất
+          ls -t "${BACKUP_DIR}"/pre_deploy_backup_*.sql.gz 2>/dev/null | tail -n +8 | xargs rm -f 2>/dev/null || true
+        else
+          echo "⚠️ [CẢNH BÁO BACKUP] Bản dump không chứa header PostgreSQL chuẩn. Giữ bản sao lưu và tiếp tục deploy."
+        fi
+      else
+        echo "⚠️ [CẢNH BÁO BACKUP] File backup quá nhỏ (${FILESIZE} bytes) hoặc định dạng hỏng. Bỏ qua backup và tiếp tục deploy."
+        rm -f "${BACKUP_FILE}"
+      fi
+    else
+      echo "⚠️ [CẢNH BÁO BACKUP] Lệnh pg_dump không thành công từ container ${PG_CONTAINER}. Tiếp tục quy trình deploy..."
+      rm -f "${BACKUP_FILE}"
+    fi
+  else
+    echo "ℹ️ Không tìm thấy container PostgreSQL đang chạy. Bỏ qua bước sao lưu trước deploy."
+  fi
+fi
+
+# -----------------------------------------------------------
+# 4. Kéo images mới trước khi khởi động lại containers (Retry 3 lần chống rớt mạng)
+# -----------------------------------------------------------
+echo "=== Đang kéo images mới (${COMPOSE_FILE})... ==="
+PULL_SUCCESS=false
+for attempt in 1 2 3; do
+  echo "Thử kéo images (lần ${attempt}/3)..."
+  if docker compose -f "${COMPOSE_FILE}" pull; then
+    PULL_SUCCESS=true
+    break
+  fi
+  echo "⚠️ Lần thử ${attempt} gặp sự cố kết nối registry, thử lại sau 3 giây..."
+  sleep 3
+done
+
+if [ "$PULL_SUCCESS" != "true" ]; then
+  echo "❌ Kéo Docker images thất bại sau 3 lần thử! Giữ nguyên phiên bản hiện tại đang chạy."
+  exit 1
+fi
+
+# -----------------------------------------------------------
+# 5. Dọn dẹp stack cũ khác và tái khởi động stack Production
+#    TUYỆT ĐỐI KHÔNG DÙNG CỜ -v ĐỂ BẢO VỆ DỮ LIỆU
+# -----------------------------------------------------------
+for other_compose in docker-compose.staging.yml docker-compose.dev.yml; do
+  if [ -f "$other_compose" ] && [ "$other_compose" != "${COMPOSE_FILE}" ]; then
+    echo "Dừng stack không thuộc Production (${other_compose})..."
+    docker compose -f "$other_compose" down --remove-orphans 2>/dev/null || true
   fi
 done
 
-# Giải phóng triệt để các port trên host nếu có container chiếm dụng
-for port in 3000 5432 8081 8082 8083 8084 8085; do
-  cids=$(docker ps -q --filter "publish=${port}" 2>/dev/null || true)
-  if [ -n "$cids" ]; then
-    echo "Stopping & removing container(s) binding port ${port}: $cids"
-    docker stop $cids 2>/dev/null || true
-    docker rm -f $cids 2>/dev/null || true
-  fi
-done
-
-# Dọn dẹp dứt điểm các container eduportal cũ nếu còn sót
-eduportal_cids=$(docker ps -aq --filter "name=eduportal" 2>/dev/null || true)
-if [ -n "$eduportal_cids" ]; then
-  echo "Force removing lingering eduportal containers: $eduportal_cids"
-  docker rm -f $eduportal_cids 2>/dev/null || true
-fi
-
-# Giải phóng socket treo trên port 3000 bằng fuser nếu có
-if command -v fuser >/dev/null 2>&1; then
-  fuser -k 3000/tcp 2>/dev/null || true
-fi
-
-# Chờ 2 giây để Linux kernel TCP socket hoàn tất giải phóng
-sleep 2
-
-# Frontend port mặc định là 3000 (được host nginx reverse proxy từ 80 & 443 SSL)
-# Nếu host Nginx đang chạy chiếm port 80, container frontend bắt buộc phải chạy ở port 3000
+# Xác định Frontend port
 if ss -tulpn 2>/dev/null | grep -q 'nginx.*:80\b' || netstat -tulpn 2>/dev/null | grep -q 'nginx.*:80\b'; then
   RESOLVED_FRONTEND_PORT="3000"
 else
   RESOLVED_FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 fi
 
-# Ghi file .env từ biến môi trường (được truyền qua SSH)
-{
-  echo "DB_PASSWORD=${DB_PASSWORD}"
-  echo "JWT_SECRET=${JWT_SECRET}"
-  echo "REGISTRY=${REGISTRY}"
-  echo "IMAGE_TAG=${IMAGE_TAG}"
-  echo "IMAGE_PREFIX=${IMAGE_PREFIX}"
-  echo "AI_API_KEY=${AI_API_KEY}"
-  echo "AI_BASE_URL=${AI_BASE_URL:-https://openrouter.ai/api}"
-  echo "AI_MODEL=${AI_MODEL:-google/gemini-2.5-flash}"
-  echo "AI_PROVIDER=${AI_PROVIDER:-openrouter}"
-  echo "AI_MAX_TOKENS=${AI_MAX_TOKENS:-1500}"
-  echo "FRONTEND_PORT=${RESOLVED_FRONTEND_PORT}"
-  echo "FRONTEND_ALT_PORT=${FRONTEND_ALT_PORT:-3000}"
-  echo "PAYOS_CLIENT_ID=${PAYOS_CLIENT_ID:-57fb1006-9ba1-472c-ba21-8536efcda5aa}"
-  echo "PAYOS_API_KEY=${PAYOS_API_KEY:-22f2d865-a236-4f93-9f66-e845a1dae134}"
-  echo "PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY:-2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a}"
-  echo "PAYOS_RETURN_URL=${PAYOS_RETURN_URL:-https://rikkeiportal.io.vn/student/tuition?status=PAID}"
-  echo "PAYOS_CANCEL_URL=${PAYOS_CANCEL_URL:-https://rikkeiportal.io.vn/student/tuition?status=CANCELLED}"
-} > .env
-
-# Đăng nhập GHCR nếu có token truyền vào (đảm bảo quyền pull các package mới/private)
-if [ -n "${GHCR_TOKEN}" ] && [ -n "${GHCR_USER}" ]; then
-  echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin 2>/dev/null || true
-fi
-
-# Pull images trước khi tắt container cũ để giảm tối đa downtime
-echo "=== Pulling images... ==="
-docker compose -f "${COMPOSE_FILE}" pull
-
-echo "=== Starting containers (${COMPOSE_FILE}) with FRONTEND_PORT=${RESOLVED_FRONTEND_PORT}... ==="
+echo "=== Tái khởi động containers Production (${COMPOSE_FILE})... ==="
 if ! docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans; then
-  echo "⚠️ First start attempt failed, attempting emergency port release and retrying..."
+  echo "⚠️ Khởi động lần đầu gặp lỗi xung đột socket, dọn dẹp port và thử lại..."
   if command -v fuser >/dev/null 2>&1; then
-    fuser -k 80/tcp 2>/dev/null || true
-    fuser -k 3000/tcp 2>/dev/null || true
+    fuser -k "${RESOLVED_FRONTEND_PORT}/tcp" 2>/dev/null || true
   fi
-  docker rm -f $(docker ps -aq --filter "name=eduportal") 2>/dev/null || true
   sleep 2
   docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
 fi
 
-# Chờ PostgreSQL sẵn sàng
-echo "=== Waiting for PostgreSQL... ==="
-i=0
-while [ $i -lt 30 ]; do
+# -----------------------------------------------------------
+# 6. Chờ PostgreSQL sẵn sàng & Kiểm tra Schema
+# -----------------------------------------------------------
+echo "=== Chờ PostgreSQL sẵn sàng... ==="
+PG_READY=false
+for i in $(seq 1 30); do
   if docker compose -f "${COMPOSE_FILE}" exec -T postgres pg_isready -U postgres -d academic_db >/dev/null 2>&1; then
-    echo "PostgreSQL ready ✓"
+    echo "PostgreSQL sẵn sàng ✓ (sau ${i}s)"
+    PG_READY=true
     break
   fi
   sleep 1
-  i=$((i + 1))
 done
 
-# Nạp schema nếu bảng chưa tồn tại
+if [ "$PG_READY" != "true" ]; then
+  echo "❌ PostgreSQL không phản hồi sau 30 giây!"
+  exit 1
+fi
+
+# Nạp schema khởi tạo nếu là database mới hoàn toàn (idempotent)
 docker compose -f "${COMPOSE_FILE}" exec -T postgres sh -c \
   "psql -U postgres -d academic_db -c 'SELECT 1 FROM class_sections LIMIT 1;' >/dev/null 2>&1 \
    || (psql -U postgres -d academic_db -f /docker-entrypoint-initdb.d/01-schema.sql \
        && psql -U postgres -d academic_db -f /docker-entrypoint-initdb.d/02-seed-data.sql)" || true
 
-# Health check nhanh lecturer-service & kiểm tra trạng thái containers
-echo "=== Health check lecturer-service... ==="
-LECTURER_OK=false
-for i in $(seq 1 10); do
-  RES_CODE=$(curl -s -m 1 -o /dev/null -w "%{http_code}" http://127.0.0.1:8085/actuator/health 2>/dev/null || echo "000")
+# -----------------------------------------------------------
+# 7. Health Check toàn diện CẢ 5 MICROSERVICES VÀ FRONTEND
+# -----------------------------------------------------------
+echo "=== Đang thực hiện Health Check toàn diện (tối đa 300 giây)... ==="
+SERVICES_READY=false
 
-  if [ "$RES_CODE" = "200" ]; then
-    echo "Health check PASSED ✓ (HTTP 200 sau $((i * 2))s)"
-    LECTURER_OK=true
+for i in $(seq 1 100); do
+  ALL_OK=true
+
+  # Quét cổng 5 Java Microservices: 8081(auth), 8082(course), 8083(enrollment), 8084(ai), 8085(lecturer)
+  for port in 8081 8082 8083 8084 8085; do
+    CODE=$(curl -s -m 2 -o /dev/null -w "%{http_code}" "http://127.0.0.1:${port}/actuator/health" 2>/dev/null || echo "000")
+    if [ "$CODE" != "200" ]; then
+      ALL_OK=false
+      break
+    fi
+  done
+
+  # Quét cổng Frontend
+  FE_CODE=$(curl -s -m 2 -o /dev/null -w "%{http_code}" "http://127.0.0.1:${RESOLVED_FRONTEND_PORT}/" 2>/dev/null || echo "000")
+  if [ "$FE_CODE" != "200" ]; then
+    ALL_OK=false
+  fi
+
+  if [ "$ALL_OK" = "true" ]; then
+    echo "✅ Tất cả 5 microservices backend và Frontend đã phản hồi HTTP 200 thành công (lần thử ${i}/100)!"
+    SERVICES_READY=true
     break
   fi
 
-  echo "Dang khoi dong, cho 2s... (lan ${i}/10, HTTP: ${RES_CODE})"
-  sleep 2
+  echo "Đang đợi microservices khởi động hoàn tất... (lần ${i}/100, FE: ${FE_CODE})"
+  sleep 3
 done
 
-# In bảng trạng thái các container sau khi khởi động
-echo "=== Container Statuses ==="
+# In bảng trạng thái container sau khi kiểm tra
+echo "=== Trạng thái containers hiện tại ==="
 docker compose -f "${COMPOSE_FILE}" ps
 
-if [ "$LECTURER_OK" = "true" ]; then
-  echo "✅ lecturer-service is ready (HTTP 200)"
-else
-  # Kiểm tra xem có container nào bị crash/restart liên tục không
-  if docker compose -f "${COMPOSE_FILE}" ps 2>/dev/null | grep 'eduportal' | grep -v -E '(Up|healthy)'; then
-    echo "❌ Detected failed container(s)!"
-    docker compose -f "${COMPOSE_FILE}" logs --tail 40
-    exit 1
-  else
-    echo "ℹ️ All containers are running (Up). Microservices will be ready shortly in background."
+# -----------------------------------------------------------
+# 8. Xử lý Thất bại & Cơ chế Rollback Ứng dụng An toàn
+# -----------------------------------------------------------
+if [ "$SERVICES_READY" != "true" ]; then
+  echo "❌ [DEPLOY THẤT BẠI] Microservices không vượt qua kiểm tra Health Check sau 300s!"
+  echo "=== Logs chi tiết của stack ==="
+  docker compose -f "${COMPOSE_FILE}" logs --tail 40
+
+  if [ -f .env.rollback ] && [ "${PREV_IMAGE_TAG}" != "none" ]; then
+    echo "========================================================"
+    echo "⚠️ KÍCH HOẠT TỰ ĐỘNG ROLLBACK ỨNG DỤNG..."
+    echo "Khôi phục lại phiên bản trước đó: ${PREV_IMAGE_TAG}"
+    echo "========================================================"
+    cp .env.rollback .env
+    docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
+    echo "Đang chờ 10s để container cũ hoạt động trở lại..."
+    sleep 10
+    docker compose -f "${COMPOSE_FILE}" ps
+    echo "⚠️ Đã hoàn tất rollback ứng dụng về phiên bản: ${PREV_IMAGE_TAG}"
+    echo "ℹ️ LƯU Ý DỮ LIỆU: Database KHÔNG tự động restore để bảo vệ các bản ghi mới phát sinh."
+    echo "   Nếu cần khôi phục dữ liệu từ bản sao lưu trước deploy, sử dụng file:"
+    echo "   ${BACKUP_FILE}"
+    echo "   Xem hướng dẫn chi tiết tại docs/deployment/disaster-recovery.md"
   fi
+  exit 1
 fi
 
-# Đảm bảo host nginx reverse proxy luôn chạy để xử lý SSL và port 80/443
+# -----------------------------------------------------------
+# 9. Đảm bảo Host Nginx Reverse Proxy & Xác nhận truy cập
+# -----------------------------------------------------------
 if command -v systemctl >/dev/null 2>&1; then
   if systemctl list-unit-files 2>/dev/null | grep -q nginx; then
-    echo "=== Ensuring host nginx reverse proxy is active... ==="
+    echo "=== Đảm bảo host nginx reverse proxy hoạt động... ==="
     systemctl start nginx 2>/dev/null || true
     systemctl reload nginx 2>/dev/null || true
   fi
 fi
 
-# Kiểm tra thêm frontend
-echo "=== Verifying frontend connectivity on port ${RESOLVED_FRONTEND_PORT}... ==="
-curl -s -o /dev/null -w "Frontend internal HTTP: %{http_code}\n" --connect-timeout 3 "http://127.0.0.1:${RESOLVED_FRONTEND_PORT}/" || true
+# Dọn dẹp file rollback sau khi deploy thành công
+rm -f .env.rollback
+
+echo "=== Kiểm tra truy cập cuối cùng ==="
+curl -s -o /dev/null -w "Frontend local (port ${RESOLVED_FRONTEND_PORT}): %{http_code}\n" --connect-timeout 3 "http://127.0.0.1:${RESOLVED_FRONTEND_PORT}/" || true
 curl -s -o /dev/null -w "Host HTTP (port 80): %{http_code}\n" --connect-timeout 3 "http://127.0.0.1:80/" || true
 
-echo "✅ Deploy ${ENV_NAME} succeeded"
+echo "========================================================"
+echo "🎉 DEPLOY PRODUCTION THÀNH CÔNG!"
+echo "Phiên bản: ${IMAGE_TAG}"
+echo "Môi trường: ${ENV_NAME}"
+echo "========================================================"

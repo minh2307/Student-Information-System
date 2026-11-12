@@ -13,9 +13,9 @@ COPY dist /usr/share/nginx/html
 # Copy optimized production Nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Health check probe
+# Health check probe (using IPv4 127.0.0.1 to avoid Alpine IPv6 localhost resolution issue)
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-  CMD wget -qO- http://localhost/ || exit 1
+  CMD wget -qO- http://127.0.0.1/ || exit 1
 
 EXPOSE 80
 

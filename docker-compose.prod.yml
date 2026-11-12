@@ -20,8 +20,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1024M
+          cpus: '0.8'
+          memory: 256M
     logging:
       driver: "json-file"
       options:
@@ -41,14 +41,15 @@ services:
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_OPTS: "-Xmx120m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
       postgres:
         condition: service_healthy
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1024M
+          cpus: '0.8'
+          memory: 220M
 
   course-service:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/course-service:${IMAGE_TAG:-prod}
@@ -61,14 +62,15 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_OPTS: "-Xmx120m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
       postgres:
         condition: service_healthy
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1024M
+          cpus: '0.8'
+          memory: 220M
 
   enrollment-service:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/enrollment-service:${IMAGE_TAG:-prod}
@@ -87,14 +89,15 @@ services:
       PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-https://rikkeiportal.io.vn/student/tuition?status=PAID}
       PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-https://rikkeiportal.io.vn/student/tuition?status=CANCELLED}
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_OPTS: "-Xmx120m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
       postgres:
         condition: service_healthy
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1024M
+          cpus: '0.8'
+          memory: 220M
 
   lecturer-service:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/lecturer-service:${IMAGE_TAG:-prod}
@@ -108,14 +111,15 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_OPTS: "-Xmx120m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
       postgres:
         condition: service_healthy
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1024M
+          cpus: '0.8'
+          memory: 220M
 
   ai-service:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/ai-service:${IMAGE_TAG:-prod}
@@ -131,13 +135,14 @@ services:
       AI_MAX_TOKENS: ${AI_MAX_TOKENS:-1500}
       ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
       SPRING_PROFILES_ACTIVE: prod
+      JAVA_OPTS: "-Xmx120m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
       - enrollment-service
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
+          cpus: '0.8'
+          memory: 220M
 
   frontend:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/frontend:${IMAGE_TAG:-prod}
@@ -154,8 +159,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
+          cpus: '0.5'
+          memory: 64M
 
 volumes:
   postgres_prod_data:
