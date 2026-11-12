@@ -99,8 +99,6 @@ logs/
 # ====================================================================
 newman/
 reports/*
-!reports/staging/
-!reports/acceptance/
 .scannerwork/
 
 # ====================================================================
@@ -156,3 +154,11 @@ BAO_CAO_DE_CUONG_DU_AN*
 REPORT*
 SRS_Specification*
 
+
+# ====================================================================
+# Documentation, Reports, Reviews & Backlog
+# ====================================================================
+docs/
+reports/
+TASK_FEE_03_PRE_PRODUCTION_REVIEW.md
+JIRA_SPRINT_BACKLOG.md
