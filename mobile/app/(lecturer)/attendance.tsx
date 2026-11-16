@@ -1,16 +1,24 @@
 /**
- * Lecturer QR Attendance Session Screen
+ * Lecturer QR Attendance Session Screen - REDS v2.0
  * 15-second rotating Dynamic QR TOTP presentation engine with anti-proxy protection
- * and live attendee check-in monitoring.
+ * and real-time attendee check-in monitoring.
+ *
+ * Integrates:
+ * - AppNotificationHeader (burgundy variant)
+ * - ConnectedOfflineBanner
+ * - AttendanceQrBox (quiet zone QR display & countdown ticker)
+ * - AttendanceStatsCard (real-time check-in counts)
+ * - AttendeeRosterCard (checked-in student list)
+ * - Anti-race refetch guard on 15s expiration
+ * - Full AppState background/resume lifecycle re-synchronization
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Alert,
   ActivityIndicator,
   Modal,
@@ -18,7 +26,6 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import {
   useLecturerClasses,
   useAttendanceSession,
@@ -26,18 +33,26 @@ import {
   useStartAttendanceSession,
   useCloseAttendanceSession,
   LecturerClassSection,
+  AttendanceQrBox,
+  AttendanceStatsCard,
+  AttendeeRosterCard,
 } from '@/features/lecturer';
-import { colors, spacing, typography, radius } from '@/theme';
-import { formatTime } from '@/utils/formatters';
+import { tokens } from '@/theme';
+import { AppCard } from '@/components/primitives/AppCard';
+import { AppText } from '@/components/primitives/AppText';
+import { AppBadge } from '@/components/feedback/AppBadge';
+import { AppNotificationHeader } from '@/features/notifications';
+import { ConnectedOfflineBanner } from '@/features/offline';
 
 export default function LecturerAttendanceScreen() {
   // Class selection state
-  const [selectedClass, setSelectedClass] = useState<LecturerClassSection | null>(null);
+  const [selectedClassState, setSelectedClass] = useState<LecturerClassSection | null>(null);
   const [isClassPickerOpen, setIsClassPickerOpen] = useState(false);
 
-  // Countdown timer state
+  // Countdown timer state & race condition guard
   const [countdown, setCountdown] = useState<number>(15);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isRefreshingQrRef = useRef<boolean>(false);
 
   // Queries
   const {
@@ -45,13 +60,14 @@ export default function LecturerAttendanceScreen() {
     isLoading: isClassesLoading,
   } = useLecturerClasses();
 
-  // Default to first open class or first class if not selected
-  useEffect(() => {
-    if (!selectedClass && classes.length > 0) {
-      const firstOpen = classes.find((c) => c.status === 'OPEN') || classes[0];
-      setSelectedClass(firstOpen);
+  // Resolve active class synchronously on initial render with fallback to first open class
+  const selectedClass = useMemo(() => {
+    if (selectedClassState) return selectedClassState;
+    if (classes.length > 0) {
+      return classes.find((c) => c.status === 'OPEN') || classes[0];
     }
-  }, [classes, selectedClass]);
+    return null;
+  }, [classes, selectedClassState]);
 
   const sectionId = selectedClass?.sectionId ?? 0;
 
@@ -60,6 +76,7 @@ export default function LecturerAttendanceScreen() {
     data: sessionData,
     isLoading: isSessionLoading,
     refetch: refetchSession,
+    isRefetching: isSessionRefetching,
   } = useAttendanceSession(sectionId, sectionId > 0, 4000);
 
   const isSessionActive =
@@ -80,6 +97,7 @@ export default function LecturerAttendanceScreen() {
   useEffect(() => {
     if (qrData?.remainingSeconds != null) {
       setCountdown(Math.max(1, Math.round(qrData.remainingSeconds)));
+      isRefreshingQrRef.current = false;
     }
   }, [qrData]);
 
@@ -124,7 +142,7 @@ export default function LecturerAttendanceScreen() {
     };
   }, [sectionId, refetchSession, refetchQr]);
 
-  // 1-second interval TOTP ticker
+  // 1-second interval TOTP ticker with race-condition guard
   useEffect(() => {
     if (!isSessionActive) {
       if (timerRef.current) {
@@ -141,8 +159,13 @@ export default function LecturerAttendanceScreen() {
     timerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          // Reached expiration: pull fresh rotating QR token and reset
-          refetchQr();
+          // Reached expiration: pull fresh rotating QR token without stacking concurrent requests
+          if (!isRefreshingQrRef.current && !isQrLoading) {
+            isRefreshingQrRef.current = true;
+            refetchQr().finally(() => {
+              isRefreshingQrRef.current = false;
+            });
+          }
           return qrData?.stepSeconds || 15;
         }
         return prev - 1;
@@ -155,7 +178,7 @@ export default function LecturerAttendanceScreen() {
         timerRef.current = null;
       }
     };
-  }, [isSessionActive, refetchQr, qrData?.stepSeconds]);
+  }, [isSessionActive, refetchQr, isQrLoading, qrData?.stepSeconds]);
 
   // Handle Starting a new Session
   const handleStartSession = async () => {
@@ -202,556 +225,390 @@ export default function LecturerAttendanceScreen() {
     );
   };
 
-  // Scanned attendees list
+  // Scanned attendees list & stats
   const attendees = useMemo(() => sessionData?.records || [], [sessionData?.records]);
   const totalEnrolled = selectedClass?.currentEnrolled || 0;
   const attendedCount = attendees.length;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header Info */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Điểm danh QR Động (Anti-Proxy)</Text>
-        <Text style={styles.subtitle}>
-          Mã QR đổi mới mỗi 15s tích hợp TOTP HMAC-SHA256, ngăn chặn chụp ảnh chuyển tiếp qua mạng xã hội
-        </Text>
-      </View>
+    <View style={styles.root}>
+      {/* 1. Shared REDS v2.0 Top Navigation Header with Notification Bell */}
+      <AppNotificationHeader
+        title="Điểm danh QR"
+        subtitle="Phiên điểm danh bảo mật (Anti-Proxy)"
+        variant="burgundy"
+        testID="lecturer-attendance-header"
+      />
 
-      {/* Class Selector Card */}
-      <TouchableOpacity
-        style={styles.classSelectorCard}
-        onPress={() => setIsClassPickerOpen(true)}
-        activeOpacity={0.7}
+      {/* 2. Shared Connected Offline Banner */}
+      <ConnectedOfflineBanner testID="lecturer-attendance-offline-banner" />
+
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.classSelectorLeft}>
-          <View style={styles.classBadge}>
-            <Text style={styles.classBadgeText}>
-              {selectedClass?.sectionCode || 'Chọn lớp'}
-            </Text>
-          </View>
-          <Text style={styles.className} numberOfLines={1}>
-            {selectedClass?.courseName || 'Nhấn để chọn lớp học phần'}
-          </Text>
-          <Text style={styles.classMeta}>
-            Phòng: {selectedClass?.roomName || '---'} | Sĩ số: {selectedClass?.currentEnrolled || 0} SV
-          </Text>
-        </View>
-        <Ionicons name="swap-vertical" size={20} color={colors.primary[800]} />
-      </TouchableOpacity>
-
-      {/* QR Code Presentation Box */}
-      <View style={styles.qrContainer}>
-        {isSessionLoading ? (
-          <View style={styles.qrLoadingBox}>
-            <ActivityIndicator size="large" color={colors.primary[800]} />
-            <Text style={styles.loadingText}>Đang kiểm tra trạng thái phiên...</Text>
-          </View>
-        ) : isSessionActive ? (
-          <View style={styles.activeQrWrapper}>
-            {/* Live QR Image */}
-            <View style={styles.qrBox}>
-              {isQrLoading || !qrData ? (
-                <ActivityIndicator size="large" color={colors.primary[800]} />
-              ) : qrData.qrImageBase64 ? (
-                <Image
-                  source={{ uri: qrData.qrImageBase64 }}
-                  style={styles.qrImage}
-                  contentFit="contain"
+        {/* 3. Class Selector Card */}
+        <AppCard variant="elevated" style={styles.classSelectorCard} testID="attendance-class-selector">
+          <Pressable
+            style={styles.classSelectorPressable}
+            onPress={() => setIsClassPickerOpen(true)}
+            android_ripple={{ color: tokens.brand.crimsonLight }}
+            accessibilityRole="button"
+            accessibilityLabel="Chọn lớp học phần điểm danh"
+          >
+            <View style={styles.classSelectorLeft}>
+              <View style={styles.badgeRow}>
+                <AppBadge
+                  variant="primary"
+                  size="sm"
+                  label={selectedClass?.sectionCode || 'Chọn lớp'}
                 />
-              ) : (
-                <View style={styles.qrFallback}>
-                  <Ionicons name="qr-code" size={160} color={colors.neutral[900]} />
+                <AppText variant="caption" color="muted">
+                  {selectedClass?.semesterName || 'Học kỳ hiện tại'}
+                </AppText>
+              </View>
+              <AppText variant="h3" numberOfLines={1} style={styles.className}>
+                {selectedClass?.courseName || 'Nhấn để chọn lớp học phần'}
+              </AppText>
+              <View style={styles.metaRow}>
+                <View style={styles.metaItem}>
+                  <Ionicons name="location-outline" size={13} color={tokens.text.muted} />
+                  <AppText variant="caption" color="muted">
+                    {selectedClass?.roomName || '---'}
+                  </AppText>
                 </View>
-              )}
-            </View>
-
-            {/* Countdown Badge */}
-            <View style={styles.timerBadge}>
-              <Ionicons name="timer-outline" size={18} color={colors.warning.dark} />
-              <Text style={styles.timerText}>Mã làm mới sau: {countdown}s</Text>
-            </View>
-
-            <Text style={styles.qrTokenHint}>
-              Mã bảo mật: {qrData?.qrToken?.substring(0, 18)}...
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.inactiveQrWrapper}>
-            <Ionicons name="lock-closed-outline" size={56} color={colors.neutral[400]} />
-            <Text style={styles.inactiveTitle}>Phiên điểm danh chưa bắt đầu</Text>
-            <Text style={styles.inactiveDesc}>
-              Nhấn nút bên dưới để khởi tạo phiên điểm danh QR động cho sinh viên lớp{' '}
-              {selectedClass?.sectionCode || 'này'}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Real-time Attendance Stats */}
-      <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={[styles.statNumber, { color: colors.success.dark }]}>
-            {attendedCount}
-          </Text>
-          <Text style={styles.statLabel}>Đã quét thành công</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={[styles.statNumber, { color: colors.warning.dark }]}>
-            {Math.max(0, totalEnrolled - attendedCount)}
-          </Text>
-          <Text style={styles.statLabel}>Chưa điểm danh</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={[styles.statNumber, { color: colors.neutral[800] }]}>
-            {totalEnrolled}
-          </Text>
-          <Text style={styles.statLabel}>Tổng sĩ số</Text>
-        </View>
-      </View>
-
-      {/* Main Action Button */}
-      {isSessionActive ? (
-        <TouchableOpacity
-          style={[styles.actionButton, styles.actionButtonClose]}
-          onPress={handleCloseSession}
-          disabled={Boolean(closeSessionMutation?.isPending)}
-          activeOpacity={0.8}
-        >
-          {closeSessionMutation?.isPending ? (
-            <ActivityIndicator size="small" color={colors.neutral[0]} />
-          ) : (
-            <>
-              <Ionicons name="stop-circle-outline" size={20} color={colors.neutral[0]} />
-              <Text style={styles.actionButtonText}>Chốt & Đóng phiên điểm danh</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          style={[styles.actionButton, styles.actionButtonStart]}
-          onPress={handleStartSession}
-          disabled={Boolean(startSessionMutation?.isPending) || !selectedClass}
-          activeOpacity={0.8}
-        >
-          {startSessionMutation?.isPending ? (
-            <ActivityIndicator size="small" color={colors.neutral[0]} />
-          ) : (
-            <>
-              <Ionicons name="play-circle-outline" size={20} color={colors.neutral[0]} />
-              <Text style={styles.actionButtonText}>Bắt đầu phiên điểm danh QR</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      )}
-
-      {/* Live Attendee Roster Section */}
-      <View style={styles.rosterSection}>
-        <View style={styles.rosterHeader}>
-          <Text style={styles.rosterTitle}>
-            Danh sách đã điểm danh ({attendedCount})
-          </Text>
-          <TouchableOpacity onPress={() => refetchSession()} activeOpacity={0.7}>
-            <Ionicons name="refresh" size={18} color={colors.primary[800]} />
-          </TouchableOpacity>
-        </View>
-
-        {attendees.length === 0 ? (
-          <View style={styles.emptyRoster}>
-            <Ionicons name="people-outline" size={32} color={colors.neutral[300]} />
-            <Text style={styles.emptyRosterText}>
-              {isSessionActive
-                ? 'Đang chờ sinh viên quét mã QR...'
-                : 'Chưa có bản ghi điểm danh nào trong phiên gần nhất.'}
-            </Text>
-          </View>
-        ) : (
-          attendees.map((record, index) => (
-            <View key={record.recordId || index} style={styles.attendeeItem}>
-              <View style={styles.attendeeIndex}>
-                <Text style={styles.attendeeIndexText}>{index + 1}</Text>
-              </View>
-              <View style={styles.attendeeInfo}>
-                <Text style={styles.attendeeName}>{record.studentName}</Text>
-                <Text style={styles.attendeeCode}>MSSV: {record.studentCode}</Text>
-              </View>
-              <View style={styles.attendeeMeta}>
-                <View style={styles.timeTag}>
-                  <Ionicons name="checkmark-circle" size={14} color={colors.success.dark} />
-                  <Text style={styles.timeTagText}>
-                    {formatTime(record.checkInTime ? record.checkInTime.split('T')[1] : null)}
-                  </Text>
+                <View style={styles.metaDivider} />
+                <View style={styles.metaItem}>
+                  <Ionicons name="people-outline" size={13} color={tokens.text.muted} />
+                  <AppText variant="caption" color="muted">
+                    Sĩ số: {selectedClass?.currentEnrolled || 0}/{selectedClass?.maxCapacity || 0} SV
+                  </AppText>
                 </View>
               </View>
             </View>
-          ))
-        )}
-      </View>
-
-      {/* Class Selector Modal */}
-      <Modal visible={isClassPickerOpen} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn lớp học phần điểm danh</Text>
-              <TouchableOpacity onPress={() => setIsClassPickerOpen(false)}>
-                <Ionicons name="close" size={22} color={colors.neutral[700]} />
-              </TouchableOpacity>
+            <View style={styles.pickerIconWrapper}>
+              <Ionicons name="swap-vertical" size={20} color={tokens.brand.burgundy} />
             </View>
+          </Pressable>
+        </AppCard>
 
-            <ScrollView style={styles.classListScroll}>
-              {isClassesLoading ? (
-                <ActivityIndicator size="small" color={colors.primary[800]} />
-              ) : (
-                classes.map((c) => (
-                  <TouchableOpacity
-                    key={c.sectionId}
-                    style={[
-                      styles.classPickerItem,
-                      selectedClass?.sectionId === c.sectionId && styles.classPickerItemActive,
-                    ]}
-                    onPress={() => {
-                      setSelectedClass(c);
-                      setIsClassPickerOpen(false);
-                    }}
-                  >
-                    <View style={styles.classPickerBadge}>
-                      <Text style={styles.classPickerBadgeText}>{c.sectionCode}</Text>
-                    </View>
-                    <View style={styles.classPickerDetails}>
-                      <Text style={styles.classPickerName}>{c.courseName}</Text>
-                      <Text style={styles.classPickerSub}>
-                        Phòng: {c.roomName} | Sĩ số: {c.currentEnrolled}/{c.maxCapacity}
-                      </Text>
-                    </View>
-                    {selectedClass?.sectionId === c.sectionId && (
-                      <Ionicons name="checkmark" size={20} color={colors.primary[800]} />
-                    )}
-                  </TouchableOpacity>
-                ))
-              )}
-            </ScrollView>
+        {/* 4. Dynamic QR Presentation Box */}
+        <AttendanceQrBox
+          isSessionLoading={isSessionLoading}
+          isSessionActive={isSessionActive}
+          isQrLoading={isQrLoading}
+          qrData={qrData}
+          countdown={countdown}
+          sectionCode={selectedClass?.sectionCode}
+          testID="attendance-qr-box"
+        />
+
+        {/* 5. Real-time Attendance Statistics */}
+        <AttendanceStatsCard
+          attendedCount={attendedCount}
+          totalEnrolled={totalEnrolled}
+          testID="attendance-stats-card"
+        />
+
+        {/* 6. Session Lifecycle Action Button */}
+        {isSessionActive ? (
+          <Pressable
+            style={[styles.actionButton, styles.actionButtonClose]}
+            onPress={handleCloseSession}
+            disabled={Boolean(closeSessionMutation?.isPending)}
+            android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+            accessibilityRole="button"
+            accessibilityLabel="Chốt & Đóng phiên điểm danh"
+            testID="btn-close-session"
+          >
+            {closeSessionMutation?.isPending ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="stop-circle-outline" size={20} color="#FFFFFF" />
+                <AppText variant="bodyBold" color="inverse" style={styles.actionButtonText}>
+                  Đóng phiên điểm danh
+                </AppText>
+              </>
+            )}
+          </Pressable>
+        ) : (
+          <Pressable
+            style={[
+              styles.actionButton,
+              styles.actionButtonStart,
+              (!selectedClass || Boolean(startSessionMutation?.isPending)) && styles.actionButtonDisabled,
+            ]}
+            onPress={handleStartSession}
+            disabled={Boolean(startSessionMutation?.isPending) || !selectedClass}
+            android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+            accessibilityRole="button"
+            accessibilityLabel="Bắt đầu phiên điểm danh QR"
+            testID="btn-start-session"
+          >
+            {startSessionMutation?.isPending ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="play-circle-outline" size={20} color="#FFFFFF" />
+                <AppText variant="bodyBold" color="inverse" style={styles.actionButtonText}>
+                  Bắt đầu phiên điểm danh QR
+                </AppText>
+              </>
+            )}
+          </Pressable>
+        )}
+
+        {/* 7. Live Attendee Roster Card */}
+        <AttendeeRosterCard
+          attendees={attendees}
+          isSessionActive={isSessionActive}
+          onRefresh={() => refetchSession()}
+          isRefreshing={isSessionRefetching}
+          testID="attendance-roster-card"
+        />
+
+        {/* 8. Class Selector Bottom-Sheet Modal */}
+        <Modal visible={isClassPickerOpen} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <AppText variant="h3" color="primary">
+                  Chọn lớp học phần điểm danh
+                </AppText>
+                <Pressable
+                  style={styles.modalCloseBtn}
+                  onPress={() => setIsClassPickerOpen(false)}
+                  android_ripple={{ color: tokens.brand.crimsonLight }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Đóng bộ chọn lớp"
+                  testID="modal-close-button"
+                >
+                  <Ionicons name="close" size={22} color={tokens.text.secondary} />
+                </Pressable>
+              </View>
+
+              <ScrollView style={styles.classListScroll} showsVerticalScrollIndicator={false}>
+                {isClassesLoading ? (
+                  <View style={styles.modalLoading}>
+                    <ActivityIndicator size="small" color={tokens.brand.burgundy} />
+                    <AppText variant="caption" color="muted">
+                      Đang tải danh sách lớp...
+                    </AppText>
+                  </View>
+                ) : classes.length === 0 ? (
+                  <View style={styles.modalEmpty}>
+                    <AppText variant="body" color="muted">
+                      Không có lớp học phần nào.
+                    </AppText>
+                  </View>
+                ) : (
+                  classes.map((c) => {
+                    const isSelected = selectedClass?.sectionId === c.sectionId;
+                    return (
+                      <Pressable
+                        key={c.sectionId}
+                        style={[
+                          styles.classPickerItem,
+                          isSelected && styles.classPickerItemActive,
+                        ]}
+                        onPress={() => {
+                          setSelectedClass(c);
+                          setIsClassPickerOpen(false);
+                        }}
+                        android_ripple={{ color: tokens.brand.crimsonLight }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Chọn lớp ${c.courseName}`}
+                        testID={`class-picker-item-${c.sectionId}`}
+                      >
+                        <View style={styles.classPickerBadge}>
+                          <AppText variant="captionBold" style={{ color: tokens.brand.burgundy }}>
+                            {c.sectionCode}
+                          </AppText>
+                        </View>
+                        <View style={styles.classPickerDetails}>
+                          <AppText
+                            variant="bodyBold"
+                            color="primary"
+                            numberOfLines={1}
+                          >
+                            {c.courseName}
+                          </AppText>
+                          <AppText variant="caption" color="muted" style={styles.classPickerSub}>
+                            Phòng: {c.roomName} | Sĩ số: {c.currentEnrolled}/{c.maxCapacity}
+                          </AppText>
+                        </View>
+                        {isSelected && (
+                          <Ionicons name="checkmark-circle" size={22} color={tokens.brand.burgundy} />
+                        )}
+                      </Pressable>
+                    );
+                  })
+                )}
+              </ScrollView>
+            </View>
           </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </Modal>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: tokens.surface.canvas,
+  },
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[100],
   },
   content: {
-    padding: spacing.md,
-    paddingBottom: spacing.xxl,
-  },
-  header: {
-    marginBottom: spacing.md,
-  },
-  title: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
-  },
-  subtitle: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
-    marginTop: 4,
-    lineHeight: 16,
+    padding: tokens.spacing.md,
+    paddingBottom: tokens.spacing.xxl + 20,
   },
   classSelectorCard: {
+    borderRadius: tokens.radius.lg,
+    marginBottom: tokens.spacing.md,
+    padding: 0,
+    overflow: 'hidden',
+    backgroundColor: tokens.surface.card,
+    borderLeftWidth: 4,
+    borderLeftColor: tokens.brand.burgundy,
+  },
+  classSelectorPressable: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
+    padding: tokens.spacing.md,
+    minHeight: 56, // Touch target >= 48dp
   },
   classSelectorLeft: {
     flex: 1,
-    marginRight: spacing.sm,
+    marginRight: tokens.spacing.sm,
   },
-  classBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.primary[50],
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: tokens.spacing.xs,
     marginBottom: 4,
   },
-  classBadgeText: {
-    fontSize: typography.sizes.xxs,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[900],
-  },
   className: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
+    fontSize: 15,
+    color: tokens.text.primary,
   },
-  classMeta: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
-    marginTop: 2,
-  },
-  qrContainer: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
-    marginBottom: spacing.md,
-  },
-  qrLoadingBox: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    marginTop: spacing.xs,
-  },
-  activeQrWrapper: {
-    alignItems: 'center',
-  },
-  qrBox: {
-    width: 220,
-    height: 220,
-    backgroundColor: colors.neutral[0],
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.neutral[300],
-    borderRadius: radius.lg,
-    padding: 8,
-  },
-  qrImage: {
-    width: 200,
-    height: 200,
-  },
-  qrFallback: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timerBadge: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.warning.light + '25',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radius.full,
-    marginTop: spacing.md,
-  },
-  timerText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.warning.dark,
-  },
-  qrTokenHint: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[400],
-    marginTop: 6,
-  },
-  inactiveQrWrapper: {
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-  },
-  inactiveTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[800],
-    marginTop: spacing.sm,
-  },
-  inactiveDesc: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    textAlign: 'center',
     marginTop: 4,
-    paddingHorizontal: spacing.md,
+    gap: tokens.spacing.xs,
   },
-  statsRow: {
+  metaItem: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.md,
-    padding: spacing.sm,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
+    gap: 4,
   },
-  statNumber: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
+  metaDivider: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: tokens.border.strong,
   },
-  statLabel: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
-    marginTop: 2,
-    textAlign: 'center',
+  pickerIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: tokens.brand.crimsonLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: 14,
-    borderRadius: radius.lg,
-    marginBottom: spacing.lg,
+    gap: tokens.spacing.xs,
+    minHeight: 50, // Touch target >= 48dp
+    borderRadius: tokens.radius.lg,
+    marginBottom: tokens.spacing.lg,
+    ...tokens.elevation.sm,
   },
   actionButtonStart: {
-    backgroundColor: colors.primary[900],
+    backgroundColor: tokens.brand.burgundy,
   },
   actionButtonClose: {
-    backgroundColor: colors.error.main,
+    backgroundColor: tokens.semantic.error.button, // Red 600 (WCAG AA 4.83:1 on white)
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
   },
   actionButtonText: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[0],
-  },
-  rosterSection: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
-  },
-  rosterHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  rosterTitle: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[800],
-  },
-  emptyRoster: {
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-  },
-  emptyRosterText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[400],
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-  attendeeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.xs + 2,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
-  },
-  attendeeIndex: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.neutral[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
-  },
-  attendeeIndexText: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[600],
-    fontWeight: typography.weights.bold,
-  },
-  attendeeInfo: {
-    flex: 1,
-  },
-  attendeeName: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
-  },
-  attendeeCode: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
-  },
-  attendeeMeta: {
-    alignItems: 'flex-end',
-  },
-  timeTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  timeTagText: {
-    fontSize: typography.sizes.xxs,
-    color: colors.success.dark,
-    fontWeight: typography.weights.semiBold,
+    fontSize: 14,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: tokens.surface.backdrop,
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.neutral[0],
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.lg,
-    maxHeight: '70%',
+    backgroundColor: tokens.surface.card,
+    borderTopLeftRadius: tokens.radius.xl,
+    borderTopRightRadius: tokens.radius.xl,
+    padding: tokens.spacing.lg,
+    maxHeight: '75%',
+    ...tokens.elevation.lg,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: tokens.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.border.default,
+    paddingBottom: tokens.spacing.xs,
   },
-  modalTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
+  modalCloseBtn: {
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalLoading: {
+    padding: tokens.spacing.xl,
+    alignItems: 'center',
+    gap: tokens.spacing.xs,
+  },
+  modalEmpty: {
+    padding: tokens.spacing.xl,
+    alignItems: 'center',
   },
   classListScroll: {
-    marginBottom: spacing.md,
+    marginBottom: tokens.spacing.md,
   },
   classPickerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.xs,
+    minHeight: 52, // Touch target >= 48dp
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: tokens.border.subtle,
   },
   classPickerItemActive: {
-    backgroundColor: colors.primary[50] + '40',
+    backgroundColor: tokens.brand.crimsonLight,
+    borderRadius: tokens.radius.md,
   },
   classPickerBadge: {
-    backgroundColor: colors.primary[50],
+    backgroundColor: tokens.brand.crimsonLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: radius.sm,
-    marginRight: spacing.sm,
-  },
-  classPickerBadgeText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[900],
+    borderRadius: tokens.radius.sm,
+    marginRight: tokens.spacing.sm,
   },
   classPickerDetails: {
     flex: 1,
   },
-  classPickerName: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
-  },
   classPickerSub: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
     marginTop: 2,
+    fontSize: 11,
   },
 });

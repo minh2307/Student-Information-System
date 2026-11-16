@@ -142,7 +142,16 @@ jest.mock('@expo/vector-icons', () => ({
   FontAwesome: (props: any) => null,
 }));
 
+// Mock expo-web-browser
+jest.mock('expo-web-browser', () => ({
+  openBrowserAsync: jest.fn().mockResolvedValue({ type: 'opened' }),
+  dismissBrowser: jest.fn(),
+}));
+
 // Mock react-native-webview
+let mockLastWebViewProps: any = null;
+let mockLastWebViewInstance: any = null;
+
 jest.mock('react-native-webview', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -150,12 +159,76 @@ jest.mock('react-native-webview', () => {
     postMessage = jest.fn();
     injectJavaScript = jest.fn();
     reload = jest.fn();
+    goBack = jest.fn();
+    constructor(props: any) {
+      super(props);
+      mockLastWebViewInstance = this;
+      mockLastWebViewProps = props;
+    }
     render() {
+      mockLastWebViewInstance = this;
+      mockLastWebViewProps = this.props;
       return React.createElement(View, { ...this.props, testID: 'mock-webview' });
     }
   }
   return {
     WebView: MockWebView,
     default: MockWebView,
+    __getLastWebViewProps: () => mockLastWebViewProps,
+    __getLastWebViewInstance: () => mockLastWebViewInstance,
+    __resetMockWebView: () => {
+      mockLastWebViewProps = null;
+      mockLastWebViewInstance = null;
+    },
+  };
+});
+
+// Mock expo-camera
+let mockCameraPermission = {
+  status: 'granted',
+  granted: true,
+  canAskAgain: true,
+  expires: 'never',
+};
+let mockLastCameraProps: any = null;
+
+jest.mock('expo-camera', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+
+  const CameraView = React.forwardRef((props: any, ref: any) => {
+    mockLastCameraProps = props;
+    return React.createElement(View, { ...props, testID: props.testID || 'mock-camera-view' });
+  });
+
+  return {
+    CameraView,
+    useCameraPermissions: jest.fn(() => [
+      mockCameraPermission,
+      jest.fn().mockImplementation(async () => mockCameraPermission),
+      jest.fn().mockImplementation(async () => mockCameraPermission),
+    ]),
+    Camera: {
+      requestCameraPermissionsAsync: jest.fn(async () => mockCameraPermission),
+      getCameraPermissionsAsync: jest.fn(async () => mockCameraPermission),
+    },
+    PermissionStatus: {
+      GRANTED: 'granted',
+      UNDETERMINED: 'undetermined',
+      DENIED: 'denied',
+    },
+    __setMockCameraPermission: (perm: any) => {
+      mockCameraPermission = perm;
+    },
+    __getLastCameraProps: () => mockLastCameraProps,
+    __resetMockCamera: () => {
+      mockCameraPermission = {
+        status: 'granted',
+        granted: true,
+        canAskAgain: true,
+        expires: 'never',
+      };
+      mockLastCameraProps = null;
+    },
   };
 });

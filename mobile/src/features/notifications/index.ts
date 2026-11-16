@@ -10,3 +10,4 @@ export * from './hooks/useNotificationPermission';
 export * from './utils/notificationDeepLink';
 export * from './components/NotificationCenterModal';
 export * from './components/NotificationBellButton';
+export * from './components/AppNotificationHeader';

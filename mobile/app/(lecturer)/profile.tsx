@@ -1,15 +1,15 @@
 /**
- * Lecturer Profile Screen
+ * Lecturer Profile Screen - REDS v2.0
  * Displays faculty details from real backend, supports profile updates and secure logout.
+ * Refactored to utilize REDS v2.0 Tokens, Shared Components & WCAG AA Compliance.
  */
 
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Alert,
   TextInput,
   Modal,
@@ -21,7 +21,10 @@ import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfile } from '@/features/auth/hooks/useProfile';
-import { colors, spacing, typography, radius } from '@/theme';
+import { tokens } from '@/theme';
+import { AppCard } from '@/components/primitives/AppCard';
+import { AppText } from '@/components/primitives/AppText';
+import { AppBadge } from '@/components/feedback/AppBadge';
 
 export default function LecturerProfileScreen() {
   const router = useRouter();
@@ -83,18 +86,20 @@ export default function LecturerProfileScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
           refreshing={isRefetching}
           onRefresh={() => {
             void refetch();
           }}
-          tintColor={colors.primary[800]}
+          tintColor={tokens.brand.burgundy}
+          colors={[tokens.brand.burgundy]}
         />
       }
     >
-      {/* Identity Card */}
-      <View style={styles.profileCard}>
+      {/* Faculty Hero Identity Card */}
+      <AppCard variant="elevated" style={styles.profileCard}>
         <View style={styles.avatarWrapper}>
           {user?.avatarUrl ? (
             <Image
@@ -104,114 +109,220 @@ export default function LecturerProfileScreen() {
             />
           ) : (
             <View style={styles.avatarFallback}>
-              <Ionicons name="person" size={40} color={colors.primary[800]} />
+              <Ionicons name="person" size={44} color={tokens.brand.burgundy} />
             </View>
           )}
-        </View>
-
-        <Text style={styles.fullName}>{user?.fullName || 'Giảng viên'}</Text>
-        <Text style={styles.email}>{user?.email || 'lecturer@rikkei.edu.vn'}</Text>
-
-        <View style={styles.roleTag}>
-          <Text style={styles.roleText}>GIẢNG VIÊN (LECTURER)</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.editProfileBtn}
-          onPress={handleOpenEdit}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="create-outline" size={16} color={colors.primary[800]} />
-          <Text style={styles.editProfileBtnText}>Chỉnh sửa thông tin</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Faculty Information Group */}
-      <Text style={styles.sectionHeader}>Thông tin công tác & Giảng dạy</Text>
-      <View style={styles.infoGroup}>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Mã cán bộ / GV</Text>
-          <Text style={styles.infoValue}>
-            {lecturerProfile?.lecturerCode || user?.username || 'GV001'}
-          </Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Khoa / Bộ môn</Text>
-          <Text style={styles.infoValue}>
-            {lecturerProfile?.department || 'Khoa Công nghệ Thông tin'}
-          </Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Học vị / Học hàm</Text>
-          <Text style={styles.infoValue}>
-            {lecturerProfile?.degree || 'Tiến sĩ / Thạc sĩ'}
-          </Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Tên tài khoản</Text>
-          <Text style={styles.infoValue}>{user?.username || '---'}</Text>
-        </View>
-
-        <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-          <Text style={styles.infoLabel}>Trạng thái tài khoản</Text>
-          <View style={styles.statusRow}>
-            <View style={styles.statusDot} />
-            <Text style={[styles.infoValue, { color: colors.success.dark }]}>
-              {user?.status === 'ACTIVE' ? 'Đang hoạt động' : 'Khóa'}
-            </Text>
+          <View style={styles.avatarOnlineBadge}>
+            <View style={styles.avatarOnlineDot} />
           </View>
         </View>
+
+        <AppText variant="h2" color="primary" style={styles.fullName}>
+          {user?.fullName || 'TS. Nguyễn Văn A'}
+        </AppText>
+
+        <AppText variant="caption" color="muted" style={styles.email}>
+          {user?.email || 'nguyenvana@rikkei.edu.vn'}
+        </AppText>
+
+        <View style={styles.roleTag}>
+          <AppBadge
+            variant="primary"
+            size="md"
+            label="GIẢNG VIÊN (LECTURER)"
+            icon={<Ionicons name="school-outline" size={14} color={tokens.brand.burgundy} />}
+          />
+        </View>
+
+        <Pressable
+          style={styles.editProfileBtn}
+          onPress={handleOpenEdit}
+          android_ripple={{ color: tokens.brand.crimsonLight }}
+          accessibilityRole="button"
+          accessibilityLabel="Chỉnh sửa thông tin cá nhân"
+        >
+          <Ionicons name="create-outline" size={16} color={tokens.brand.burgundy} />
+          <AppText variant="bodyBold" style={{ color: tokens.brand.burgundy }}>
+            Chỉnh sửa thông tin
+          </AppText>
+        </Pressable>
+      </AppCard>
+
+      {/* Faculty Work & Teaching Information */}
+      <View style={styles.sectionHeaderWrapper}>
+        <Ionicons name="briefcase-outline" size={16} color={tokens.brand.burgundy} />
+        <AppText variant="captionBold" color="secondary" style={styles.sectionHeader}>
+          Thông tin công tác & Giảng dạy
+        </AppText>
       </View>
+
+      <AppCard variant="elevated" style={styles.infoGroup}>
+        <View style={styles.infoRow}>
+          <View style={styles.infoLabelContainer}>
+            <Ionicons name="id-card-outline" size={16} color={tokens.text.muted} />
+            <AppText variant="body" color="secondary" style={styles.infoLabel}>
+              Mã cán bộ / GV
+            </AppText>
+          </View>
+          <AppText variant="bodyBold" color="primary" style={styles.infoValue}>
+            {lecturerProfile?.lecturerCode || user?.username || 'GV001'}
+          </AppText>
+        </View>
+
+        <View style={styles.infoRow}>
+          <View style={styles.infoLabelContainer}>
+            <Ionicons name="business-outline" size={16} color={tokens.text.muted} />
+            <AppText variant="body" color="secondary" style={styles.infoLabel}>
+              Khoa / Bộ môn
+            </AppText>
+          </View>
+          <AppText variant="bodyBold" color="primary" style={styles.infoValue}>
+            {lecturerProfile?.department || 'Khoa Công nghệ Thông tin'}
+          </AppText>
+        </View>
+
+        <View style={styles.infoRow}>
+          <View style={styles.infoLabelContainer}>
+            <Ionicons name="ribbon-outline" size={16} color={tokens.text.muted} />
+            <AppText variant="body" color="secondary" style={styles.infoLabel}>
+              Học vị / Học hàm
+            </AppText>
+          </View>
+          <AppText variant="bodyBold" color="primary" style={styles.infoValue}>
+            {lecturerProfile?.degree || 'Tiến sĩ'}
+          </AppText>
+        </View>
+
+        <View style={styles.infoRow}>
+          <View style={styles.infoLabelContainer}>
+            <Ionicons name="person-circle-outline" size={16} color={tokens.text.muted} />
+            <AppText variant="body" color="secondary" style={styles.infoLabel}>
+              Tên tài khoản
+            </AppText>
+          </View>
+          <AppText variant="bodyBold" color="primary" style={styles.infoValue}>
+            {user?.username || 'gv001'}
+          </AppText>
+        </View>
+
+        <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+          <View style={styles.infoLabelContainer}>
+            <Ionicons name="shield-checkmark-outline" size={16} color={tokens.text.muted} />
+            <AppText variant="body" color="secondary" style={styles.infoLabel}>
+              Trạng thái tài khoản
+            </AppText>
+          </View>
+          <View style={styles.statusRow}>
+            <View style={styles.statusDot} />
+            <AppText
+              variant="bodyBold"
+              style={[styles.infoValue, { color: tokens.semantic.success.dark }]}
+            >
+              {user?.status === 'ACTIVE' || !user?.status ? 'Đang hoạt động' : 'Khóa'}
+            </AppText>
+          </View>
+        </View>
+      </AppCard>
 
       {/* Security & System Info */}
-      <Text style={styles.sectionHeader}>Bảo mật & Ứng dụng</Text>
-      <View style={styles.infoGroup}>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Phiên bản Mobile</Text>
-          <Text style={styles.infoValue}>v1.0.0 (Phase 4 Lecturer)</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Xác thực Token</Text>
-          <Text style={styles.infoValue}>Hardware Keystore (SecureStore)</Text>
-        </View>
-        <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-          <Text style={styles.infoLabel}>Cổng kết nối API</Text>
-          <Text style={styles.infoValue}>API Gateway HTTPS</Text>
-        </View>
+      <View style={styles.sectionHeaderWrapper}>
+        <Ionicons name="lock-closed-outline" size={16} color={tokens.brand.burgundy} />
+        <AppText variant="captionBold" color="secondary" style={styles.sectionHeader}>
+          Bảo mật & Ứng dụng
+        </AppText>
       </View>
 
-      {/* Logout Action */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
-        <Ionicons name="log-out-outline" size={20} color={colors.error.main} />
-        <Text style={styles.logoutText}>Đăng xuất khỏi thiết bị</Text>
-      </TouchableOpacity>
+      <AppCard variant="elevated" style={styles.infoGroup}>
+        <View style={styles.infoRow}>
+          <View style={styles.infoLabelContainer}>
+            <Ionicons name="phone-portrait-outline" size={16} color={tokens.text.muted} />
+            <AppText variant="body" color="secondary" style={styles.infoLabel}>
+              Phiên bản Mobile
+            </AppText>
+          </View>
+          <AppText variant="bodyBold" color="primary" style={styles.infoValue}>
+            v1.0.0 (Phase 4 Lecturer)
+          </AppText>
+        </View>
+
+        <View style={styles.infoRow}>
+          <View style={styles.infoLabelContainer}>
+            <Ionicons name="key-outline" size={16} color={tokens.text.muted} />
+            <AppText variant="body" color="secondary" style={styles.infoLabel}>
+              Xác thực Token
+            </AppText>
+          </View>
+          <AppText variant="bodyBold" color="primary" style={styles.infoValue}>
+            Hardware Keystore (SecureStore)
+          </AppText>
+        </View>
+
+        <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+          <View style={styles.infoLabelContainer}>
+            <Ionicons name="globe-outline" size={16} color={tokens.text.muted} />
+            <AppText variant="body" color="secondary" style={styles.infoLabel}>
+              Cổng kết nối API
+            </AppText>
+          </View>
+          <AppText variant="bodyBold" color="primary" style={styles.infoValue}>
+            API Gateway HTTPS
+          </AppText>
+        </View>
+      </AppCard>
+
+      {/* Logout Action Button */}
+      <Pressable
+        style={styles.logoutButton}
+        onPress={handleLogout}
+        android_ripple={{ color: tokens.semantic.error.light }}
+        accessibilityRole="button"
+        accessibilityLabel="Đăng xuất khỏi thiết bị"
+      >
+        <Ionicons name="log-out-outline" size={20} color={tokens.semantic.error.button} />
+        <AppText
+          variant="bodyBold"
+          style={[styles.logoutText, { color: tokens.semantic.error.button }]}
+        >
+          Đăng xuất khỏi thiết bị
+        </AppText>
+      </Pressable>
 
       {/* Edit Profile Modal */}
       <Modal visible={isEditModalOpen} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Cập nhật thông tin cá nhân</Text>
-              <TouchableOpacity onPress={() => setIsEditModalOpen(false)}>
-                <Ionicons name="close" size={22} color={colors.neutral[700]} />
-              </TouchableOpacity>
+              <AppText variant="h3" color="primary">
+                Cập nhật thông tin cá nhân
+              </AppText>
+              <Pressable
+                style={styles.modalCloseBtn}
+                onPress={() => setIsEditModalOpen(false)}
+                android_ripple={{ color: tokens.brand.crimsonLight }}
+                accessibilityRole="button"
+                accessibilityLabel="Đóng modal cập nhật"
+              >
+                <Ionicons name="close" size={22} color={tokens.text.secondary} />
+              </Pressable>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Họ và tên</Text>
+              <AppText variant="captionBold" color="secondary" style={styles.inputLabel}>
+                Họ và tên
+              </AppText>
               <TextInput
                 style={styles.textInput}
                 value={editFullName}
                 onChangeText={setEditFullName}
                 placeholder="Nhập họ và tên..."
+                placeholderTextColor={tokens.text.placeholder}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email liên hệ</Text>
+              <AppText variant="captionBold" color="secondary" style={styles.inputLabel}>
+                Email liên hệ
+              </AppText>
               <TextInput
                 style={styles.textInput}
                 value={editEmail}
@@ -219,27 +330,39 @@ export default function LecturerProfileScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 placeholder="Nhập email..."
+                placeholderTextColor={tokens.text.placeholder}
               />
             </View>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity
+              <Pressable
                 style={styles.modalCancelBtn}
                 onPress={() => setIsEditModalOpen(false)}
+                android_ripple={{ color: tokens.brand.crimsonLight }}
+                accessibilityRole="button"
+                accessibilityLabel="Hủy bỏ thay đổi"
               >
-                <Text style={styles.modalCancelText}>Hủy</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalSaveBtn}
+                <AppText variant="bodyBold" color="secondary">
+                  Hủy
+                </AppText>
+              </Pressable>
+
+              <Pressable
+                style={[styles.modalSaveBtn, isUpdating && styles.modalSaveBtnDisabled]}
                 onPress={handleSaveProfile}
                 disabled={isUpdating}
+                android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+                accessibilityRole="button"
+                accessibilityLabel="Lưu thay đổi hồ sơ"
               >
                 {isUpdating ? (
-                  <ActivityIndicator size="small" color={colors.neutral[0]} />
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalSaveText}>Lưu thay đổi</Text>
+                  <AppText variant="bodyBold" color="inverse">
+                    Lưu thay đổi
+                  </AppText>
                 )}
-              </TouchableOpacity>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -251,89 +374,97 @@ export default function LecturerProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[100],
+    backgroundColor: tokens.surface.canvas,
   },
   content: {
-    padding: spacing.md,
-    paddingBottom: spacing.xxl,
+    padding: tokens.spacing.md,
+    paddingBottom: tokens.spacing.xxl + 20,
   },
   profileCard: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    padding: spacing.xl,
+    borderRadius: tokens.radius.xl,
+    padding: tokens.spacing.xl,
     alignItems: 'center',
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
+    marginBottom: tokens.spacing.lg,
+    backgroundColor: tokens.surface.card,
+    borderTopWidth: 4,
+    borderTopColor: tokens.brand.burgundy,
   },
   avatarWrapper: {
-    marginBottom: spacing.sm,
+    position: 'relative',
+    marginBottom: tokens.spacing.sm,
   },
   avatarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    borderColor: tokens.brand.burgundy,
   },
   avatarFallback: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primary[50],
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: tokens.brand.crimsonLight,
+    borderWidth: 3,
+    borderColor: tokens.brand.burgundy,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarOnlineBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarOnlineDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: tokens.semantic.success.main,
+  },
   fullName: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
-    marginTop: spacing.xs,
+    fontSize: 18,
+    marginTop: tokens.spacing.xs,
   },
   email: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
     marginTop: 2,
   },
   roleTag: {
-    backgroundColor: colors.primary[100],
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: radius.full,
-    marginTop: spacing.sm,
-  },
-  roleText: {
-    fontSize: typography.sizes.xxs,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[900],
+    marginTop: tokens.spacing.sm,
   },
   editProfileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primary[50],
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radius.md,
-    marginTop: spacing.md,
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: tokens.brand.crimsonLight,
+    paddingHorizontal: tokens.spacing.lg,
+    minHeight: 48, // Touch target >= 48dp
+    borderRadius: tokens.radius.full,
+    marginTop: tokens.spacing.md,
   },
-  editProfileBtnText: {
-    fontSize: typography.sizes.xs,
-    color: colors.primary[900],
-    fontWeight: typography.weights.semiBold,
-  },
-  sectionHeader: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[600],
-    marginBottom: spacing.xs,
+  sectionHeaderWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: tokens.spacing.xs,
     marginLeft: 4,
   },
+  sectionHeader: {
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   infoGroup: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderRadius: tokens.radius.lg,
+    paddingHorizontal: tokens.spacing.md,
+    marginBottom: tokens.spacing.lg,
+    backgroundColor: tokens.surface.card,
   },
   infoRow: {
     flexDirection: 'row',
@@ -341,16 +472,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
+    borderBottomColor: tokens.border.subtle,
+    minHeight: 48, // Touch target / readability row height
+  },
+  infoLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   infoLabel: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
+    fontSize: 13,
   },
   infoValue: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semiBold,
-    color: colors.neutral[900],
+    fontSize: 13,
   },
   statusRow: {
     flexDirection: 'row',
@@ -361,88 +495,92 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.success.main,
+    backgroundColor: tokens.semantic.success.main,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: colors.error.light,
-    marginTop: spacing.sm,
+    gap: tokens.spacing.xs,
+    backgroundColor: tokens.surface.card,
+    borderRadius: tokens.radius.lg,
+    minHeight: 50, // Touch target >= 48dp
+    borderWidth: 1.5,
+    borderColor: tokens.semantic.error.border,
+    marginTop: tokens.spacing.xs,
+    ...tokens.elevation.sm,
   },
   logoutText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.error.main,
+    fontSize: 14,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: tokens.surface.backdrop,
     justifyContent: 'center',
-    padding: spacing.md,
+    padding: tokens.spacing.md,
   },
   modalContent: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    backgroundColor: tokens.surface.card,
+    borderRadius: tokens.radius.xl,
+    padding: tokens.spacing.lg,
+    ...tokens.elevation.lg,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: tokens.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.border.default,
+    paddingBottom: tokens.spacing.xs,
   },
-  modalTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
+  modalCloseBtn: {
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputGroup: {
-    marginBottom: spacing.sm,
+    marginBottom: tokens.spacing.md,
   },
   inputLabel: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[600],
-    marginBottom: 4,
+    marginBottom: 6,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: colors.neutral[300],
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 8,
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[900],
+    borderColor: tokens.border.default,
+    borderRadius: tokens.radius.md,
+    paddingHorizontal: tokens.spacing.md,
+    minHeight: 48, // Touch target >= 48dp
+    fontSize: 13,
+    color: tokens.text.primary,
+    backgroundColor: tokens.surface.canvas,
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: spacing.sm,
-    marginTop: spacing.md,
+    gap: tokens.spacing.sm,
+    marginTop: tokens.spacing.md,
   },
   modalCancelBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: radius.sm,
-  },
-  modalCancelText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
+    paddingHorizontal: tokens.spacing.lg,
+    minHeight: 48, // Touch target >= 48dp
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: tokens.radius.md,
+    borderWidth: 1,
+    borderColor: tokens.border.default,
+    backgroundColor: tokens.surface.canvas,
   },
   modalSaveBtn: {
-    backgroundColor: colors.primary[800],
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 8,
-    borderRadius: radius.sm,
+    backgroundColor: tokens.brand.burgundy,
+    paddingHorizontal: tokens.spacing.xl,
+    minHeight: 48, // Touch target >= 48dp
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: tokens.radius.md,
   },
-  modalSaveText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[0],
+  modalSaveBtnDisabled: {
+    opacity: 0.6,
   },
 });

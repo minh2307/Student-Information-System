@@ -1,24 +1,29 @@
 /**
- * Login Screen (Phase 2 Real Authentication Integration)
- * Connects directly to backend API Gateway (https://rikkeiportal.io.vn).
- * Handles real JWT lifecycle, role routing, and error feedback.
+ * Login Screen — REDS v2.0 UI/UX Modernization
+ * Connects directly to Backend API Gateway via useLogin hook.
+ * Preserves 100% of JWT lifecycle, role routing, and error feedback.
  */
 
 import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  Pressable,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator,
+  Pressable,
 } from 'react-native';
-import { colors, spacing, radius, typography, shadows } from '@/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { tokens } from '@/theme';
 import { useLogin } from '@/features/auth';
 import { loginSchema } from '@/features/auth/validation';
+import {
+  AppTextInput,
+  AppButton,
+  AppCard,
+  AppText,
+} from '@/components/ui';
 
 export default function LoginScreen() {
   const { isLoading, errorMessage, clearError, handleSubmitLogin } = useLogin();
@@ -38,7 +43,7 @@ export default function LoginScreen() {
       return;
     }
 
-    // 2. Real Backend Authentication
+    // 2. Real Backend Authentication Submit
     await handleSubmitLogin({
       username: username.trim(),
       password,
@@ -52,14 +57,22 @@ export default function LoginScreen() {
     setValidationError(null);
   };
 
+  const activeError = validationError || errorMessage;
+
   return (
     <KeyboardAvoidingView
       style={styles.keyboardContainer}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Brand Institutional Header */}
         <View style={styles.headerArea}>
           <View style={styles.brandBadge}>
+            <Ionicons name="school" size={14} color="#FFFFFF" style={styles.badgeIcon} />
             <Text style={styles.brandBadgeText}>RIKKEI EDUPORTAL</Text>
           </View>
           <Text style={styles.welcomeTitle}>Cổng Thông Tin Đào Tạo</Text>
@@ -68,93 +81,121 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        <View style={styles.card}>
+        {/* Floating Login Card */}
+        <AppCard variant="elevated" style={styles.card}>
           {/* Error Feedback Display */}
-          {(errorMessage || validationError) && (
-            <View style={styles.errorAlert} testID="login-error-banner">
-              <Text style={styles.errorAlertText}>
-                {validationError || errorMessage}
-              </Text>
+          {activeError ? (
+            <View style={styles.errorAlert} testID="login-error-banner" accessibilityRole="alert">
+              <Ionicons
+                name="alert-circle"
+                size={20}
+                color={tokens.semantic.error.main}
+                style={styles.errorIcon}
+              />
+              <Text style={styles.errorAlertText}>{activeError}</Text>
             </View>
-          )}
+          ) : null}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Tên đăng nhập / Mã SV / Mã GV / Email</Text>
-            <TextInput
-              testID="username-input"
-              style={styles.input}
-              placeholder="VD: sv2024001 hoặc gv001"
-              placeholderTextColor={colors.neutral[400]}
-              value={username}
-              onChangeText={(text) => {
-                setUsername(text);
-                if (validationError) setValidationError(null);
-              }}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
+          {/* Username Input */}
+          <AppTextInput
+            label="Tên đăng nhập / Mã SV / Mã GV / Email"
+            testID="username-input"
+            placeholder="VD: sv2024001 hoặc gv001"
+            value={username}
+            onChangeText={(text) => {
+              setUsername(text);
+              if (validationError) setValidationError(null);
+              if (errorMessage) clearError();
+            }}
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isLoading}
+            leftIcon={
+              <Ionicons name="person-outline" size={18} color={tokens.text.muted} />
+            }
+          />
+
+          {/* Password Input with show/hide eye toggle */}
+          <AppTextInput
+            label="Mật khẩu"
+            testID="password-input"
+            placeholder="Nhập mật khẩu"
+            value={password}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (validationError) setValidationError(null);
+              if (errorMessage) clearError();
+            }}
+            isPassword={true}
+            editable={!isLoading}
+            leftIcon={
+              <Ionicons name="lock-closed-outline" size={18} color={tokens.text.muted} />
+            }
+          />
+
+          {/* Submit Action Button */}
+          <View style={styles.buttonWrapper}>
+            <AppButton
+              title="Đăng nhập"
+              onPress={handleLoginPress}
+              isLoading={isLoading}
+              variant="primary"
+              size="lg"
+              fullWidth={true}
+              testID="login-button"
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Mật khẩu</Text>
-            <TextInput
-              testID="password-input"
-              style={styles.input}
-              placeholder="Nhập mật khẩu"
-              placeholderTextColor={colors.neutral[400]}
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                if (validationError) setValidationError(null);
-              }}
-              secureTextEntry
-              editable={!isLoading}
-            />
-          </View>
-
-          {/* Submit Button with Anti-Double Submission Protection */}
-          <Pressable
-            testID="login-button"
-            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
-            onPress={handleLoginPress}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color={colors.neutral[0]} size="small" />
-            ) : (
-              <Text style={styles.loginButtonText}>Đăng nhập</Text>
-            )}
-          </Pressable>
-
-          {/* Fast Demo Account Chips */}
+          {/* Fast Demo Account Selector Chips */}
           <View style={styles.demoSection}>
-            <Text style={styles.demoTitle}>Tài khoản mẫu thử nghiệm:</Text>
+            <AppText variant="captionBold" color="secondary" style={styles.demoTitle}>
+              Tài khoản mẫu thử nghiệm:
+            </AppText>
             <View style={styles.demoChipsRow}>
               <Pressable
-                style={styles.demoChip}
+                style={({ pressed }) => [
+                  styles.demoChip,
+                  pressed && styles.demoChipPressed,
+                ]}
                 onPress={() => handleFillDemo('sv2024001')}
                 disabled={isLoading}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Điền tài khoản mẫu Sinh viên"
               >
                 <Text style={styles.demoChipText}>🎓 SV (sv2024001)</Text>
               </Pressable>
+
               <Pressable
-                style={styles.demoChip}
+                style={({ pressed }) => [
+                  styles.demoChip,
+                  pressed && styles.demoChipPressed,
+                ]}
                 onPress={() => handleFillDemo('gv001')}
                 disabled={isLoading}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Điền tài khoản mẫu Giảng viên"
               >
                 <Text style={styles.demoChipText}>👨‍🏫 GV (gv001)</Text>
               </Pressable>
+
               <Pressable
-                style={styles.demoChip}
+                style={({ pressed }) => [
+                  styles.demoChip,
+                  pressed && styles.demoChipPressed,
+                ]}
                 onPress={() => handleFillDemo('admin')}
                 disabled={isLoading}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                accessibilityRole="button"
+                accessibilityLabel="Điền tài khoản mẫu Quản trị viên"
               >
                 <Text style={styles.demoChipText}>🛡️ Admin</Text>
               </Pressable>
             </View>
           </View>
-        </View>
+        </AppCard>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -163,130 +204,112 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
-    backgroundColor: colors.primary[900],
+    backgroundColor: tokens.brand.burgundy, // Institutional Burgundy #7F1D1D
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: spacing.screenHorizontal,
-    paddingVertical: spacing.huge,
+    paddingHorizontal: tokens.spacing.xl,
+    paddingVertical: tokens.spacing.xxxl,
   },
   headerArea: {
     alignItems: 'center',
-    marginBottom: spacing.xxl,
+    marginBottom: tokens.spacing.xxl,
   },
   brandBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xxs,
-    borderRadius: radius.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.xs,
+    borderRadius: tokens.radius.full,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
-    marginBottom: spacing.md,
+    marginBottom: tokens.spacing.md,
+  },
+  badgeIcon: {
+    marginRight: 6,
   },
   brandBadgeText: {
-    color: colors.neutral[0],
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
+    color: '#FFFFFF',
+    fontSize: tokens.typography.sizes.overline,
+    fontWeight: tokens.typography.weights.bold,
     letterSpacing: 1.1,
   },
   welcomeTitle: {
-    color: colors.neutral[0],
-    fontSize: typography.sizes.xxl,
-    fontWeight: typography.weights.bold,
+    color: '#FFFFFF',
+    fontSize: tokens.typography.sizes.h1,
+    fontWeight: tokens.typography.weights.bold,
     textAlign: 'center',
   },
   welcomeSubtitle: {
-    color: colors.primary[200],
-    fontSize: typography.sizes.sm,
-    marginTop: spacing.xs,
+    color: tokens.brand.primaryScale[200],
+    fontSize: tokens.typography.sizes.body,
+    marginTop: tokens.spacing.xs,
     textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 320,
   },
   card: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.xxl,
-    padding: spacing.cardPadding,
-    ...shadows.lg,
+    backgroundColor: tokens.surface.card,
+    borderRadius: tokens.radius.xxl,
+    padding: tokens.spacing.xxl,
+    ...tokens.elevation.lg,
   },
   errorAlert: {
-    backgroundColor: colors.error.light,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: tokens.semantic.error.light,
     borderWidth: 1,
-    borderColor: colors.error.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
+    borderColor: tokens.semantic.error.border,
+    borderRadius: tokens.radius.md,
+    padding: tokens.spacing.md,
+    marginBottom: tokens.spacing.lg,
+  },
+  errorIcon: {
+    marginRight: tokens.spacing.sm,
   },
   errorAlertText: {
-    color: colors.error.dark,
-    fontSize: typography.sizes.sm,
-    lineHeight: 20,
-    fontWeight: typography.weights.medium,
+    flex: 1,
+    color: tokens.semantic.error.dark,
+    fontSize: tokens.typography.sizes.caption,
+    lineHeight: 18,
+    fontWeight: tokens.typography.weights.medium,
   },
-  inputGroup: {
-    marginBottom: spacing.lg,
-  },
-  inputLabel: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semiBold,
-    color: colors.neutral[700],
-    marginBottom: spacing.xs,
-  },
-  input: {
-    backgroundColor: colors.neutral[50],
-    borderWidth: 1,
-    borderColor: colors.neutral[300],
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: typography.sizes.sm,
-    color: colors.neutral[900],
-    minHeight: spacing.minTouchTarget,
-  },
-  loginButton: {
-    backgroundColor: colors.primary[800],
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
-    minHeight: spacing.minTouchTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.sm,
-  },
-  loginButtonDisabled: {
-    opacity: 0.6,
-  },
-  loginButtonText: {
-    color: colors.neutral[0],
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.bold,
+  buttonWrapper: {
+    marginTop: tokens.spacing.sm,
   },
   demoSection: {
-    marginTop: spacing.xl,
-    paddingTop: spacing.md,
+    marginTop: tokens.spacing.xl,
+    paddingTop: tokens.spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: colors.neutral[200],
+    borderTopColor: tokens.border.default,
   },
   demoTitle: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
-    fontWeight: typography.weights.semiBold,
-    marginBottom: spacing.sm,
+    marginBottom: tokens.spacing.sm,
   },
   demoChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
+    gap: tokens.spacing.xs,
   },
   demoChip: {
-    backgroundColor: colors.neutral[100],
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.md,
+    backgroundColor: tokens.surface.canvas,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: 6,
+    borderRadius: tokens.radius.md,
     borderWidth: 1,
-    borderColor: colors.neutral[300],
+    borderColor: tokens.border.default,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  demoChipPressed: {
+    opacity: 0.7,
   },
   demoChipText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[800],
-    fontWeight: typography.weights.medium,
+    fontSize: tokens.typography.sizes.caption,
+    color: tokens.text.primary,
+    fontWeight: tokens.typography.weights.medium,
   },
 });

@@ -36,6 +36,7 @@ export const NotificationBellButton: React.FC<NotificationBellButtonProps> = ({
       <TouchableOpacity
         style={styles.button}
         onPress={() => setIsModalOpen(true)}
+        testID="notification-bell-button"
         accessibilityRole="button"
         accessibilityLabel={`Thông báo, ${unreadCount} chưa đọc`}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}

@@ -23,6 +23,10 @@ import {
   TokenRefreshSuccessPayload,
   TokenRefreshFailurePayload,
   BridgeErrorPayload,
+  QrScanStartPayload,
+  QrScanCancelPayload,
+  QrScanSuccessPayload,
+  QrScanErrorPayload,
 } from './types';
 import {
   BridgeAuthError,
@@ -35,22 +39,36 @@ import {
   RefreshUnauthorizedError,
 } from './errors';
 
+import {
+  DEFAULT_PRODUCTION_ORIGINS,
+  DEFAULT_DEV_ORIGINS,
+  DANGEROUS_SCHEMES,
+  isValidOrigin,
+  evaluateNavigationPolicy,
+  isDangerousScheme,
+  isSafeExternalUrl,
+  NavigationPolicyResult,
+} from './securityPolicy';
+
+export {
+  DEFAULT_PRODUCTION_ORIGINS,
+  DEFAULT_DEV_ORIGINS,
+  DANGEROUS_SCHEMES,
+  evaluateNavigationPolicy,
+  isDangerousScheme,
+  isSafeExternalUrl,
+};
+
 export const SLIDING_WINDOW_MS = 60_000; // 60 seconds freshness window
 export const MAX_PAYLOAD_BYTES = 65_536; // 64 KB max envelope size
-
-export const DEFAULT_PRODUCTION_ORIGINS = ['https://rikkeiportal.io.vn'];
-export const DEFAULT_DEV_ORIGINS = [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-];
 
 export interface SecureBridgeOptions {
   allowedOrigins?: string[];
   isDev?: boolean;
   onNavigateNative?: (route: string, params?: Record<string, unknown>) => void;
   sendToWeb?: (jsonString: string) => void;
+  onQrScanRequested?: (payload: QrScanStartPayload) => void;
+  onQrScanCancelled?: (payload: QrScanCancelPayload) => void;
 }
 
 export class SecureWebViewBridge {
@@ -58,6 +76,8 @@ export class SecureWebViewBridge {
   private isDev: boolean;
   private onNavigateNative?: (route: string, params?: Record<string, unknown>) => void;
   private sendToWeb?: (jsonString: string) => void;
+  private onQrScanRequested?: (payload: QrScanStartPayload) => void;
+  private onQrScanCancelled?: (payload: QrScanCancelPayload) => void;
 
   // Anti-Replay: Map of processed message IDs -> timestamp
   private processedMessageIds = new Map<string, number>();
@@ -75,6 +95,8 @@ export class SecureWebViewBridge {
     );
     this.onNavigateNative = options?.onNavigateNative;
     this.sendToWeb = options?.sendToWeb;
+    this.onQrScanRequested = options?.onQrScanRequested;
+    this.onQrScanCancelled = options?.onQrScanCancelled;
   }
 
   public setSendToWeb(fn: (jsonString: string) => void) {
@@ -95,25 +117,26 @@ export class SecureWebViewBridge {
     this.processedMessageIds.clear();
   }
 
+  public setQrScanHandlers(handlers: {
+    onStartScan?: (payload: QrScanStartPayload) => void;
+    onCancelScan?: (payload: QrScanCancelPayload) => void;
+  }): void {
+    this.onQrScanRequested = handlers.onStartScan;
+    this.onQrScanCancelled = handlers.onCancelScan;
+  }
+
   /**
    * RFC 3986 Standard Origin Validation (Scheme + Hostname + Port exact match).
    */
   public isValidOrigin(rawUrl: string): boolean {
-    if (!rawUrl || typeof rawUrl !== 'string') return false;
-    try {
-      const parsed = new URL(rawUrl);
-      const portPart = parsed.port ? `:${parsed.port}` : '';
-      const origin = `${parsed.protocol}//${parsed.hostname}${portPart}`;
+    return isValidOrigin(rawUrl, this.allowedOrigins, this.isDev);
+  }
 
-      // In production, strictly disallow http:
-      if (!this.isDev && parsed.protocol !== 'https:') {
-        return false;
-      }
-
-      return this.allowedOrigins.includes(origin);
-    } catch {
-      return false;
-    }
+  /**
+   * Evaluate navigation request against security policy.
+   */
+  public evaluateNavigation(targetUrl: string): NavigationPolicyResult {
+    return evaluateNavigationPolicy(targetUrl, this.allowedOrigins, this.isDev);
   }
 
   /**
@@ -179,6 +202,8 @@ export class SecureWebViewBridge {
       'AUTH_REFRESH_REQUEST',
       'APP_LOGOUT_REQUEST',
       'NAVIGATE_NATIVE',
+      'QR_SCAN_START',
+      'QR_SCAN_CANCEL',
     ];
 
     if (!allowedTypes.includes(envelope.type)) {
@@ -284,6 +309,12 @@ export class SecureWebViewBridge {
 
       case 'NAVIGATE_NATIVE':
         return this.handleNavigateNative(envelope);
+
+      case 'QR_SCAN_START':
+        return this.handleQrScanStart(envelope);
+
+      case 'QR_SCAN_CANCEL':
+        return this.handleQrScanCancel(envelope);
 
       default:
         throw new InvalidEnvelopeError(`Unhandled message type: ${envelope.type}`);
@@ -448,6 +479,76 @@ export class SecureWebViewBridge {
       this.onNavigateNative(payload.route, payload.params);
     }
     return this.createEnvelope<null>('NAVIGATE_NATIVE', null);
+  }
+
+  /**
+   * Native QR Scan Request:
+   * Triggers Native Camera Scanner overlay for student attendance.
+   */
+  private handleQrScanStart(request: BridgeEnvelope): BridgeEnvelope<null> {
+    const payload = (request.payload || {}) as QrScanStartPayload;
+    if (this.onQrScanRequested) {
+      this.onQrScanRequested(payload);
+    }
+    return this.createEnvelope<null>('QR_SCAN_START', null);
+  }
+
+  /**
+   * Native QR Scan Cancellation:
+   */
+  private handleQrScanCancel(request: BridgeEnvelope): BridgeEnvelope<null> {
+    const payload = (request.payload || {}) as QrScanCancelPayload;
+    if (this.onQrScanCancelled) {
+      this.onQrScanCancelled(payload);
+    }
+    return this.createEnvelope<null>('QR_SCAN_CANCEL', null);
+  }
+
+  /**
+   * Dispatch QR scan success from Native Camera to Web.
+   * Enforces session integrity, anti-replay, and zero credential leakage.
+   */
+  public async sendQrScanSuccess(qrToken: string): Promise<BridgeEnvelope<QrScanSuccessPayload>> {
+    if (tokenBroker.getIsLocked()) {
+      throw new SessionTerminatedError('TokenBroker is locked: bridge rejecting operations');
+    }
+    const currentSessionTxId = await tokenStorage.getTransactionId();
+    if (!currentSessionTxId) {
+      throw new SessionTerminatedError('No active session transaction');
+    }
+
+    const envelope = this.createEnvelope<QrScanSuccessPayload>('QR_SCAN_SUCCESS', {
+      qrToken,
+      scannedAt: Date.now(),
+    });
+    envelope.sessionId = currentSessionTxId;
+    envelope.seq = ++this.lastProcessedSeq;
+
+    this.sendResponse(envelope);
+    return envelope;
+  }
+
+  /**
+   * Dispatch QR scan cancellation from Native to Web.
+   */
+  public sendQrScanCancel(reason = 'USER_CANCELLED'): BridgeEnvelope<QrScanCancelPayload> {
+    const envelope = this.createEnvelope<QrScanCancelPayload>('QR_SCAN_CANCEL', {
+      reason,
+    });
+    this.sendResponse(envelope);
+    return envelope;
+  }
+
+  /**
+   * Dispatch QR scan error from Native Camera to Web.
+   */
+  public sendQrScanError(code: string, message: string): BridgeEnvelope<QrScanErrorPayload> {
+    const envelope = this.createEnvelope<QrScanErrorPayload>('QR_SCAN_ERROR', {
+      code,
+      message,
+    });
+    this.sendResponse(envelope);
+    return envelope;
   }
 
   /**

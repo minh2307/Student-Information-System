@@ -1,12 +1,12 @@
 /**
- * Student Timetable Screen
+ * Student Timetable Screen - REDS v2.0
  * Live integration with GET /api/v1/student/timetable via TanStack Query.
+ * Refactored with REDS v2.0 Tokens, 5 Academic Palettes, Touch Targets >= 48dp, and WCAG AA Compliance.
  */
 
 import React, { useState, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
@@ -14,10 +14,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography, shadows } from '@/theme';
+import { tokens } from '@/theme';
 import { useStudentTimetable } from '@/features/student';
-import { ErrorView } from '@/components/common/ErrorView';
-import { EmptyState } from '@/components/common/EmptyState';
+import { AppCard } from '@/components/primitives/AppCard';
+import { AppText } from '@/components/primitives/AppText';
+import { AppBadge } from '@/components/feedback/AppBadge';
+import { AppEmptyState } from '@/components/feedback/AppEmptyState';
+import { AppErrorState } from '@/components/feedback/AppErrorState';
+import { AppLoadingSkeleton } from '@/components/feedback/AppLoadingSkeleton';
 import { formatDayOfWeek, formatTime } from '@/utils/formatters';
 
 interface DayOption {
@@ -37,9 +41,36 @@ const WEEKDAYS: DayOption[] = [
   { key: 'SUN', label: 'CN', code: 'SUN' },
 ];
 
+/**
+ * Deterministically maps a course code to one of the 5 REDS v2.0 Academic Palettes
+ * (Blue Sapphire, Emerald Green, Amber Gold, Purple Amethyst, Rose Ruby)
+ */
+const getAcademicPaletteForCourse = (courseCode: string) => {
+  const list = [
+    tokens.academic.blueSapphire,
+    tokens.academic.emeraldGreen,
+    tokens.academic.amberGold,
+    tokens.academic.purpleAmethyst,
+    tokens.academic.roseRuby,
+  ];
+  let hash = 0;
+  for (let i = 0; i < courseCode.length; i++) {
+    hash = (hash << 5) - hash + courseCode.charCodeAt(i);
+    hash |= 0;
+  }
+  return list[Math.abs(hash) % list.length];
+};
+
 export default function TimetableScreen() {
   const [selectedDay, setSelectedDay] = useState<string>('ALL');
-  const { data: timetable = [], isLoading, isError, error, refetch, isRefetching } = useStudentTimetable();
+  const {
+    data: timetable = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+    isRefetching,
+  } = useStudentTimetable();
 
   // Filter classes according to selected day
   const filteredClasses = useMemo(() => {
@@ -61,7 +92,7 @@ export default function TimetableScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Weekday Selector Bar */}
+      {/* Weekday Selector Bar (Touch Target >= 48dp, Accessible Ripple) */}
       <View style={styles.selectorWrapper}>
         <ScrollView
           horizontal
@@ -78,56 +109,82 @@ export default function TimetableScreen() {
                 onPress={() => setSelectedDay(day.code)}
                 style={({ pressed }) => [
                   styles.dayItem,
-                  isSelected && styles.dayItemActive,
+                  isSelected ? styles.dayItemActive : styles.dayItemInactive,
                   pressed && styles.dayItemPressed,
                 ]}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                android_ripple={{
+                  color: isSelected ? 'rgba(255, 255, 255, 0.25)' : 'rgba(153, 27, 27, 0.12)',
+                  borderless: false,
+                }}
                 accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
                 accessibilityLabel={`Xem lịch ${day.label}`}
+                testID={`day-selector-${day.code}`}
               >
-                <Text
+                <AppText
+                  variant="captionBold"
                   style={[
                     styles.dayText,
-                    isSelected && styles.dayTextActive,
-                    isToday && !isSelected && styles.todayText,
+                    isSelected
+                      ? styles.dayTextActive
+                      : isToday
+                      ? styles.todayText
+                      : styles.dayTextInactive,
                   ]}
                 >
                   {day.label}
-                </Text>
-                {isToday && <View style={[styles.todayDot, isSelected && styles.todayDotActive]} />}
+                </AppText>
+                {isToday ? (
+                  <View
+                    style={[
+                      styles.todayDot,
+                      isSelected ? styles.todayDotActive : styles.todayDotInactive,
+                    ]}
+                  />
+                ) : null}
               </Pressable>
             );
           })}
         </ScrollView>
       </View>
 
-      {/* Main List */}
+      {/* Main Timetable List */}
       <ScrollView
         style={styles.scrollArea}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={() => {
               refetch();
             }}
-            colors={[colors.primary[800]]}
-            tintColor={colors.primary[800]}
+            colors={[tokens.brand.burgundy]}
+            tintColor={tokens.brand.burgundy}
           />
         }
       >
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary[800]} />
-            <Text style={styles.loadingText}>Đang tải thời khóa biểu...</Text>
+          <View style={styles.loadingContainer} accessibilityLiveRegion="polite">
+            <ActivityIndicator size="small" color={tokens.brand.burgundy} />
+            <AppText variant="caption" color="muted" style={styles.loadingText}>
+              Đang tải thời khóa biểu...
+            </AppText>
+            <View style={styles.skeletonGroup}>
+              <AppLoadingSkeleton variant="card" height={100} style={styles.skeletonItem} />
+              <AppLoadingSkeleton variant="card" height={100} style={styles.skeletonItem} />
+            </View>
           </View>
         ) : isError ? (
-          <ErrorView
+          <AppErrorState
             title="Lỗi tải thời khóa biểu"
             message={error?.message || 'Không thể lấy dữ liệu lịch học.'}
             onRetry={refetch}
+            retryLabel="Thử lại"
           />
         ) : filteredClasses.length === 0 ? (
-          <EmptyState
+          <AppEmptyState
             icon="calendar-outline"
             title="Không có lịch học"
             message={
@@ -137,66 +194,103 @@ export default function TimetableScreen() {
             }
           />
         ) : (
-          filteredClasses.map((item) => (
-            <View key={item.id} style={styles.classCard}>
-              <View style={styles.timeColumn}>
-                <Text style={styles.timeStart}>{formatTime(item.startTime)}</Text>
-                <Text style={styles.timeEnd}>{formatTime(item.endTime)}</Text>
-                <View style={styles.dayBadge}>
-                  <Text style={styles.dayBadgeText}>{formatDayOfWeek(item.dayOfWeek)}</Text>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.detailsColumn}>
-                <View style={styles.headerRow}>
-                  <Text style={styles.courseCode}>{item.courseCode}</Text>
-                  {item.credits ? (
-                    <Text style={styles.creditsBadge}>{item.credits} Tín chỉ</Text>
-                  ) : null}
-                  {item.status ? (
-                    <View
-                      style={[
-                        styles.statusPill,
-                        item.status === 'REGISTERED' ? styles.statusSuccess : styles.statusWarning,
-                      ]}
+          filteredClasses.map((item) => {
+            const palette = getAcademicPaletteForCourse(item.courseCode || 'CS');
+            return (
+              <AppCard
+                key={item.id}
+                variant="elevated"
+                style={[
+                  styles.classCard,
+                  { borderLeftColor: palette.text, borderLeftWidth: 4 },
+                ]}
+                testID={`timetable-class-${item.id}`}
+              >
+                {/* Time & Day Column */}
+                <View style={styles.timeColumn}>
+                  <AppText variant="bodyBold" color="primary" style={styles.timeStart}>
+                    {formatTime(item.startTime)}
+                  </AppText>
+                  <AppText variant="caption" color="muted" style={styles.timeEnd}>
+                    {formatTime(item.endTime)}
+                  </AppText>
+                  <View style={[styles.dayBadge, { backgroundColor: palette.badge }]}>
+                    <AppText
+                      variant="captionBold"
+                      style={[styles.dayBadgeText, { color: palette.text }]}
                     >
-                      <Text
-                        style={[
-                          styles.statusText,
-                          item.status === 'REGISTERED'
-                            ? styles.statusSuccessText
-                            : styles.statusWarningText,
-                        ]}
+                      {formatDayOfWeek(item.dayOfWeek)}
+                    </AppText>
+                  </View>
+                </View>
+
+                {/* Vertical Divider */}
+                <View style={styles.divider} />
+
+                {/* Class Details Column */}
+                <View style={styles.detailsColumn}>
+                  <View style={styles.headerRow}>
+                    <View style={[styles.codeBadge, { backgroundColor: palette.badge }]}>
+                      <AppText
+                        variant="captionBold"
+                        style={[styles.courseCode, { color: palette.text }]}
                       >
-                        {item.status === 'REGISTERED' ? 'Đã duyệt' : item.status}
-                      </Text>
+                        {item.courseCode}
+                      </AppText>
+                    </View>
+
+                    {item.credits ? (
+                      <View style={styles.creditsBadge}>
+                        <AppText variant="caption" color="secondary" style={styles.creditsText}>
+                          {item.credits} Tín chỉ
+                        </AppText>
+                      </View>
+                    ) : null}
+
+                    {item.status ? (
+                      <AppBadge
+                        label={item.status === 'REGISTERED' ? 'Đã duyệt' : item.status}
+                        variant={item.status === 'REGISTERED' ? 'success' : 'warning'}
+                        size="sm"
+                      />
+                    ) : null}
+                  </View>
+
+                  <AppText
+                    variant="bodyBold"
+                    color="primary"
+                    numberOfLines={2}
+                    style={styles.courseName}
+                  >
+                    {item.courseName}
+                  </AppText>
+
+                  <View style={styles.infoRow}>
+                    <Ionicons name="location-outline" size={14} color={tokens.text.secondary} />
+                    <AppText variant="caption" color="secondary" numberOfLines={1} style={styles.infoText}>
+                      {item.roomName || 'Chưa xếp phòng'}
+                    </AppText>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <Ionicons name="person-outline" size={14} color={tokens.text.secondary} />
+                    <AppText variant="caption" color="secondary" numberOfLines={1} style={styles.infoText}>
+                      {item.lecturerName || 'Chưa phân công giảng viên'}
+                    </AppText>
+                  </View>
+
+                  {item.sectionCode ? (
+                    <View style={styles.infoRow}>
+                      <Ionicons name="barcode-outline" size={14} color={tokens.text.muted} />
+                      <AppText variant="caption" color="muted" numberOfLines={1} style={styles.sectionText}>
+                        Lớp: {item.sectionCode}
+                      </AppText>
                     </View>
                   ) : null}
                 </View>
-
-                <Text style={styles.courseName}>{item.courseName}</Text>
-
-                <View style={styles.infoRow}>
-                  <Ionicons name="location-outline" size={14} color={colors.neutral[600]} />
-                  <Text style={styles.infoText}>{item.roomName || 'Chưa xếp phòng'}</Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Ionicons name="person-outline" size={14} color={colors.neutral[600]} />
-                  <Text style={styles.infoText}>{item.lecturerName || 'Chưa phân công giảng viên'}</Text>
-                </View>
-
-                {item.sectionCode ? (
-                  <View style={styles.infoRow}>
-                    <Ionicons name="barcode-outline" size={14} color={colors.neutral[500]} />
-                    <Text style={styles.sectionText}>Lớp: {item.sectionCode}</Text>
-                  </View>
-                ) : null}
-              </View>
-            </View>
-          ))
+              </AppCard>
+            );
+          })
         )}
       </ScrollView>
     </View>
@@ -206,83 +300,96 @@ export default function TimetableScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
+    backgroundColor: tokens.surface.canvas,
   },
   selectorWrapper: {
-    backgroundColor: colors.neutral[0],
+    backgroundColor: tokens.surface.card,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
-    paddingVertical: spacing.xs,
+    borderBottomColor: tokens.border.default,
+    paddingVertical: tokens.spacing.xs,
   },
   daysBar: {
-    paddingHorizontal: spacing.screenHorizontal,
-    gap: spacing.xs,
+    paddingHorizontal: tokens.spacing.lg,
+    gap: tokens.spacing.xs,
     alignItems: 'center',
   },
   dayItem: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.lg,
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+    borderRadius: tokens.radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 40,
+    minHeight: 48, // Guaranteed >= 48dp Android Touch Target
+    minWidth: 54,
   },
   dayItemActive: {
-    backgroundColor: colors.primary[800],
+    backgroundColor: tokens.brand.burgundy,
+    borderWidth: 1,
+    borderColor: tokens.brand.burgundy,
+  },
+  dayItemInactive: {
+    backgroundColor: tokens.surface.canvas,
+    borderWidth: 1,
+    borderColor: tokens.border.default,
   },
   dayItemPressed: {
-    opacity: 0.8,
+    opacity: 0.85,
   },
   dayText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
-    fontWeight: typography.weights.medium,
+    fontSize: 12,
   },
   dayTextActive: {
-    color: colors.neutral[0],
-    fontWeight: typography.weights.bold,
+    color: '#FFFFFF',
+    fontWeight: tokens.typography.weights.bold,
+  },
+  dayTextInactive: {
+    color: tokens.text.primary,
   },
   todayText: {
-    color: colors.primary[700],
-    fontWeight: typography.weights.bold,
+    color: tokens.brand.crimson,
+    fontWeight: tokens.typography.weights.bold,
   },
   todayDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.primary[600],
     marginTop: 2,
   },
   todayDotActive: {
-    backgroundColor: colors.neutral[0],
+    backgroundColor: '#FFFFFF',
+  },
+  todayDotInactive: {
+    backgroundColor: tokens.brand.crimson,
   },
   scrollArea: {
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.screenHorizontal,
-    paddingBottom: spacing.xxxl,
-    paddingTop: spacing.sm,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingBottom: tokens.spacing.xxxl,
+    paddingTop: tokens.spacing.sm,
   },
   loadingContainer: {
-    paddingVertical: spacing.xxl,
+    paddingVertical: tokens.spacing.xl,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    marginTop: spacing.sm,
+    marginTop: tokens.spacing.sm,
+  },
+  skeletonGroup: {
+    width: '100%',
+    marginTop: tokens.spacing.lg,
+    gap: tokens.spacing.md,
+  },
+  skeletonItem: {
+    width: '100%',
   },
   classCard: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.xl,
-    padding: spacing.cardPadding,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
+    marginBottom: tokens.spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    ...shadows.sm,
+    padding: tokens.spacing.md,
   },
   timeColumn: {
     width: 68,
@@ -290,32 +397,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timeStart: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
+    fontSize: 14,
   },
   timeEnd: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
+    fontSize: 11,
     marginTop: 2,
   },
   dayBadge: {
-    backgroundColor: colors.neutral[100],
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: radius.sm,
+    borderRadius: tokens.radius.sm,
     marginTop: 6,
   },
   dayBadgeText: {
     fontSize: 10,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[800],
   },
   divider: {
     width: 1,
     height: 60,
-    backgroundColor: colors.neutral[200],
-    marginHorizontal: spacing.md,
+    backgroundColor: tokens.border.default,
+    marginHorizontal: tokens.spacing.md,
   },
   detailsColumn: {
     flex: 1,
@@ -324,52 +425,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: spacing.xs,
+    gap: tokens.spacing.xs,
     marginBottom: 2,
   },
+  codeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: tokens.radius.sm,
+  },
   courseCode: {
-    fontSize: typography.sizes.xxs,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[700],
+    fontSize: 11,
     textTransform: 'uppercase',
   },
   creditsBadge: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
-    backgroundColor: colors.neutral[100],
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  statusPill: {
+    backgroundColor: tokens.surface.canvas,
+    borderWidth: 1,
+    borderColor: tokens.border.default,
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: radius.full,
+    borderRadius: tokens.radius.sm,
   },
-  statusText: {
+  creditsText: {
     fontSize: 10,
-    fontWeight: typography.weights.bold,
-  },
-  statusSuccess: {
-    backgroundColor: colors.success.light,
-  },
-  statusSuccessText: {
-    color: colors.success.dark,
-    fontSize: 10,
-    fontWeight: typography.weights.bold,
-  },
-  statusWarning: {
-    backgroundColor: colors.warning.light,
-  },
-  statusWarningText: {
-    color: colors.warning.dark,
-    fontSize: 10,
-    fontWeight: typography.weights.bold,
   },
   courseName: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
     marginVertical: 3,
   },
   infoRow: {
@@ -379,12 +458,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   infoText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
     flex: 1,
+    fontSize: 12,
   },
   sectionText: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
+    fontSize: 11,
   },
 });

@@ -1,15 +1,15 @@
 /**
- * Lecturer Teaching Schedule Screen
+ * Lecturer Teaching Schedule Screen - REDS v2.0
  * Comprehensive schedule view with day selector, semester filter, and class details.
+ * Refactored to utilize REDS v2.0 Tokens, Shared Components & WCAG AA Compliance.
  */
 
 import React, { useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   RefreshControl,
   ActivityIndicator,
   Modal,
@@ -17,7 +17,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useLecturerClasses, LecturerClassSection } from '@/features/lecturer';
-import { colors, spacing, typography, radius } from '@/theme';
+import { tokens } from '@/theme';
+import { AppCard } from '@/components/primitives/AppCard';
+import { AppText } from '@/components/primitives/AppText';
+import { AppBadge } from '@/components/feedback/AppBadge';
+import { AppEmptyState } from '@/components/feedback/AppEmptyState';
+import { AppErrorState } from '@/components/feedback/AppErrorState';
+import { AppLoadingSkeleton } from '@/components/feedback/AppLoadingSkeleton';
 import { formatDayOfWeek, formatTime } from '@/utils/formatters';
 
 const DAYS = [
@@ -32,6 +38,25 @@ const DAYS = [
 ];
 
 const DAY_CODES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+/**
+ * Deterministically maps a course code to one of the 5 REDS v2.0 Academic Palettes
+ */
+const getAcademicPaletteForCourse = (courseCode: string) => {
+  const list = [
+    tokens.academic.blueSapphire,
+    tokens.academic.emeraldGreen,
+    tokens.academic.amberGold,
+    tokens.academic.purpleAmethyst,
+    tokens.academic.roseRuby,
+  ];
+  let hash = 0;
+  for (let i = 0; i < courseCode.length; i++) {
+    hash = (hash << 5) - hash + courseCode.charCodeAt(i);
+    hash |= 0;
+  }
+  return list[Math.abs(hash) % list.length];
+};
 
 export default function LecturerScheduleScreen() {
   const router = useRouter();
@@ -69,7 +94,7 @@ export default function LecturerScheduleScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Day Selector Bar */}
+      {/* Day Selector Bar (Touch Target >= 48dp, Accessible Ripple) */}
       <View style={styles.daySelectorContainer}>
         <ScrollView
           horizontal
@@ -81,27 +106,46 @@ export default function LecturerScheduleScreen() {
             const isToday = day.code === todayDayCode;
 
             return (
-              <TouchableOpacity
+              <Pressable
                 key={day.code}
-                style={[
+                style={({ pressed }) => [
                   styles.dayButton,
-                  isSelected && styles.dayButtonSelected,
-                  isToday && !isSelected && styles.dayButtonToday,
+                  isSelected ? styles.dayButtonSelected : styles.dayButtonInactive,
+                  pressed && styles.dayButtonPressed,
                 ]}
                 onPress={() => setSelectedDay(day.code)}
-                activeOpacity={0.7}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                android_ripple={{
+                  color: isSelected ? 'rgba(255, 255, 255, 0.25)' : 'rgba(153, 27, 27, 0.12)',
+                  borderless: false,
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`Xem lịch ${day.label}`}
+                testID={`lecturer-day-${day.code}`}
               >
-                <Text
+                <AppText
+                  variant="captionBold"
                   style={[
                     styles.dayButtonText,
-                    isSelected && styles.dayButtonTextSelected,
-                    isToday && !isSelected && styles.dayButtonTextToday,
+                    isSelected
+                      ? styles.dayButtonTextSelected
+                      : isToday
+                      ? styles.todayText
+                      : styles.dayButtonTextInactive,
                   ]}
                 >
                   {day.label}
-                </Text>
-                {isToday && <View style={styles.todayDot} />}
-              </TouchableOpacity>
+                </AppText>
+                {isToday ? (
+                  <View
+                    style={[
+                      styles.todayDot,
+                      isSelected ? styles.todayDotActive : styles.todayDotInactive,
+                    ]}
+                  />
+                ) : null}
+              </Pressable>
             );
           })}
         </ScrollView>
@@ -111,128 +155,132 @@ export default function LecturerScheduleScreen() {
       <ScrollView
         style={styles.listContainer}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={() => {
               refetch();
             }}
-            tintColor={colors.primary[800]}
-            colors={[colors.primary[800]]}
+            tintColor={tokens.brand.burgundy}
+            colors={[tokens.brand.burgundy]}
           />
         }
       >
         <View style={styles.headerInfo}>
-          <Text style={styles.summaryText}>
+          <AppText variant="caption" color="secondary" style={styles.summaryText}>
             Hiển thị {filteredClasses.length} buổi giảng dạy{' '}
             {selectedDay === 'ALL'
               ? 'trong tuần'
               : `vào ${DAYS.find((d) => d.code === selectedDay)?.label}`}
-          </Text>
+          </AppText>
         </View>
 
         {isLoading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={colors.primary[800]} />
-            <Text style={styles.loadingText}>Đang tải lịch giảng dạy...</Text>
+          <View style={styles.centerContainer} accessibilityLiveRegion="polite">
+            <ActivityIndicator size="small" color={tokens.brand.burgundy} />
+            <AppText variant="caption" color="muted" style={styles.loadingText}>
+              Đang tải lịch giảng dạy...
+            </AppText>
+            <View style={styles.skeletonGroup}>
+              <AppLoadingSkeleton variant="card" height={110} style={styles.skeletonItem} />
+              <AppLoadingSkeleton variant="card" height={110} style={styles.skeletonItem} />
+            </View>
           </View>
         ) : isError ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={36} color={colors.error.main} />
-            <Text style={styles.errorTitle}>Không thể tải thời khóa biểu</Text>
-            <Text style={styles.errorSubtitle}>
-              {error?.message || 'Lỗi kết nối đến máy chủ API.'}
-            </Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => refetch()}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.retryButtonText}>Tải lại</Text>
-            </TouchableOpacity>
-          </View>
+          <AppErrorState
+            title="Không thể tải thời khóa biểu"
+            message={error?.message || 'Lỗi kết nối đến máy chủ API.'}
+            onRetry={() => refetch()}
+            retryLabel="Tải lại"
+          />
         ) : filteredClasses.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="calendar-outline" size={48} color={colors.neutral[400]} />
-            <Text style={styles.emptyTitle}>Không có lịch giảng dạy</Text>
-            <Text style={styles.emptySubtitle}>
-              {selectedDay === 'ALL'
+          <AppEmptyState
+            icon="calendar-outline"
+            title="Không có lịch giảng dạy"
+            message={
+              selectedDay === 'ALL'
                 ? 'Thầy/Cô hiện không có buổi dạy nào trong hệ thống.'
                 : `Thầy/Cô không có ca dạy nào vào ${
                     DAYS.find((d) => d.code === selectedDay)?.label
-                  }.`}
-            </Text>
-          </View>
+                  }.`
+            }
+          />
         ) : (
-          filteredClasses.map((item) => (
-            <TouchableOpacity
-              key={item.sectionId}
-              style={styles.classCard}
-              onPress={() => setSelectedClass(item)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.cardHeader}>
-                <View style={styles.codeBadge}>
-                  <Text style={styles.codeText}>{item.sectionCode}</Text>
-                </View>
-                <View
-                  style={[
-                    styles.statusTag,
-                    item.status === 'OPEN'
-                      ? styles.statusTagOpen
-                      : styles.statusTagClosed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusTagText,
-                      item.status === 'OPEN'
-                        ? styles.statusTagTextOpen
-                        : styles.statusTagTextClosed,
-                    ]}
-                  >
-                    {item.status === 'OPEN' ? 'Đang mở' : 'Đã đóng'}
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={styles.courseName}>{item.courseName}</Text>
-              <Text style={styles.courseCode}>
-                Mã môn: {item.courseCode} | {item.credits} tín chỉ | Kỳ:{' '}
-                {item.semesterName}
-              </Text>
-
-              <View style={styles.divider} />
-
-              <View style={styles.metaRow}>
-                <View style={styles.metaCol}>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="calendar-outline" size={15} color={colors.primary[800]} />
-                    <Text style={styles.metaText}>{formatDayOfWeek(item.dayOfWeek)}</Text>
+          filteredClasses.map((item) => {
+            const palette = getAcademicPaletteForCourse(item.courseCode || 'CS');
+            return (
+              <AppCard
+                key={item.sectionId}
+                variant="elevated"
+                style={[
+                  styles.classCard,
+                  { borderLeftColor: palette.text, borderLeftWidth: 4 },
+                ]}
+                onPress={() => setSelectedClass(item)}
+                accessibilityLabel={`Chi tiết lớp ${item.sectionCode}`}
+                testID={`lecturer-class-${item.sectionId}`}
+              >
+                <View style={styles.cardHeader}>
+                  <View style={[styles.codeBadge, { backgroundColor: palette.badge }]}>
+                    <AppText
+                      variant="captionBold"
+                      style={[styles.codeText, { color: palette.text }]}
+                    >
+                      {item.sectionCode}
+                    </AppText>
                   </View>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="time-outline" size={15} color={colors.primary[800]} />
-                    <Text style={styles.metaText}>
-                      {formatTime(item.startTime)} - {formatTime(item.endTime)}
-                    </Text>
-                  </View>
+                  <AppBadge
+                    label={item.status === 'OPEN' ? 'Đang mở' : 'Đã đóng'}
+                    variant={item.status === 'OPEN' ? 'success' : 'warning'}
+                    size="sm"
+                  />
                 </View>
 
-                <View style={styles.metaCol}>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="location-outline" size={15} color={colors.secondary[700]} />
-                    <Text style={styles.metaText}>Phòng: {item.roomName}</Text>
+                <AppText variant="bodyBold" color="primary" numberOfLines={2} style={styles.courseName}>
+                  {item.courseName}
+                </AppText>
+                <AppText variant="caption" color="secondary" style={styles.courseCode}>
+                  Mã môn: {item.courseCode} | {item.credits} tín chỉ | Kỳ:{' '}
+                  {item.semesterName}
+                </AppText>
+
+                <View style={styles.divider} />
+
+                <View style={styles.metaRow}>
+                  <View style={styles.metaCol}>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="calendar-outline" size={15} color={palette.text} />
+                      <AppText variant="caption" color="secondary" style={styles.metaText}>
+                        {formatDayOfWeek(item.dayOfWeek)}
+                      </AppText>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="time-outline" size={15} color={palette.text} />
+                      <AppText variant="caption" color="secondary" style={styles.metaText}>
+                        {formatTime(item.startTime)} - {formatTime(item.endTime)}
+                      </AppText>
+                    </View>
                   </View>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="people-outline" size={15} color={colors.neutral[600]} />
-                    <Text style={styles.metaText}>
-                      Sĩ số: {item.currentEnrolled}/{item.maxCapacity} SV
-                    </Text>
+
+                  <View style={styles.metaCol}>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="location-outline" size={15} color={tokens.text.muted} />
+                      <AppText variant="caption" color="secondary" style={styles.metaText}>
+                        Phòng: {item.roomName}
+                      </AppText>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="people-outline" size={15} color={tokens.text.muted} />
+                      <AppText variant="caption" color="secondary" style={styles.metaText}>
+                        Sĩ số: {item.currentEnrolled}/{item.maxCapacity} SV
+                      </AppText>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))
+              </AppCard>
+            );
+          })
         )}
       </ScrollView>
 
@@ -241,82 +289,109 @@ export default function LecturerScheduleScreen() {
         <Modal
           visible={!!selectedClass}
           transparent
-          animationType="slide"
+          animationType="fade"
           onRequestClose={() => setSelectedClass(null)}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Chi tiết lớp học phần</Text>
-                <TouchableOpacity
+                <AppText variant="h3" color="primary" style={styles.modalTitle}>
+                  Chi tiết lớp học phần
+                </AppText>
+                <Pressable
                   onPress={() => setSelectedClass(null)}
                   style={styles.closeBtn}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Đóng"
                 >
-                  <Ionicons name="close" size={22} color={colors.neutral[700]} />
-                </TouchableOpacity>
+                  <Ionicons name="close" size={22} color={tokens.text.primary} />
+                </Pressable>
               </View>
 
               <View style={styles.modalBody}>
                 <View style={styles.modalBadgeRow}>
                   <View style={styles.modalCodeBadge}>
-                    <Text style={styles.modalCodeText}>{selectedClass.sectionCode}</Text>
+                    <AppText variant="captionBold" style={styles.modalCodeText}>
+                      {selectedClass.sectionCode}
+                    </AppText>
                   </View>
-                  <Text style={styles.modalCredits}>{selectedClass.credits} tín chỉ</Text>
+                  <AppBadge
+                    label={`${selectedClass.credits} tín chỉ`}
+                    variant="neutral"
+                    size="sm"
+                  />
                 </View>
 
-                <Text style={styles.modalCourseName}>{selectedClass.courseName}</Text>
-                <Text style={styles.modalCourseCode}>Mã môn học: {selectedClass.courseCode}</Text>
+                <AppText variant="bodyBold" color="primary" style={styles.modalCourseName}>
+                  {selectedClass.courseName}
+                </AppText>
+                <AppText variant="caption" color="secondary" style={styles.modalCourseCode}>
+                  Mã môn học: {selectedClass.courseCode}
+                </AppText>
 
                 <View style={styles.modalInfoGrid}>
                   <View style={styles.modalInfoItem}>
-                    <Text style={styles.modalInfoLabel}>Thứ trong tuần</Text>
-                    <Text style={styles.modalInfoVal}>
+                    <AppText variant="caption" color="muted" style={styles.modalInfoLabel}>
+                      Thứ trong tuần
+                    </AppText>
+                    <AppText variant="bodyBold" color="primary" style={styles.modalInfoVal}>
                       {formatDayOfWeek(selectedClass.dayOfWeek)}
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={styles.modalInfoItem}>
-                    <Text style={styles.modalInfoLabel}>Thời gian học</Text>
-                    <Text style={styles.modalInfoVal}>
+                    <AppText variant="caption" color="muted" style={styles.modalInfoLabel}>
+                      Thời gian học
+                    </AppText>
+                    <AppText variant="bodyBold" color="primary" style={styles.modalInfoVal}>
                       {formatTime(selectedClass.startTime)} - {formatTime(selectedClass.endTime)}
-                    </Text>
+                    </AppText>
                   </View>
                   <View style={styles.modalInfoItem}>
-                    <Text style={styles.modalInfoLabel}>Phòng giảng dạy</Text>
-                    <Text style={styles.modalInfoVal}>{selectedClass.roomName}</Text>
+                    <AppText variant="caption" color="muted" style={styles.modalInfoLabel}>
+                      Phòng giảng dạy
+                    </AppText>
+                    <AppText variant="bodyBold" color="primary" style={styles.modalInfoVal}>
+                      {selectedClass.roomName}
+                    </AppText>
                   </View>
                   <View style={styles.modalInfoItem}>
-                    <Text style={styles.modalInfoLabel}>Sĩ số lớp</Text>
-                    <Text style={styles.modalInfoVal}>
+                    <AppText variant="caption" color="muted" style={styles.modalInfoLabel}>
+                      Sĩ số lớp
+                    </AppText>
+                    <AppText variant="bodyBold" color="primary" style={styles.modalInfoVal}>
                       {selectedClass.currentEnrolled} / {selectedClass.maxCapacity} sinh viên
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
               </View>
 
               <View style={styles.modalActions}>
-                <TouchableOpacity
+                <Pressable
                   style={styles.modalActionSecondary}
                   onPress={() => {
                     setSelectedClass(null);
                     router.push('/(lecturer)/classes');
                   }}
-                  activeOpacity={0.8}
+                  accessibilityRole="button"
                 >
-                  <Ionicons name="people" size={18} color={colors.primary[800]} />
-                  <Text style={styles.modalActionSecondaryText}>Danh sách SV & Điểm</Text>
-                </TouchableOpacity>
+                  <AppText variant="captionBold" style={styles.actionSecText}>
+                    Quản lý lớp & Điểm
+                  </AppText>
+                </Pressable>
 
-                <TouchableOpacity
+                <Pressable
                   style={styles.modalActionPrimary}
                   onPress={() => {
                     setSelectedClass(null);
                     router.push('/(lecturer)/attendance');
                   }}
-                  activeOpacity={0.8}
+                  accessibilityRole="button"
                 >
-                  <Ionicons name="qr-code-outline" size={18} color={colors.neutral[0]} />
-                  <Text style={styles.modalActionPrimaryText}>Điểm danh QR</Text>
-                </TouchableOpacity>
+                  <AppText variant="captionBold" style={styles.actionPriText}>
+                    Mở điểm danh QR
+                  </AppText>
+                </Pressable>
               </View>
             </View>
           </View>
@@ -329,192 +404,128 @@ export default function LecturerScheduleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[100],
+    backgroundColor: tokens.surface.canvas,
   },
   daySelectorContainer: {
-    backgroundColor: colors.neutral[0],
+    backgroundColor: tokens.surface.card,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
-    paddingVertical: spacing.xs,
+    borderBottomColor: tokens.border.default,
+    paddingVertical: tokens.spacing.xs,
   },
   daySelectorScroll: {
-    paddingHorizontal: spacing.sm,
-    gap: spacing.xs,
+    paddingHorizontal: tokens.spacing.lg,
+    gap: tokens.spacing.xs,
+    alignItems: 'center',
   },
   dayButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.full,
-    backgroundColor: colors.neutral[100],
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+    borderRadius: tokens.radius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 48, // Touch target >= 48dp
+    minWidth: 54,
   },
   dayButtonSelected: {
-    backgroundColor: colors.primary[900],
-  },
-  dayButtonToday: {
+    backgroundColor: tokens.brand.burgundy,
     borderWidth: 1,
-    borderColor: colors.primary[800],
+    borderColor: tokens.brand.burgundy,
+  },
+  dayButtonInactive: {
+    backgroundColor: tokens.surface.canvas,
+    borderWidth: 1,
+    borderColor: tokens.border.default,
+  },
+  dayButtonPressed: {
+    opacity: 0.85,
   },
   dayButtonText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.medium,
-    color: colors.neutral[700],
+    fontSize: 12,
   },
   dayButtonTextSelected: {
-    color: colors.neutral[0],
-    fontWeight: typography.weights.bold,
+    color: '#FFFFFF',
+    fontWeight: tokens.typography.weights.bold,
   },
-  dayButtonTextToday: {
-    color: colors.primary[800],
-    fontWeight: typography.weights.bold,
+  dayButtonTextInactive: {
+    color: tokens.text.primary,
+  },
+  todayText: {
+    color: tokens.brand.crimson,
+    fontWeight: tokens.typography.weights.bold,
   },
   todayDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.primary[800],
     marginTop: 2,
+  },
+  todayDotActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  todayDotInactive: {
+    backgroundColor: tokens.brand.crimson,
   },
   listContainer: {
     flex: 1,
   },
   listContent: {
-    padding: spacing.md,
-    paddingBottom: spacing.xxl,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingBottom: tokens.spacing.xxxl,
+    paddingTop: tokens.spacing.sm,
   },
   headerInfo: {
-    marginBottom: spacing.sm,
+    marginBottom: tokens.spacing.sm,
   },
   summaryText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    fontWeight: typography.weights.medium,
+    fontSize: 12,
   },
   centerContainer: {
-    padding: spacing.xxl,
+    paddingVertical: tokens.spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   loadingText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
-    marginTop: spacing.sm,
+    marginTop: tokens.spacing.sm,
   },
-  errorContainer: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.error.light,
+  skeletonGroup: {
+    width: '100%',
+    marginTop: tokens.spacing.lg,
+    gap: tokens.spacing.md,
   },
-  errorTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.error.dark,
-    marginTop: spacing.xs,
-  },
-  errorSubtitle: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: spacing.md,
-  },
-  retryButton: {
-    backgroundColor: colors.primary[800],
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.md,
-  },
-  retryButtonText: {
-    color: colors.neutral[0],
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-  },
-  emptyContainer: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    padding: spacing.xxl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
-    marginTop: spacing.md,
-  },
-  emptyTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[800],
-    marginTop: spacing.sm,
-  },
-  emptySubtitle: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    textAlign: 'center',
-    marginTop: 4,
+  skeletonItem: {
+    width: '100%',
   },
   classCard: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
+    marginBottom: tokens.spacing.sm,
+    padding: tokens.spacing.md,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: tokens.spacing.xs,
   },
   codeBadge: {
-    backgroundColor: colors.primary[50],
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.sm,
-  },
-  codeText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[900],
-  },
-  statusTag: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: radius.sm,
+    borderRadius: tokens.radius.sm,
   },
-  statusTagOpen: {
-    backgroundColor: colors.success.light + '25',
-  },
-  statusTagClosed: {
-    backgroundColor: colors.neutral[200],
-  },
-  statusTagText: {
-    fontSize: typography.sizes.xxs,
-    fontWeight: typography.weights.bold,
-  },
-  statusTagTextOpen: {
-    color: colors.success.dark,
-  },
-  statusTagTextClosed: {
-    color: colors.neutral[600],
+  codeText: {
+    fontSize: 11,
+    textTransform: 'uppercase',
   },
   courseName: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
     marginTop: 2,
   },
   courseCode: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
+    fontSize: 12,
     marginTop: 2,
   },
   divider: {
+    width: '100%',
     height: 1,
-    backgroundColor: colors.neutral[200],
-    marginVertical: spacing.sm,
+    backgroundColor: tokens.border.default,
+    marginVertical: tokens.spacing.sm,
   },
   metaRow: {
     flexDirection: 'row',
@@ -529,121 +540,107 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   metaText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[700],
+    fontSize: 12,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: tokens.spacing.lg,
   },
   modalContent: {
-    backgroundColor: colors.neutral[0],
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    padding: spacing.lg,
+    width: '100%',
+    backgroundColor: tokens.surface.card,
+    borderRadius: tokens.radius.xl,
+    padding: tokens.spacing.lg,
+    ...tokens.elevation.lg,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: tokens.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.border.default,
+    paddingBottom: tokens.spacing.xs,
   },
   modalTitle: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
+    fontSize: 16,
   },
   closeBtn: {
     padding: 4,
   },
   modalBody: {
-    marginBottom: spacing.lg,
+    marginBottom: tokens.spacing.lg,
   },
   modalBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
+    gap: tokens.spacing.sm,
+    marginBottom: tokens.spacing.xs,
   },
   modalCodeBadge: {
-    backgroundColor: colors.primary[50],
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.sm,
+    paddingVertical: 2,
+    borderRadius: tokens.radius.sm,
   },
   modalCodeText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[900],
-  },
-  modalCredits: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
-    fontWeight: typography.weights.medium,
+    color: '#1D4ED8',
+    fontSize: 11,
   },
   modalCourseName: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
-    marginTop: 4,
+    fontSize: 15,
+    marginTop: tokens.spacing.xs,
   },
   modalCourseCode: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    marginBottom: spacing.md,
+    marginTop: 2,
   },
   modalInfoGrid: {
-    backgroundColor: colors.neutral[50],
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
+    marginTop: tokens.spacing.md,
+    gap: tokens.spacing.sm,
   },
   modalInfoItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.border.subtle,
+    paddingBottom: 4,
   },
   modalInfoLabel: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
+    fontSize: 12,
   },
   modalInfoVal: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semiBold,
-    color: colors.neutral[800],
+    fontSize: 12,
   },
   modalActions: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: tokens.spacing.sm,
   },
   modalActionSecondary: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    backgroundColor: colors.primary[50],
-    paddingVertical: 12,
-    borderRadius: radius.md,
+    minHeight: 48, // Touch target >= 48dp
+    borderRadius: tokens.radius.md,
+    borderWidth: 1,
+    borderColor: tokens.border.default,
+    backgroundColor: tokens.surface.canvas,
   },
-  modalActionSecondaryText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[900],
+  actionSecText: {
+    color: tokens.text.primary,
   },
   modalActionPrimary: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    backgroundColor: colors.primary[800],
-    paddingVertical: 12,
-    borderRadius: radius.md,
+    minHeight: 48, // Touch target >= 48dp
+    borderRadius: tokens.radius.md,
+    backgroundColor: tokens.brand.burgundy,
   },
-  modalActionPrimaryText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[0],
+  actionPriText: {
+    color: '#FFFFFF',
   },
 });

@@ -1,15 +1,15 @@
 /**
- * Lecturer Class Management & Student Roster Screen
+ * Lecturer Class Management & Student Roster Screen - REDS v2.0
  * Section management, student grades, grade locking, and academic early warnings.
+ * Refactored to utilize REDS v2.0 Tokens, Shared Components & WCAG AA Compliance.
  */
 
 import React, { useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   TextInput,
   RefreshControl,
   ActivityIndicator,
@@ -29,8 +29,14 @@ import {
   LecturerClassSection,
   StudentGrade,
 } from '@/features/lecturer';
-import { colors, spacing, typography, radius } from '@/theme';
-import { formatScore, formatPercentage } from '@/utils/formatters';
+import { tokens } from '@/theme';
+import { AppCard } from '@/components/primitives/AppCard';
+import { AppText } from '@/components/primitives/AppText';
+import { AppBadge } from '@/components/feedback/AppBadge';
+import { AppEmptyState } from '@/components/feedback/AppEmptyState';
+import { AppErrorState } from '@/components/feedback/AppErrorState';
+import { AppLoadingSkeleton } from '@/components/feedback/AppLoadingSkeleton';
+import { formatScore, formatPercentage, formatDayOfWeek, formatTime } from '@/utils/formatters';
 
 export default function LecturerClassesScreen() {
   const router = useRouter();
@@ -217,69 +223,79 @@ export default function LecturerClassesScreen() {
       <View style={styles.container}>
         {/* Section Top Header */}
         <View style={styles.sectionHeaderBar}>
-          <TouchableOpacity
+          <Pressable
             style={styles.backButton}
             onPress={() => setSelectedSection(null)}
-            activeOpacity={0.7}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Quay lại danh sách lớp"
           >
-            <Ionicons name="arrow-back" size={22} color={colors.neutral[0]} />
-          </TouchableOpacity>
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+          </Pressable>
           <View style={styles.sectionHeaderTitles}>
-            <Text style={styles.sectionHeaderCode}>{selectedSection.sectionCode}</Text>
-            <Text style={styles.sectionHeaderSub} numberOfLines={1}>
+            <AppText variant="bodyBold" style={styles.sectionHeaderCode}>
+              {selectedSection.sectionCode}
+            </AppText>
+            <AppText variant="caption" style={styles.sectionHeaderSub} numberOfLines={1}>
               {selectedSection.courseName}
-            </Text>
+            </AppText>
           </View>
-          <TouchableOpacity
+          <Pressable
             style={styles.qrHeaderBtn}
             onPress={() => router.push('/(lecturer)/attendance')}
-            activeOpacity={0.7}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Điểm danh QR"
           >
-            <Ionicons name="qr-code-outline" size={20} color={colors.neutral[0]} />
-          </TouchableOpacity>
+            <Ionicons name="qr-code-outline" size={20} color="#FFFFFF" />
+          </Pressable>
         </View>
 
         {/* View Tabs: Students vs Early Warnings */}
         <View style={styles.subTabBar}>
-          <TouchableOpacity
+          <Pressable
             style={[styles.subTabItem, activeTab === 'students' && styles.subTabItemActive]}
             onPress={() => setActiveTab('students')}
-            activeOpacity={0.8}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 'students' }}
           >
             <Ionicons
               name="people-outline"
               size={16}
-              color={activeTab === 'students' ? colors.primary[900] : colors.neutral[500]}
+              color={activeTab === 'students' ? tokens.brand.burgundy : tokens.text.muted}
             />
-            <Text
+            <AppText
+              variant="captionBold"
               style={[
                 styles.subTabText,
-                activeTab === 'students' && styles.subTabTextActive,
+                activeTab === 'students' ? styles.subTabTextActive : styles.subTabTextInactive,
               ]}
             >
               Sinh viên & Điểm ({students.length})
-            </Text>
-          </TouchableOpacity>
+            </AppText>
+          </Pressable>
 
-          <TouchableOpacity
+          <Pressable
             style={[styles.subTabItem, activeTab === 'warnings' && styles.subTabItemActive]}
             onPress={() => setActiveTab('warnings')}
-            activeOpacity={0.8}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 'warnings' }}
           >
             <Ionicons
               name="warning-outline"
               size={16}
-              color={activeTab === 'warnings' ? colors.primary[900] : colors.neutral[500]}
+              color={activeTab === 'warnings' ? tokens.brand.burgundy : tokens.text.muted}
             />
-            <Text
+            <AppText
+              variant="captionBold"
               style={[
                 styles.subTabText,
-                activeTab === 'warnings' && styles.subTabTextActive,
+                activeTab === 'warnings' ? styles.subTabTextActive : styles.subTabTextInactive,
               ]}
             >
               Cảnh báo sớm {earlyWarnings?.criticalCount ? `(${earlyWarnings.criticalCount})` : ''}
-            </Text>
-          </TouchableOpacity>
+            </AppText>
+          </Pressable>
         </View>
 
         {/* TAB 1: STUDENTS & GRADES */}
@@ -287,122 +303,151 @@ export default function LecturerClassesScreen() {
           <ScrollView
             style={styles.listContainer}
             contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
                 refreshing={isStudentsRefetching}
                 onRefresh={() => {
                   void refetchStudents();
                 }}
-                tintColor={colors.primary[800]}
+                tintColor={tokens.brand.burgundy}
+                colors={[tokens.brand.burgundy]}
               />
             }
           >
             {/* Action Bar for Section */}
-            <View style={styles.rosterActionBar}>
+            <AppCard variant="outlined" style={styles.rosterActionBar}>
               <View>
-                <Text style={styles.rosterSummaryText}>
+                <AppText variant="captionBold" color="primary" style={styles.rosterSummaryText}>
                   Sĩ số: {students.length} SV | Tín chỉ: {selectedSection.credits}
-                </Text>
-                <Text style={styles.rosterStatusText}>
+                </AppText>
+                <AppText variant="caption" color="secondary" style={styles.rosterStatusText}>
                   Trạng thái:{' '}
                   {students.every((s) => s.isLocked) ? (
-                    <Text style={{ color: colors.neutral[600], fontWeight: 'bold' }}>
+                    <AppText variant="captionBold" color="secondary">
                       Đã chốt điểm
-                    </Text>
+                    </AppText>
                   ) : (
-                    <Text style={{ color: colors.success.dark, fontWeight: 'bold' }}>
+                    <AppText variant="captionBold" style={{ color: tokens.semantic.success.dark }}>
                       Đang nhập điểm
-                    </Text>
+                    </AppText>
                   )}
-                </Text>
+                </AppText>
               </View>
 
               {!students.every((s) => s.isLocked) && (
-                <TouchableOpacity
-                  style={styles.lockGradesBtn}
+                <Pressable
+                  style={({ pressed }) => [styles.lockGradesBtn, pressed && styles.btnPressed]}
                   onPress={handleLockGrades}
-                  activeOpacity={0.8}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.25)', borderless: false }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Chốt điểm"
                 >
-                  <Ionicons name="lock-closed-outline" size={14} color={colors.neutral[0]} />
-                  <Text style={styles.lockGradesBtnText}>Chốt điểm</Text>
-                </TouchableOpacity>
+                  <Ionicons name="lock-closed-outline" size={14} color="#FFFFFF" />
+                  <AppText variant="captionBold" style={styles.lockGradesBtnText}>
+                    Chốt điểm
+                  </AppText>
+                </Pressable>
               )}
-            </View>
+            </AppCard>
 
             {isStudentsLoading ? (
-              <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={colors.primary[800]} />
-                <Text style={styles.loadingText}>Đang tải danh sách sinh viên...</Text>
+              <View style={styles.centerContainer} accessibilityLiveRegion="polite">
+                <ActivityIndicator size="small" color={tokens.brand.burgundy} />
+                <AppText variant="caption" color="muted" style={styles.loadingText}>
+                  Đang tải danh sách sinh viên...
+                </AppText>
               </View>
             ) : isStudentsError ? (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle-outline" size={32} color={colors.error.main} />
-                <Text style={styles.errorTitle}>Không thể tải danh sách sinh viên</Text>
-                <Text style={styles.errorSubtitle}>
-                  {studentsError?.message || 'Lỗi truy xuất dữ liệu.'}
-                </Text>
-              </View>
+              <AppErrorState
+                title="Không thể tải danh sách sinh viên"
+                message={studentsError?.message || 'Lỗi truy xuất dữ liệu.'}
+                onRetry={() => refetchStudents()}
+                retryLabel="Thử lại"
+              />
             ) : students.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="people-outline" size={40} color={colors.neutral[400]} />
-                <Text style={styles.emptyTitle}>Chưa có sinh viên đăng ký</Text>
-                <Text style={styles.emptySubtitle}>
-                  Lớp học phần này hiện chưa có sinh viên ở trạng thái REGISTERED.
-                </Text>
-              </View>
+              <AppEmptyState
+                icon="people-outline"
+                title="Chưa có sinh viên đăng ký"
+                message="Lớp học phần này hiện chưa có sinh viên ở trạng thái REGISTERED."
+              />
             ) : (
               students.map((student) => (
-                <View key={student.enrollmentId} style={styles.studentCard}>
-                  <View style={styles.studentCardHeader}>
-                    <View>
-                      <Text style={styles.studentName}>{student.fullName}</Text>
-                      <Text style={styles.studentCode}>MSSV: {student.studentCode}</Text>
+                <AppCard key={student.enrollmentId} variant="elevated" style={styles.studentCard}>
+                  <View style={styles.studentHeader}>
+                    <View style={styles.studentNameCol}>
+                      <AppText variant="bodyBold" color="primary" style={styles.studentName}>
+                        {student.fullName}
+                      </AppText>
+                      <AppText variant="caption" color="muted" style={styles.studentCode}>
+                        {student.studentCode}
+                      </AppText>
                     </View>
-                    <View style={styles.studentHeaderRight}>
-                      {student.letterGrade && (
-                        <View style={styles.gradeBadge}>
-                          <Text style={styles.gradeBadgeText}>{student.letterGrade}</Text>
-                        </View>
-                      )}
-                      {!student.isLocked && (
-                        <TouchableOpacity
-                          style={styles.editScoreBtn}
-                          onPress={() => handleOpenEdit(student)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="create-outline" size={16} color={colors.primary[800]} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
+
+                    {student.isLocked ? (
+                      <AppBadge label="Đã chốt" variant="neutral" size="sm" />
+                    ) : (
+                      <Pressable
+                        style={styles.editBtn}
+                        onPress={() => handleOpenEdit(student)}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Sửa điểm cho ${student.fullName}`}
+                      >
+                        <Ionicons name="create-outline" size={16} color={tokens.brand.burgundy} />
+                        <AppText variant="captionBold" style={styles.editBtnText}>
+                          Sửa
+                        </AppText>
+                      </Pressable>
+                    )}
                   </View>
 
-                  <View style={styles.scoresGrid}>
+                  <View style={styles.scoreGrid}>
                     <View style={styles.scoreItem}>
-                      <Text style={styles.scoreLabel}>Chuyên cần</Text>
-                      <Text style={styles.scoreValue}>
-                        {formatPercentage(student.attendanceRate)}
-                      </Text>
+                      <AppText variant="caption" color="muted" style={styles.scoreLabel}>
+                        Chuyên cần
+                      </AppText>
+                      <AppText variant="bodyBold" color="primary" style={styles.scoreValue}>
+                        {student.attendanceRate != null ? `${student.attendanceRate}%` : '--'}
+                      </AppText>
                     </View>
                     <View style={styles.scoreItem}>
-                      <Text style={styles.scoreLabel}>Giữa kỳ</Text>
-                      <Text style={styles.scoreValue}>
+                      <AppText variant="caption" color="muted" style={styles.scoreLabel}>
+                        Giữa kỳ
+                      </AppText>
+                      <AppText variant="bodyBold" color="primary" style={styles.scoreValue}>
                         {formatScore(student.midtermScore)}
-                      </Text>
+                      </AppText>
                     </View>
                     <View style={styles.scoreItem}>
-                      <Text style={styles.scoreLabel}>Cuối kỳ</Text>
-                      <Text style={styles.scoreValue}>
+                      <AppText variant="caption" color="muted" style={styles.scoreLabel}>
+                        Cuối kỳ
+                      </AppText>
+                      <AppText variant="bodyBold" color="primary" style={styles.scoreValue}>
                         {formatScore(student.finalScore)}
-                      </Text>
+                      </AppText>
                     </View>
                     <View style={styles.scoreItem}>
-                      <Text style={styles.scoreLabel}>Tổng kết</Text>
-                      <Text style={[styles.scoreValue, { color: colors.primary[900], fontWeight: 'bold' }]}>
-                        {formatScore(student.totalScore)}
-                      </Text>
+                      <AppText variant="caption" color="muted" style={styles.scoreLabel}>
+                        Tổng kết
+                      </AppText>
+                      <AppText
+                        variant="bodyBold"
+                        style={[
+                          styles.scoreValue,
+                          {
+                            color:
+                              student.totalScore != null && student.totalScore < 4.0
+                                ? tokens.semantic.error.dark
+                                : tokens.text.primary,
+                          },
+                        ]}
+                      >
+                        {formatScore(student.totalScore)} ({student.letterGrade || '--'})
+                      </AppText>
                     </View>
                   </View>
-                </View>
+                </AppCard>
               ))
             )}
           </ScrollView>
@@ -413,214 +458,207 @@ export default function LecturerClassesScreen() {
           <ScrollView
             style={styles.listContainer}
             contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
                 refreshing={isWarningsRefetching}
                 onRefresh={() => {
                   void refetchWarnings();
                 }}
-                tintColor={colors.primary[800]}
+                tintColor={tokens.brand.burgundy}
+                colors={[tokens.brand.burgundy]}
               />
             }
           >
             {isWarningsLoading ? (
-              <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={colors.primary[800]} />
-                <Text style={styles.loadingText}>Đang đánh giá rủi ro học vụ...</Text>
+              <View style={styles.centerContainer} accessibilityLiveRegion="polite">
+                <ActivityIndicator size="small" color={tokens.brand.burgundy} />
+                <AppText variant="caption" color="muted" style={styles.loadingText}>
+                  Đang phân tích dữ liệu cảnh báo sớm...
+                </AppText>
               </View>
             ) : isWarningsError ? (
-              <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle-outline" size={32} color={colors.error.main} />
-                <Text style={styles.errorTitle}>Không thể tải báo cáo cảnh báo</Text>
-              </View>
-            ) : !earlyWarnings ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="shield-checkmark-outline" size={40} color={colors.success.dark} />
-                <Text style={styles.emptyTitle}>Lớp học an toàn</Text>
-              </View>
+              <AppErrorState
+                title="Lỗi tải dữ liệu cảnh báo sớm"
+                message="Không thể kết nối đến AI Early Warning Engine."
+                onRetry={() => refetchWarnings()}
+                retryLabel="Thử lại"
+              />
+            ) : !earlyWarnings || earlyWarnings.students.length === 0 ? (
+              <AppEmptyState
+                icon="checkmark-circle-outline"
+                title="Lớp học an toàn"
+                message="Tất cả sinh viên trong lớp đều có tỷ lệ chuyên cần tốt và kết quả học tập ổn định."
+              />
             ) : (
-              <View>
-                {/* Warning Stats Cards */}
-                <View style={styles.warningStatsGrid}>
-                  <View style={[styles.warningStatCard, { borderColor: colors.error.main }]}>
-                    <Text style={[styles.warningStatNum, { color: colors.error.dark }]}>
+              <>
+                {/* Warning Summary Cards */}
+                <View style={styles.warningMetricsRow}>
+                  <AppCard variant="outlined" style={[styles.warningMetricCard, { backgroundColor: '#FEF2F2' }]}>
+                    <AppText variant="h2" style={{ color: tokens.semantic.error.dark }}>
                       {earlyWarnings.criticalCount}
-                    </Text>
-                    <Text style={styles.warningStatLabel}>Nguy cấp (Cấm thi/Trượt)</Text>
-                  </View>
-                  <View style={[styles.warningStatCard, { borderColor: colors.warning.dark }]}>
-                    <Text style={[styles.warningStatNum, { color: colors.warning.dark }]}>
+                    </AppText>
+                    <AppText variant="caption" color="secondary">
+                      Nguy cấp (Cấm thi)
+                    </AppText>
+                  </AppCard>
+
+                  <AppCard variant="outlined" style={[styles.warningMetricCard, { backgroundColor: '#FFFBEB' }]}>
+                    <AppText variant="h2" style={{ color: tokens.semantic.warning.dark }}>
                       {earlyWarnings.warningCount}
-                    </Text>
-                    <Text style={styles.warningStatLabel}>Cần chú ý</Text>
-                  </View>
-                  <View style={[styles.warningStatCard, { borderColor: colors.success.dark }]}>
-                    <Text style={[styles.warningStatNum, { color: colors.success.dark }]}>
+                    </AppText>
+                    <AppText variant="caption" color="secondary">
+                      Cần lưu ý
+                    </AppText>
+                  </AppCard>
+
+                  <AppCard variant="outlined" style={[styles.warningMetricCard, { backgroundColor: '#ECFDF5' }]}>
+                    <AppText variant="h2" style={{ color: tokens.semantic.success.dark }}>
                       {earlyWarnings.safeCount}
-                    </Text>
-                    <Text style={styles.warningStatLabel}>An toàn</Text>
-                  </View>
+                    </AppText>
+                    <AppText variant="caption" color="secondary">
+                      An toàn
+                    </AppText>
+                  </AppCard>
                 </View>
 
-                {/* 1-touch Dispatch Button */}
+                {/* 1-touch Dispatch Action */}
                 {earlyWarnings.criticalCount > 0 && (
-                  <TouchableOpacity
-                    style={styles.dispatchBtn}
+                  <Pressable
+                    style={({ pressed }) => [styles.dispatchBtn, pressed && styles.btnPressed]}
                     onPress={handleDispatchWarnings}
                     disabled={isDispatching}
-                    activeOpacity={0.8}
+                    android_ripple={{ color: 'rgba(255, 255, 255, 0.25)', borderless: false }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Bắn cảnh báo học vụ 1-chạm"
                   >
-                    {isDispatching ? (
-                      <ActivityIndicator size="small" color={colors.neutral[0]} />
-                    ) : (
-                      <>
-                        <Ionicons name="megaphone-outline" size={18} color={colors.neutral[0]} />
-                        <Text style={styles.dispatchBtnText}>
-                          Bắn cảnh báo học vụ 1-chạm ({earlyWarnings.criticalCount} SV)
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                    <Ionicons name="notifications" size={16} color="#FFFFFF" />
+                    <AppText variant="captionBold" style={styles.dispatchBtnText}>
+                      {isDispatching ? 'Đang gửi thông báo...' : 'Bắn cảnh báo học vụ 1-chạm'}
+                    </AppText>
+                  </Pressable>
                 )}
 
-                {/* Summary Evaluation */}
-                {earlyWarnings.evaluationSummary && (
-                  <View style={styles.evalBox}>
-                    <Ionicons name="information-circle" size={18} color={colors.neutral[700]} />
-                    <Text style={styles.evalText}>{earlyWarnings.evaluationSummary}</Text>
-                  </View>
-                )}
+                {/* Risk Student Roster */}
+                {earlyWarnings.students.map((risk) => (
+                  <AppCard key={risk.studentId} variant="elevated" style={styles.riskCard}>
+                    <View style={styles.riskHeader}>
+                      <View style={{ flex: 1 }}>
+                        <AppText variant="bodyBold" color="primary">
+                          {risk.fullName} ({risk.studentCode})
+                        </AppText>
+                        <AppText variant="caption" color="secondary">
+                          Vắng: {risk.absentSessions}/{risk.totalSessionsHeld} buổi (
+                          {formatPercentage(risk.absenceRate)})
+                        </AppText>
+                      </View>
+                      <AppBadge
+                        label={risk.riskLevel === 'CRITICAL' ? 'Nguy cấp' : 'Cảnh báo'}
+                        variant={risk.riskLevel === 'CRITICAL' ? 'error' : 'warning'}
+                        size="sm"
+                      />
+                    </View>
 
-                {/* High Risk Students List */}
-                <Text style={styles.riskListTitle}>Danh sách sinh viên nguy cơ</Text>
-
-                {earlyWarnings.students.filter((s) => s.riskLevel !== 'SAFE').length === 0 ? (
-                  <View style={styles.emptyContainer}>
-                    <Ionicons name="checkmark-circle" size={40} color={colors.success.dark} />
-                    <Text style={styles.emptyTitle}>Tất cả sinh viên đều an toàn</Text>
-                  </View>
-                ) : (
-                  earlyWarnings.students
-                    .filter((s) => s.riskLevel !== 'SAFE')
-                    .map((s) => (
-                      <View key={s.studentId} style={styles.riskCard}>
-                        <View style={styles.riskHeader}>
-                          <View>
-                            <Text style={styles.riskStudentName}>{s.fullName}</Text>
-                            <Text style={styles.riskStudentCode}>MSSV: {s.studentCode}</Text>
-                          </View>
-                          <View
-                            style={[
-                              styles.riskLevelBadge,
-                              s.riskLevel === 'CRITICAL'
-                                ? styles.riskLevelCritical
-                                : styles.riskLevelWarning,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.riskLevelText,
-                                s.riskLevel === 'CRITICAL'
-                                  ? styles.riskLevelTextCritical
-                                  : styles.riskLevelTextWarning,
-                              ]}
-                            >
-                              {s.riskLevel === 'CRITICAL' ? 'NGUY CẤP' : 'CẢNH BÁO'}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <Text style={styles.absenceRateText}>
-                          Tỷ lệ vắng:{' '}
-                          <Text style={{ fontWeight: 'bold', color: colors.error.dark }}>
-                            {Math.round(s.absenceRate * 100)}%
-                          </Text>{' '}
-                          ({s.absentSessions}/{s.totalSessionsHeld} buổi)
-                        </Text>
-
-                        {s.riskReasons?.map((reason, idx) => (
-                          <View key={idx} style={styles.reasonRow}>
-                            <Ionicons name="alert-circle" size={14} color={colors.error.main} />
-                            <Text style={styles.reasonText}>{reason}</Text>
-                          </View>
-                        ))}
-
-                        {s.suggestions?.map((sug, idx) => (
-                          <View key={idx} style={styles.sugRow}>
-                            <Ionicons name="bulb-outline" size={14} color={colors.warning.dark} />
-                            <Text style={styles.sugText}>{sug}</Text>
-                          </View>
+                    {risk.riskReasons?.length ? (
+                      <View style={styles.reasonsList}>
+                        {risk.riskReasons.map((reason, idx) => (
+                          <AppText key={idx} variant="caption" style={styles.reasonText}>
+                            • {reason}
+                          </AppText>
                         ))}
                       </View>
-                    ))
-                )}
-              </View>
+                    ) : null}
+                  </AppCard>
+                ))}
+              </>
             )}
           </ScrollView>
         )}
 
-        {/* Edit Grade Modal */}
+        {/* Grade Edit Modal */}
         {editingStudent && (
-          <Modal visible={!!editingStudent} transparent animationType="slide">
+          <Modal visible={!!editingStudent} transparent animationType="fade">
             <View style={styles.modalOverlay}>
               <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Nhập điểm sinh viên</Text>
-                  <TouchableOpacity onPress={() => setEditingStudent(null)}>
-                    <Ionicons name="close" size={22} color={colors.neutral[700]} />
-                  </TouchableOpacity>
+                  <AppText variant="h3" color="primary">
+                    Nhập điểm sinh viên
+                  </AppText>
+                  <Pressable onPress={() => setEditingStudent(null)} hitSlop={10}>
+                    <Ionicons name="close" size={22} color={tokens.text.primary} />
+                  </Pressable>
                 </View>
 
-                <Text style={styles.modalStudentInfo}>
-                  {editingStudent.fullName} ({editingStudent.studentCode})
-                </Text>
+                <View style={styles.modalBody}>
+                  <AppText variant="bodyBold" color="primary" style={styles.modalStudentName}>
+                    {editingStudent.fullName}
+                  </AppText>
+                  <AppText variant="caption" color="secondary" style={styles.modalStudentCode}>
+                    Mã SV: {editingStudent.studentCode} | Lớp: {selectedSection.sectionCode}
+                  </AppText>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Tỷ lệ chuyên cần (%) (0 - 100)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={editAttendanceRate}
-                    onChangeText={setEditAttendanceRate}
-                    keyboardType="numeric"
-                    placeholder="e.g. 95"
-                  />
-                </View>
+                  <View style={styles.inputGroup}>
+                    <AppText variant="captionBold" color="secondary" style={styles.inputLabel}>
+                      Tỷ lệ chuyên cần (%)
+                    </AppText>
+                    <TextInput
+                      style={styles.modalInput}
+                      value={editAttendanceRate}
+                      onChangeText={setEditAttendanceRate}
+                      keyboardType="numeric"
+                      placeholder="100"
+                      placeholderTextColor={tokens.text.placeholder}
+                    />
+                  </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Điểm thi giữa kỳ (thang 10)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={editMidterm}
-                    onChangeText={setEditMidterm}
-                    keyboardType="numeric"
-                    placeholder="e.g. 8.5"
-                  />
-                </View>
+                  <View style={styles.inputGroup}>
+                    <AppText variant="captionBold" color="secondary" style={styles.inputLabel}>
+                      Điểm thi giữa kỳ (thang điểm 10)
+                    </AppText>
+                    <TextInput
+                      style={styles.modalInput}
+                      value={editMidterm}
+                      onChangeText={setEditMidterm}
+                      keyboardType="numeric"
+                      placeholder="Nhập điểm giữa kỳ..."
+                      placeholderTextColor={tokens.text.placeholder}
+                    />
+                  </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Điểm thi cuối kỳ (thang 10)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={editFinal}
-                    onChangeText={setEditFinal}
-                    keyboardType="numeric"
-                    placeholder="e.g. 9.0"
-                  />
+                  <View style={styles.inputGroup}>
+                    <AppText variant="captionBold" color="secondary" style={styles.inputLabel}>
+                      Điểm thi cuối kỳ (thang điểm 10)
+                    </AppText>
+                    <TextInput
+                      style={styles.modalInput}
+                      value={editFinal}
+                      onChangeText={setEditFinal}
+                      keyboardType="numeric"
+                      placeholder="Nhập điểm cuối kỳ..."
+                      placeholderTextColor={tokens.text.placeholder}
+                    />
+                  </View>
                 </View>
 
                 <View style={styles.modalActions}>
-                  <TouchableOpacity
+                  <Pressable
                     style={styles.modalCancelBtn}
                     onPress={() => setEditingStudent(null)}
+                    accessibilityRole="button"
                   >
-                    <Text style={styles.modalCancelText}>Hủy</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
+                    <AppText variant="captionBold" style={styles.modalCancelText}>
+                      Hủy
+                    </AppText>
+                  </Pressable>
+                  <Pressable
                     style={styles.modalSaveBtn}
                     onPress={handleSaveGrade}
+                    accessibilityRole="button"
                   >
-                    <Text style={styles.modalSaveText}>Lưu điểm</Text>
-                  </TouchableOpacity>
+                    <AppText variant="captionBold" style={styles.modalSaveText}>
+                      Lưu điểm
+                    </AppText>
+                  </Pressable>
                 </View>
               </View>
             </View>
@@ -630,118 +668,137 @@ export default function LecturerClassesScreen() {
     );
   }
 
-  // DEFAULT: Render Class List
+  // DEFAULT VIEW: LIST OF ASSIGNED CLASS SECTIONS
   return (
     <View style={styles.container}>
-      {/* Search Bar */}
-      <View style={styles.searchBarContainer}>
+      {/* Search Bar (Touch target >= 48dp) */}
+      <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color={colors.neutral[400]} />
+          <Ionicons name="search" size={18} color={tokens.text.muted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Tìm theo mã lớp, tên môn học..."
-            placeholderTextColor={colors.neutral[400]}
+            placeholderTextColor={tokens.text.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={colors.neutral[400]} />
-            </TouchableOpacity>
+            <Pressable onPress={() => setSearchQuery('')} hitSlop={10}>
+              <Ionicons name="close-circle" size={18} color={tokens.text.muted} />
+            </Pressable>
           )}
         </View>
       </View>
 
-      {/* Class List */}
+      {/* Main List of Class Sections */}
       <ScrollView
         style={styles.listContainer}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={isClassesRefetching}
             onRefresh={() => {
               void refetchClasses();
             }}
-            tintColor={colors.primary[800]}
+            tintColor={tokens.brand.burgundy}
+            colors={[tokens.brand.burgundy]}
           />
         }
       >
-        <Text style={styles.listHeaderTitle}>
-          Các lớp được phân công ({filteredClasses.length})
-        </Text>
+        <View style={styles.headerInfo}>
+          <AppText variant="captionBold" color="primary" style={styles.summaryTitle}>
+            Các lớp được phân công ({filteredClasses.length})
+          </AppText>
+        </View>
 
         {isClassesLoading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={colors.primary[800]} />
-            <Text style={styles.loadingText}>Đang tải danh sách lớp học phần...</Text>
+          <View style={styles.centerContainer} accessibilityLiveRegion="polite">
+            <ActivityIndicator size="small" color={tokens.brand.burgundy} />
+            <AppText variant="caption" color="muted" style={styles.loadingText}>
+              Đang tải danh sách lớp học phần...
+            </AppText>
           </View>
         ) : isClassesError ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={36} color={colors.error.main} />
-            <Text style={styles.errorTitle}>Không thể tải danh sách lớp</Text>
-            <Text style={styles.errorSubtitle}>
-              {classesError?.message || 'Lỗi kết nối máy chủ.'}
-            </Text>
-          </View>
+          <AppErrorState
+            title="Không thể tải danh sách lớp"
+            message={classesError?.message || 'Lỗi truy xuất dữ liệu từ máy chủ.'}
+            onRetry={() => refetchClasses()}
+            retryLabel="Thử lại"
+          />
         ) : filteredClasses.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="book-outline" size={48} color={colors.neutral[400]} />
-            <Text style={styles.emptyTitle}>Không tìm thấy lớp học phần</Text>
-            <Text style={styles.emptySubtitle}>
-              Thầy/Cô không có lớp nào phù hợp với từ khóa tìm kiếm.
-            </Text>
-          </View>
+          <AppEmptyState
+            icon="book-outline"
+            title="Không tìm thấy lớp học phần"
+            message={
+              searchQuery
+                ? `Không có lớp nào phù hợp với từ khóa "${searchQuery}".`
+                : 'Thầy/Cô hiện chưa được phân công lớp học phần nào trong học kỳ này.'
+            }
+          />
         ) : (
-          filteredClasses.map((c) => (
-            <TouchableOpacity
-              key={c.sectionId}
-              style={styles.classCard}
-              onPress={() => setSelectedSection(c)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.classCardTop}>
-                <View style={styles.codeBadge}>
-                  <Text style={styles.codeText}>{c.sectionCode}</Text>
+          filteredClasses.map((item) => (
+            <AppCard key={item.sectionId} variant="elevated" style={styles.sectionCard}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionCodePill}>
+                  <AppText variant="captionBold" style={styles.sectionCodePillText}>
+                    {item.sectionCode}
+                  </AppText>
                 </View>
-                <View
-                  style={[
-                    styles.statusTag,
-                    c.status === 'OPEN' ? styles.statusTagOpen : styles.statusTagClosed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusTagText,
-                      c.status === 'OPEN'
-                        ? styles.statusTagTextOpen
-                        : styles.statusTagTextClosed,
-                    ]}
-                  >
-                    {c.status === 'OPEN' ? 'Đang mở' : 'Đã đóng'}
-                  </Text>
-                </View>
+                <AppBadge
+                  label={item.status === 'OPEN' ? 'Đang mở' : 'Đã đóng'}
+                  variant={item.status === 'OPEN' ? 'success' : 'warning'}
+                  size="sm"
+                />
               </View>
 
-              <Text style={styles.className}>{c.courseName}</Text>
-              <Text style={styles.classSub}>
-                Mã môn: {c.courseCode} | {c.credits} tín chỉ | Học kỳ: {c.semesterName}
-              </Text>
+              <AppText variant="bodyBold" color="primary" numberOfLines={2} style={styles.sectionCourseName}>
+                {item.courseName}
+              </AppText>
+              <AppText variant="caption" color="secondary" style={styles.sectionMetaDetails}>
+                Mã môn: {item.courseCode} | {item.credits} tín chỉ | Học kỳ: {item.semesterName}
+              </AppText>
 
               <View style={styles.divider} />
 
-              <View style={styles.classCardBottom}>
-                <View style={styles.bottomMeta}>
-                  <Ionicons name="people-outline" size={16} color={colors.neutral[600]} />
-                  <Text style={styles.bottomMetaText}>
-                    Sĩ số: {c.currentEnrolled}/{c.maxCapacity} SV
-                  </Text>
+              <View style={styles.metaRow}>
+                <View style={styles.metaItem}>
+                  <Ionicons name="calendar-outline" size={15} color={tokens.brand.burgundy} />
+                  <AppText variant="caption" color="secondary">
+                    {formatDayOfWeek(item.dayOfWeek)} ({formatTime(item.startTime)} - {formatTime(item.endTime)})
+                  </AppText>
                 </View>
-                <View style={styles.enterSectionRow}>
-                  <Text style={styles.enterSectionText}>Xem chi tiết & Điểm</Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.primary[800]} />
+                <View style={styles.metaItem}>
+                  <Ionicons name="location-outline" size={15} color={tokens.text.muted} />
+                  <AppText variant="caption" color="secondary">
+                    Phòng: {item.roomName}
+                  </AppText>
                 </View>
               </View>
-            </TouchableOpacity>
+
+              <View style={styles.cardFooter}>
+                <View style={styles.enrolledBox}>
+                  <Ionicons name="people-outline" size={15} color={tokens.text.muted} />
+                  <AppText variant="caption" color="secondary" style={styles.enrolledText}>
+                    {item.currentEnrolled}/{item.maxCapacity} sinh viên
+                  </AppText>
+                </View>
+
+                <Pressable
+                  style={({ pressed }) => [styles.viewDetailBtn, pressed && styles.btnPressed]}
+                  onPress={() => setSelectedSection(item)}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.25)', borderless: false }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Xem chi tiết ${item.sectionCode}`}
+                >
+                  <AppText variant="captionBold" style={styles.viewDetailText}>
+                    Xem chi tiết
+                  </AppText>
+                  <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+                </Pressable>
+              </View>
+            </AppCard>
           ))
         )}
       </ScrollView>
@@ -752,208 +809,164 @@ export default function LecturerClassesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[100],
+    backgroundColor: tokens.surface.canvas,
   },
-  searchBarContainer: {
-    backgroundColor: colors.neutral[0],
-    padding: spacing.sm,
+  searchContainer: {
+    backgroundColor: tokens.surface.card,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    borderBottomColor: tokens.border.default,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutral[100],
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    height: 42,
+    backgroundColor: tokens.surface.canvas,
+    borderRadius: tokens.radius.lg,
+    borderWidth: 1,
+    borderColor: tokens.border.default,
+    paddingHorizontal: tokens.spacing.md,
+    minHeight: 48, // Touch target >= 48dp
   },
   searchInput: {
     flex: 1,
-    marginLeft: spacing.xs,
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[900],
+    fontSize: 13,
+    color: tokens.text.primary,
+    marginLeft: tokens.spacing.xs,
   },
   listContainer: {
     flex: 1,
   },
   listContent: {
-    padding: spacing.md,
-    paddingBottom: spacing.xxl,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingBottom: tokens.spacing.xxxl,
+    paddingTop: tokens.spacing.sm,
   },
-  listHeaderTitle: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[600],
-    marginBottom: spacing.sm,
+  headerInfo: {
+    marginBottom: tokens.spacing.sm,
+  },
+  summaryTitle: {
+    fontSize: 13,
   },
   centerContainer: {
-    padding: spacing.xxl,
+    paddingVertical: tokens.spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   loadingText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    marginTop: spacing.xs,
+    marginTop: tokens.spacing.sm,
   },
-  errorContainer: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.error.light,
+  sectionCard: {
+    marginBottom: tokens.spacing.sm,
+    padding: tokens.spacing.md,
   },
-  errorTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.error.dark,
-    marginTop: spacing.xs,
-  },
-  errorSubtitle: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  emptyContainer: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    padding: spacing.xxl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
-  },
-  emptyTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[800],
-    marginTop: spacing.xs,
-  },
-  emptySubtitle: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  classCard: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
-  },
-  classCardTop: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: tokens.spacing.xs,
   },
-  codeBadge: {
-    backgroundColor: colors.primary[50],
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.sm,
-  },
-  codeText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[900],
-  },
-  statusTag: {
+  sectionCodePill: {
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: radius.sm,
+    borderRadius: tokens.radius.sm,
   },
-  statusTagOpen: {
-    backgroundColor: colors.success.light + '25',
+  sectionCodePillText: {
+    color: '#1D4ED8',
+    fontSize: 11,
+    textTransform: 'uppercase',
   },
-  statusTagClosed: {
-    backgroundColor: colors.neutral[200],
-  },
-  statusTagText: {
-    fontSize: typography.sizes.xxs,
-    fontWeight: typography.weights.bold,
-  },
-  statusTagTextOpen: {
-    color: colors.success.dark,
-  },
-  statusTagTextClosed: {
-    color: colors.neutral[600],
-  },
-  className: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
+  sectionCourseName: {
     marginTop: 2,
   },
-  classSub: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
+  sectionMetaDetails: {
     marginTop: 2,
   },
   divider: {
+    width: '100%',
     height: 1,
-    backgroundColor: colors.neutral[200],
-    marginVertical: spacing.sm,
+    backgroundColor: tokens.border.default,
+    marginVertical: tokens.spacing.sm,
   },
-  classCardBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  metaRow: {
+    gap: 4,
+    marginBottom: tokens.spacing.sm,
   },
-  bottomMeta: {
+  metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  bottomMetaText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: tokens.border.subtle,
+    paddingTop: tokens.spacing.sm,
   },
-  enterSectionRow: {
+  enrolledBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 4,
   },
-  enterSectionText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[800],
+  enrolledText: {
+    fontSize: 12,
+  },
+  viewDetailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: tokens.brand.burgundy,
+    paddingHorizontal: tokens.spacing.md,
+    borderRadius: tokens.radius.md,
+    minHeight: 48, // Touch target >= 48dp
+    justifyContent: 'center',
+  },
+  btnPressed: {
+    opacity: 0.85,
+  },
+  viewDetailText: {
+    color: '#FFFFFF',
+    fontSize: 12,
   },
   sectionHeaderBar: {
-    backgroundColor: colors.primary[900],
+    backgroundColor: tokens.brand.burgundy,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    gap: tokens.spacing.sm,
   },
   backButton: {
     padding: 6,
-    marginRight: spacing.xs,
+    minHeight: 48,
+    minWidth: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sectionHeaderTitles: {
     flex: 1,
   },
   sectionHeaderCode: {
-    color: colors.neutral[0],
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
+    color: '#FFFFFF',
   },
   sectionHeaderSub: {
-    color: colors.neutral[200],
-    fontSize: typography.sizes.xxs,
+    color: 'rgba(255, 255, 255, 0.85)',
   },
   qrHeaderBtn: {
     padding: 6,
+    minHeight: 48,
+    minWidth: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   subTabBar: {
     flexDirection: 'row',
-    backgroundColor: colors.neutral[0],
+    backgroundColor: tokens.surface.card,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    borderBottomColor: tokens.border.default,
   },
   subTabItem: {
     flex: 1,
@@ -961,317 +974,222 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 12,
+    paddingVertical: tokens.spacing.sm,
+    minHeight: 48, // Touch target >= 48dp
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
   subTabItemActive: {
-    borderBottomColor: colors.primary[900],
+    borderBottomColor: tokens.brand.burgundy,
   },
   subTabText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    fontWeight: typography.weights.medium,
+    fontSize: 12,
   },
   subTabTextActive: {
-    color: colors.primary[900],
-    fontWeight: typography.weights.bold,
+    color: tokens.brand.burgundy,
+  },
+  subTabTextInactive: {
+    color: tokens.text.muted,
   },
   rosterActionBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.neutral[0],
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
+    padding: tokens.spacing.sm,
+    marginBottom: tokens.spacing.sm,
   },
   rosterSummaryText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[700],
+    fontSize: 12,
   },
   rosterStatusText: {
-    fontSize: typography.sizes.xxs,
+    fontSize: 11,
     marginTop: 2,
   },
   lockGradesBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primary[800],
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: radius.sm,
+    backgroundColor: tokens.brand.burgundy,
+    paddingHorizontal: tokens.spacing.md,
+    borderRadius: tokens.radius.sm,
+    minHeight: 48, // Touch target >= 48dp
+    justifyContent: 'center',
   },
   lockGradesBtnText: {
-    color: colors.neutral[0],
-    fontSize: typography.sizes.xxs,
-    fontWeight: typography.weights.bold,
+    color: '#FFFFFF',
+    fontSize: 11,
   },
   studentCard: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
+    marginBottom: tokens.spacing.sm,
+    padding: tokens.spacing.sm,
   },
-  studentCardHeader: {
+  studentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: tokens.spacing.xs,
+  },
+  studentNameCol: {
+    flex: 1,
   },
   studentName: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
+    fontSize: 13,
   },
   studentCode: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
+    fontSize: 11,
+    fontFamily: 'monospace',
   },
-  studentHeaderRight: {
+  editBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 4,
+    paddingHorizontal: tokens.spacing.sm,
+    paddingVertical: tokens.spacing.xs,
+    minHeight: 48, // Touch target >= 48dp
+    justifyContent: 'center',
   },
-  gradeBadge: {
-    backgroundColor: colors.primary[50],
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
+  editBtnText: {
+    color: tokens.brand.burgundy,
+    fontSize: 11,
   },
-  gradeBadgeText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[900],
-  },
-  editScoreBtn: {
-    padding: 6,
-    backgroundColor: colors.neutral[100],
-    borderRadius: radius.sm,
-  },
-  scoresGrid: {
+  scoreGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: colors.neutral[50],
-    padding: spacing.sm,
-    borderRadius: radius.sm,
-    marginTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: tokens.border.subtle,
+    paddingTop: tokens.spacing.xs,
   },
   scoreItem: {
+    flex: 1,
     alignItems: 'center',
   },
   scoreLabel: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
+    fontSize: 10,
   },
   scoreValue: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semiBold,
-    color: colors.neutral[800],
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: 1,
   },
-  warningStatsGrid: {
+  warningMetricsRow: {
     flexDirection: 'row',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
+    gap: tokens.spacing.xs,
+    marginBottom: tokens.spacing.sm,
   },
-  warningStatCard: {
+  warningMetricCard: {
     flex: 1,
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    borderWidth: 1,
+    padding: tokens.spacing.sm,
     alignItems: 'center',
-  },
-  warningStatNum: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
-  },
-  warningStatLabel: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
-    textAlign: 'center',
-    marginTop: 2,
   },
   dispatchBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.error.main,
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    marginBottom: spacing.md,
+    gap: tokens.spacing.xs,
+    backgroundColor: tokens.semantic.error.dark,
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+    borderRadius: tokens.radius.md,
+    marginBottom: tokens.spacing.md,
+    minHeight: 48, // Touch target >= 48dp
   },
   dispatchBtnText: {
-    color: colors.neutral[0],
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-  },
-  evalBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.neutral[200],
-    padding: spacing.sm,
-    borderRadius: radius.md,
-    marginBottom: spacing.md,
-  },
-  evalText: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[800],
-    flex: 1,
-  },
-  riskListTitle: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[700],
-    marginBottom: spacing.sm,
+    color: '#FFFFFF',
+    fontSize: 12,
   },
   riskCard: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
+    marginBottom: tokens.spacing.sm,
+    padding: tokens.spacing.sm,
   },
   riskHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
+    alignItems: 'flex-start',
   },
-  riskStudentName: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
-  },
-  riskStudentCode: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
-  },
-  riskLevelBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-  },
-  riskLevelCritical: {
-    backgroundColor: colors.error.light + '25',
-  },
-  riskLevelWarning: {
-    backgroundColor: colors.warning.light + '30',
-  },
-  riskLevelText: {
-    fontSize: typography.sizes.xxs,
-    fontWeight: typography.weights.bold,
-  },
-  riskLevelTextCritical: {
-    color: colors.error.dark,
-  },
-  riskLevelTextWarning: {
-    color: colors.warning.dark,
-  },
-  absenceRateText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[700],
-    marginBottom: spacing.xs,
-  },
-  reasonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
+  reasonsList: {
+    marginTop: tokens.spacing.xs,
+    paddingTop: tokens.spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: tokens.border.subtle,
   },
   reasonText: {
-    fontSize: typography.sizes.xxs,
-    color: colors.error.dark,
-    flex: 1,
-  },
-  sugRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  sugText: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[600],
-    flex: 1,
+    fontSize: 11,
+    color: tokens.semantic.error.dark,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.md,
+    padding: tokens.spacing.lg,
   },
   modalContent: {
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    width: '100%',
+    backgroundColor: tokens.surface.card,
+    borderRadius: tokens.radius.xl,
+    padding: tokens.spacing.lg,
+    ...tokens.elevation.lg,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: tokens.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.border.default,
+    paddingBottom: tokens.spacing.xs,
   },
-  modalTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
+  modalBody: {
+    marginBottom: tokens.spacing.lg,
   },
-  modalStudentInfo: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
-    marginBottom: spacing.md,
+  modalStudentName: {
+    fontSize: 14,
+  },
+  modalStudentCode: {
+    fontSize: 11,
+    marginBottom: tokens.spacing.md,
   },
   inputGroup: {
-    marginBottom: spacing.sm,
+    marginBottom: tokens.spacing.sm,
   },
   inputLabel: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[600],
+    fontSize: 11,
     marginBottom: 4,
   },
-  textInput: {
+  modalInput: {
+    backgroundColor: tokens.surface.canvas,
     borderWidth: 1,
-    borderColor: colors.neutral[300],
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 8,
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[900],
+    borderColor: tokens.border.default,
+    borderRadius: tokens.radius.md,
+    paddingHorizontal: tokens.spacing.md,
+    minHeight: 48, // Touch target >= 48dp
+    fontSize: 13,
+    color: tokens.text.primary,
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-    marginTop: spacing.md,
+    gap: tokens.spacing.sm,
   },
   modalCancelBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: radius.sm,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48, // Touch target >= 48dp
+    borderRadius: tokens.radius.md,
+    borderWidth: 1,
+    borderColor: tokens.border.default,
+    backgroundColor: tokens.surface.canvas,
   },
   modalCancelText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
+    color: tokens.text.primary,
   },
   modalSaveBtn: {
-    backgroundColor: colors.primary[800],
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 8,
-    borderRadius: radius.sm,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48, // Touch target >= 48dp
+    borderRadius: tokens.radius.md,
+    backgroundColor: tokens.brand.burgundy,
   },
   modalSaveText: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[0],
+    color: '#FFFFFF',
   },
 });

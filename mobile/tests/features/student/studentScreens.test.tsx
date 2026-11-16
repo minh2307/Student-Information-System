@@ -41,6 +41,16 @@ jest.mock('@/features/auth/hooks/useProfile', () => ({
   useProfile: jest.fn(),
 }));
 
+// Mock notifications hook for AppNotificationHeader
+jest.mock('@/features/notifications/hooks/useNotifications', () => ({
+  useNotifications: () => ({
+    unreadCount: 4,
+    notifications: [],
+    isLoading: false,
+    markAsRead: jest.fn(),
+  }),
+}));
+
 // Mock router
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
@@ -164,6 +174,14 @@ describe('Student Screens Rendering & UX Tests', () => {
       expect(html).toContain('CS201');
       expect(html).toContain('Xuất sắc');
       expect(html).toContain('8.74');
+      // REDS v2.0 component testIDs and section checks
+      expect(html).toContain('student-id-card');
+      expect(html).toContain('quick-action-timetable');
+      expect(html).toContain('quick-action-exams');
+      expect(html).toContain('quick-action-grades');
+      expect(html).toContain('quick-action-tuition');
+      expect(html).toContain('Chỉ số học tập kỳ này');
+      expect(html).toContain('Lớp học sắp tới');
     });
 
     it('renders ErrorView when Dashboard API fails', () => {
@@ -240,6 +258,11 @@ describe('Student Screens Rendering & UX Tests', () => {
       expect(html).toContain('Room A-204');
       expect(html).toContain('TS. Nguyễn Văn A');
       expect(html).toContain('Đã duyệt');
+      // REDS v2.0 component testIDs and weekday selector checks
+      expect(html).toContain('day-selector-ALL');
+      expect(html).toContain('day-selector-MON');
+      expect(html).toContain('timetable-class-1');
+      expect(html).toContain('timetable-class-2');
     });
 
     it('shows empty state when no classes are scheduled', () => {
@@ -257,110 +280,20 @@ describe('Student Screens Rendering & UX Tests', () => {
   });
 
   describe('ExamsScreen', () => {
-    it('renders personal exams sorted with exam type', () => {
-      const mockExams = [
-        {
-          id: 10,
-          courseCode: 'CS405',
-          courseName: 'Cloud Computing & DevOps',
-          credits: 4,
-          examDate: '2025-06-15',
-          startTime: '13:00:00',
-          endTime: '14:30:00',
-          roomName: 'Lab Cloud-1',
-          examType: 'THI MÁY',
-          notes: 'Mang theo thẻ sinh viên',
-        },
-        {
-          id: 1,
-          courseCode: 'CS201',
-          courseName: 'Data Structures and Algorithms',
-          credits: 3,
-          examDate: '2025-06-16',
-          startTime: '10:30:00',
-          endTime: '12:00:00',
-          roomName: 'Room A-204',
-          examType: 'TỰ LUẬN',
-        },
-      ];
-
-      (useStudentExams as jest.Mock).mockReturnValue({
-        data: mockExams,
-        isLoading: false,
-        isError: false,
-        refetch: jest.fn(),
-        isRefetching: false,
-      });
-
+    it('renders hybrid exams webview container', () => {
       const html = renderWithProviders(<ExamsScreen />);
-      expect(html).toContain('Cloud Computing &amp; DevOps');
-      expect(html).toContain('THI MÁY');
-      expect(html).toContain('Lab Cloud-1');
-      expect(html).toContain('Data Structures and Algorithms');
-      expect(html).toContain('TỰ LUẬN');
-      expect(html).toContain('15/06/2025');
-    });
-
-    it('renders empty state when no exam schedule is available', () => {
-      (useStudentExams as jest.Mock).mockReturnValue({
-        data: [],
-        isLoading: false,
-        isError: false,
-        refetch: jest.fn(),
-        isRefetching: false,
-      });
-
-      const html = renderWithProviders(<ExamsScreen />);
-      expect(html).toContain('Chưa có lịch thi');
+      expect(html).toContain('student-exams-screen');
+      expect(html).toContain('hybrid-exams-webview');
+      expect(html).toContain('mock-webview');
     });
   });
 
   describe('GradesScreen', () => {
-    it('renders component grades, letter grade, and C-GPA', () => {
-      const mockGrades = [
-        {
-          enrollmentId: 1,
-          courseCode: 'CS201',
-          courseName: 'Data Structures and Algorithms',
-          credits: 3,
-          semesterName: '2024-25_SEM2',
-          attendanceScore: 9.5,
-          midtermScore: 8.5,
-          finalScore: 8.78,
-          totalScore: 8.78,
-          letterGrade: 'A',
-          isLocked: true,
-        },
-      ];
-
-      (useStudentGrades as jest.Mock).mockReturnValue({
-        data: mockGrades,
-        isLoading: false,
-        isError: false,
-        refetch: jest.fn(),
-        isRefetching: false,
-      });
-
+    it('renders hybrid grades webview container', () => {
       const html = renderWithProviders(<GradesScreen />);
-      expect(html).toContain('8.74');
-      expect(html).toContain('Data Structures and Algorithms');
-      expect(html).toContain('8.78');
-      expect(html).toContain('9.5');
-      expect(html).toContain('8.5');
-      expect(html).toContain('A');
-    });
-
-    it('shows empty state when student has no grades', () => {
-      (useStudentGrades as jest.Mock).mockReturnValue({
-        data: [],
-        isLoading: false,
-        isError: false,
-        refetch: jest.fn(),
-        isRefetching: false,
-      });
-
-      const html = renderWithProviders(<GradesScreen />);
-      expect(html).toContain('Chưa có kết quả học tập');
+      expect(html).toContain('student-grades-screen');
+      expect(html).toContain('hybrid-grades-webview');
+      expect(html).toContain('mock-webview');
     });
   });
 

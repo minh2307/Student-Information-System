@@ -16,6 +16,10 @@ export type BridgeMessageType =
   | 'NAVIGATE_NATIVE'
   | 'APP_LOGOUT_REQUEST'
   | 'NATIVE_QR_SCANNED'
+  | 'QR_SCAN_START'
+  | 'QR_SCAN_CANCEL'
+  | 'QR_SCAN_SUCCESS'
+  | 'QR_SCAN_ERROR'
   | 'BRIDGE_ERROR';
 
 export interface BridgeEnvelope<T = unknown> {
@@ -91,4 +95,23 @@ export interface BridgeErrorPayload {
   code: string;
   message: string;
   requestId?: string;
+}
+
+export interface QrScanStartPayload {
+  title?: string;
+  hint?: string;
+}
+
+export interface QrScanCancelPayload {
+  reason?: string;
+}
+
+export interface QrScanSuccessPayload {
+  qrToken: string;
+  scannedAt: number;
+}
+
+export interface QrScanErrorPayload {
+  code: string;
+  message: string;
 }

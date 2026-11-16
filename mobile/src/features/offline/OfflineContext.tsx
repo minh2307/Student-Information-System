@@ -7,6 +7,15 @@ import React, { createContext, useContext, useMemo } from 'react';
 import { OfflineContextValue } from './types';
 import { useNetworkStatus } from './useNetworkStatus';
 
+const defaultOfflineValue: OfflineContextValue = {
+  isConnected: true,
+  isInternetReachable: true,
+  isOffline: false,
+  type: 'unknown',
+  lastOnlineAt: null,
+  checkConnectivity: async () => true,
+};
+
 const OfflineContext = createContext<OfflineContextValue | null>(null);
 
 export interface OfflineProviderProps {
@@ -44,11 +53,9 @@ export const OfflineProvider: React.FC<OfflineProviderProps> = ({ children }) =>
 
 /**
  * Access offline connectivity state from anywhere in the component tree.
+ * Falls back to default online state if rendered outside OfflineProvider.
  */
 export const useOffline = (): OfflineContextValue => {
   const context = useContext(OfflineContext);
-  if (!context) {
-    throw new Error('useOffline must be used within an OfflineProvider');
-  }
-  return context;
+  return context || defaultOfflineValue;
 };

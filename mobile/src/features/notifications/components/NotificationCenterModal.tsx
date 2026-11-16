@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography } from '@/theme';
+import { tokens } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
 import { useOffline } from '@/features/offline';
 import { useNotifications } from '../hooks/useNotifications';
@@ -76,21 +76,21 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
     switch (t) {
       case 'ACADEMIC':
       case 'HỌC VỤ':
-        return { icon: 'school-outline' as const, color: '#2563EB', bg: '#EFF6FF' };
+        return { icon: 'school-outline' as const, color: '#1D4ED8', bg: '#EFF6FF', border: '#2563EB' };
       case 'EXAM':
       case 'LỊCH THI':
-        return { icon: 'clipboard-outline' as const, color: '#D97706', bg: '#FEF3C7' };
+        return { icon: 'clipboard-outline' as const, color: '#B45309', bg: '#FEF3C7', border: '#D97706' };
       case 'TUITION':
       case 'HỌC PHÍ':
-        return { icon: 'wallet-outline' as const, color: '#DB2777', bg: '#FDF2F8' };
+        return { icon: 'wallet-outline' as const, color: '#BE185D', bg: '#FDF2F8', border: '#DB2777' };
       case 'ATTENDANCE':
       case 'ĐIỂM DANH':
-        return { icon: 'qr-code-outline' as const, color: '#059669', bg: '#ECFDF5' };
+        return { icon: 'qr-code-outline' as const, color: '#047857', bg: '#ECFDF5', border: '#059669' };
       case 'ALERT':
       case 'CẢNH BÁO':
-        return { icon: 'warning-outline' as const, color: colors.error.dark, bg: colors.error.light };
+        return { icon: 'warning-outline' as const, color: tokens.semantic.error.dark, bg: tokens.semantic.error.light, border: tokens.semantic.error.button };
       default:
-        return { icon: 'notifications-outline' as const, color: colors.primary[800], bg: '#FEE2E2' };
+        return { icon: 'notifications-outline' as const, color: tokens.brand.burgundy, bg: '#FEE2E2', border: tokens.brand.burgundy };
     }
   };
 
@@ -135,14 +135,14 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
             accessibilityLabel="Đóng hộp thư thông báo"
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="close" size={24} color={colors.neutral[800]} />
+            <Ionicons name="close" size={24} color={tokens.text.primary} />
           </TouchableOpacity>
         </View>
 
         {/* Offline notification banner if viewing cached messages */}
         {isOffline && (
           <View style={styles.offlineNotice}>
-            <Ionicons name="cloud-offline-outline" size={14} color="#92400E" />
+            <Ionicons name="cloud-offline-outline" size={14} color={tokens.semantic.warning.dark} />
             <Text style={styles.offlineNoticeText}>
               Đang xem thông báo đã lưu trên máy (Ngoại tuyến)
             </Text>
@@ -201,12 +201,12 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
         {/* Notification List */}
         {isLoading ? (
           <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={colors.primary[800]} />
+            <ActivityIndicator size="large" color={tokens.brand.burgundy} />
             <Text style={styles.loadingText}>Đang tải thông báo...</Text>
           </View>
         ) : filteredNotifications.length === 0 ? (
           <View style={styles.centerContainer}>
-            <Ionicons name="notifications-off-outline" size={56} color={colors.neutral[300]} />
+            <Ionicons name="notifications-off-outline" size={56} color={tokens.border.default} />
             <Text style={styles.emptyTitle}>
               {activeFilter === 'UNREAD'
                 ? 'Không có thông báo chưa đọc'
@@ -226,7 +226,7 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                 onRefresh={() => {
                   void refetch();
                 }}
-                tintColor={colors.primary[800]}
+                tintColor={tokens.brand.burgundy}
               />
             }
           >
@@ -237,7 +237,10 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                   key={item.id}
                   style={[
                     styles.notificationCard,
-                    !item.isRead && styles.notificationCardUnread,
+                    !item.isRead && [
+                      styles.notificationCardUnread,
+                      { borderLeftColor: cfg.border },
+                    ],
                   ]}
                   onPress={() => handleNotificationPress(item)}
                   activeOpacity={0.7}
@@ -259,7 +262,9 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                       >
                         {item.title}
                       </Text>
-                      {!item.isRead && <View style={styles.unreadDot} />}
+                      {!item.isRead && (
+                        <View style={[styles.unreadDot, { backgroundColor: cfg.border }]} />
+                      )}
                     </View>
 
                     <Text style={styles.cardMessage} numberOfLines={2}>
@@ -273,7 +278,7 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
                       {item.linkUrl && (
                         <View style={styles.deepLinkPrompt}>
                           <Text style={styles.deepLinkPromptText}>Chi tiết</Text>
-                          <Ionicons name="chevron-forward" size={12} color={colors.primary[800]} />
+                          <Ionicons name="chevron-forward" size={12} color={tokens.brand.burgundy} />
                         </View>
                       )}
                     </View>
@@ -291,42 +296,42 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.surface.canvas,
   },
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.neutral[0],
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.md,
+    backgroundColor: tokens.surface.card,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    borderBottomColor: tokens.border.default,
   },
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: tokens.spacing.sm,
   },
   headerTitle: {
-    fontSize: typography.sizes.lg,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
+    fontSize: tokens.typography.sizes.h3,
+    fontWeight: tokens.typography.weights.bold,
+    color: tokens.text.primary,
   },
   unreadBadge: {
-    backgroundColor: colors.primary[800],
+    backgroundColor: tokens.brand.burgundy,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: radius.full,
+    borderRadius: tokens.radius.full,
   },
   unreadBadgeText: {
-    color: colors.neutral[0],
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.bold,
+    color: '#FFFFFF',
+    fontSize: tokens.typography.sizes.overline,
+    fontWeight: tokens.typography.weights.bold,
   },
   closeButton: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -334,87 +339,93 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    backgroundColor: tokens.semantic.warning.light,
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: '#FDE68A',
+    borderBottomColor: tokens.semantic.warning.border,
   },
   offlineNoticeText: {
-    fontSize: typography.sizes.xs,
-    color: '#92400E',
-    fontWeight: typography.weights.medium,
+    fontSize: tokens.typography.sizes.caption,
+    color: tokens.semantic.warning.dark,
+    fontWeight: tokens.typography.weights.medium,
   },
   filterBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.neutral[0],
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: tokens.spacing.sm,
+    backgroundColor: tokens.surface.card,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    borderBottomColor: tokens.border.default,
   },
   filterPills: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: tokens.spacing.xs,
   },
   filterPill: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: radius.full,
-    backgroundColor: colors.neutral[100],
+    paddingHorizontal: tokens.spacing.md,
+    paddingVertical: 8,
+    borderRadius: tokens.radius.full,
+    backgroundColor: tokens.surface.canvas,
+    borderWidth: 1,
+    borderColor: tokens.border.default,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   filterPillActive: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: tokens.brand.crimsonLight,
+    borderColor: tokens.brand.crimson,
   },
   filterPillText: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
-    fontWeight: typography.weights.medium,
+    fontSize: tokens.typography.sizes.caption,
+    color: tokens.text.secondary,
+    fontWeight: tokens.typography.weights.medium,
   },
   filterPillTextActive: {
-    color: colors.primary[800],
-    fontWeight: typography.weights.bold,
+    color: tokens.brand.burgundy,
+    fontWeight: tokens.typography.weights.bold,
   },
   markAllButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    minHeight: 44,
+    paddingVertical: 8,
+    paddingHorizontal: tokens.spacing.sm,
+    minHeight: 48,
     justifyContent: 'center',
   },
   markAllText: {
-    fontSize: typography.sizes.xs,
-    color: colors.primary[800],
-    fontWeight: typography.weights.semiBold,
+    fontSize: tokens.typography.sizes.caption,
+    color: tokens.brand.burgundy,
+    fontWeight: tokens.typography.weights.semiBold,
   },
   listContainer: {
     flex: 1,
   },
   listContent: {
-    padding: spacing.md,
-    gap: spacing.sm,
+    padding: tokens.spacing.md,
+    gap: tokens.spacing.sm,
   },
   notificationCard: {
     flexDirection: 'row',
-    backgroundColor: colors.neutral[0],
-    borderRadius: radius.md,
-    padding: spacing.md,
+    backgroundColor: tokens.surface.card,
+    borderRadius: tokens.radius.lg,
+    padding: tokens.spacing.md,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
-    gap: spacing.md,
+    borderColor: tokens.border.default,
+    gap: tokens.spacing.md,
     alignItems: 'flex-start',
+    ...tokens.elevation.sm,
   },
   notificationCardUnread: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#FECACA',
+    borderColor: tokens.brand.crimsonLight,
     borderLeftWidth: 4,
-    borderLeftColor: colors.primary[800],
+    borderLeftColor: tokens.brand.burgundy,
   },
   categoryIconCircle: {
     width: 40,
     height: 40,
-    borderRadius: radius.full,
+    borderRadius: tokens.radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -428,27 +439,27 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.semiBold,
-    color: colors.neutral[800],
+    fontSize: tokens.typography.sizes.body,
+    fontWeight: tokens.typography.weights.medium,
+    color: tokens.text.secondary,
     flex: 1,
   },
   cardTitleUnread: {
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
+    fontWeight: tokens.typography.weights.bold,
+    color: tokens.text.primary,
   },
   unreadDot: {
     width: 8,
     height: 8,
-    borderRadius: radius.full,
-    backgroundColor: colors.primary[800],
+    borderRadius: tokens.radius.full,
+    backgroundColor: tokens.brand.burgundy,
     marginLeft: 6,
   },
   cardMessage: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[600],
+    fontSize: tokens.typography.sizes.caption,
+    color: tokens.text.secondary,
     lineHeight: 18,
-    marginBottom: spacing.xs,
+    marginBottom: tokens.spacing.xs,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -456,8 +467,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardTime: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[400],
+    fontSize: tokens.typography.sizes.overline,
+    color: tokens.text.muted,
   },
   deepLinkPrompt: {
     flexDirection: 'row',
@@ -465,32 +476,32 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   deepLinkPromptText: {
-    fontSize: typography.sizes.xxs,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[800],
+    fontSize: tokens.typography.sizes.overline,
+    fontWeight: tokens.typography.weights.bold,
+    color: tokens.brand.burgundy,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    padding: tokens.spacing.xl,
   },
   loadingText: {
-    marginTop: spacing.sm,
-    fontSize: typography.sizes.sm,
-    color: colors.neutral[600],
+    marginTop: tokens.spacing.sm,
+    fontSize: tokens.typography.sizes.body,
+    color: tokens.text.muted,
   },
   emptyTitle: {
-    fontSize: typography.sizes.md,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[800],
-    marginTop: spacing.md,
+    fontSize: tokens.typography.sizes.h4,
+    fontWeight: tokens.typography.weights.bold,
+    color: tokens.text.primary,
+    marginTop: tokens.spacing.md,
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[500],
-    marginTop: spacing.xs,
+    fontSize: tokens.typography.sizes.caption,
+    color: tokens.text.muted,
+    marginTop: tokens.spacing.xs,
     textAlign: 'center',
     lineHeight: 18,
   },

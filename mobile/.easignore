@@ -1,0 +1,30 @@
+# Dependencies & local caches
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# Test suites & coverage reports
+tests/
+__tests__/
+coverage/
+
+# Local editor & IDE configuration
+.vscode/
+.idea/
+
+# Local environment & secrets
+.env*.local
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+*.mobileprovision
+
+# Temporary & debug files
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store

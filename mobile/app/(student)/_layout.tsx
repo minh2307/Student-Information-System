@@ -45,6 +45,7 @@ export default function StudentLayout() {
           name="dashboard"
           options={{
             title: 'Tổng quan',
+            headerShown: false,
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="grid-outline" size={size} color={String(color || colors.primary[800])} />
             ),

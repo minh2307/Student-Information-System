@@ -88,14 +88,15 @@ class WebHybridBridge {
     };
 
     return new Promise((resolve, reject) => {
+      const timeoutMs = type === 'QR_SCAN_START' ? 60000 : 15000;
       const timeoutTimer = setTimeout(() => {
         if (this.pendingRequests.has(messageId)) {
           this.pendingRequests.delete(messageId);
           reject(new Error(`Bridge request timeout for ${type}`));
         }
-      }, 15000); // 15s timeout
+      }, timeoutMs);
 
-      this.pendingRequests.set(messageId, { resolve, reject, timer: timeoutTimer, type });
+      this.pendingRequests.set(messageId, { resolve, reject, timer: timeoutTimer, type, id: messageId });
 
       try {
         window.ReactNativeWebView.postMessage(JSON.stringify(envelope));
@@ -146,6 +147,22 @@ class WebHybridBridge {
           pending.resolve(envelope.payload.accessToken);
         } else {
           pending.reject(new Error(envelope.payload?.reason || 'Refresh failed'));
+        }
+        return;
+      }
+    }
+
+    if (envelope.type === 'QR_SCAN_SUCCESS' || envelope.type === 'QR_SCAN_ERROR' || envelope.type === 'QR_SCAN_CANCEL') {
+      const pending = [...this.pendingRequests.values()].find((p) => p.type === 'QR_SCAN_START');
+      if (pending) {
+        clearTimeout(pending.timer);
+        this.pendingRequests.delete(pending.id);
+        if (envelope.type === 'QR_SCAN_SUCCESS') {
+          pending.resolve(envelope.payload);
+        } else if (envelope.type === 'QR_SCAN_CANCEL') {
+          pending.reject(new Error(envelope.payload?.reason || 'USER_CANCELLED'));
+        } else {
+          pending.reject(new Error(envelope.payload?.message || envelope.payload?.code || 'QR_SCAN_FAILED'));
         }
         return;
       }
@@ -231,6 +248,31 @@ class WebHybridBridge {
     if (payload?.accessToken) {
       useAuthStore.getState().setTokens(payload.accessToken, null);
     }
+  }
+
+  /**
+   * Request Native Android Camera to scan attendance QR code (TASK 7.4).
+   * @param {Object} options - { title?: string, hint?: string }
+   * @returns {Promise<{ qrToken: string, scannedAt: number }>}
+   */
+  requestQrScan(options = {}) {
+    if (!this.isHybridActive()) {
+      return Promise.reject(new Error('Hybrid Bridge is not active'));
+    }
+    return this.postToNative('QR_SCAN_START', {
+      title: options.title || 'Điểm Danh Sinh Viên',
+      hint: options.hint || 'Đặt mã QR điểm danh vào trong khung vuông để quét',
+    });
+  }
+
+  /**
+   * Cancel ongoing Native QR scan.
+   */
+  cancelQrScan() {
+    if (this.isHybridEnvironment()) {
+      return this.postToNative('QR_SCAN_CANCEL', { reason: 'USER_CANCELLED_FROM_WEB' }).catch(() => {});
+    }
+    return Promise.resolve();
   }
 
   /**

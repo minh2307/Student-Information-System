@@ -45,6 +45,7 @@ export default function LecturerLayout() {
           name="dashboard"
           options={{
             title: 'Tổng quan GV',
+            headerShown: false,
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="grid-outline" size={size} color={String(color || colors.primary[800])} />
             ),
