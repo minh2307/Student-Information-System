@@ -82,7 +82,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
               }}
             />
             <div className="flex flex-col border-l border-stone-200 pl-2.5">
-              <span className="font-serif font-bold text-stone-900 text-xs tracking-tight uppercase leading-snug">
+              <span className="font-bold text-stone-900 text-xs tracking-tight uppercase leading-snug">
                 EDUPORTAL
               </span>
               <span className="text-[9px] text-stone-500 tracking-wider font-mono uppercase">

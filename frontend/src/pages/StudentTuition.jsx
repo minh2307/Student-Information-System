@@ -41,7 +41,7 @@ export const StudentTuition = () => {
   // 2. State
   // ─────────────────────────────────────────
   const [semesters, setSemesters] = useState([])
-  const [selectedSemester, setSelectedSemester] = useState('')
+  const [selectedSemester, setSelectedSemester] = useState(() => searchParams.get('semester') || '')
   const [tuition, setTuition] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showReceiptModal, setShowReceiptModal] = useState(false)
@@ -59,6 +59,15 @@ export const StudentTuition = () => {
   // ─────────────────────────────────────────
   const studentCode = user?.studentCode || user?.username || 'SV2024001'
   const studentName = user?.fullName || 'Nguyễn Văn C'
+
+  const handleSemesterChange = (newSem) => {
+    setSelectedSemester(newSem)
+    setSearchParams((prev) => {
+      const nextParams = new URLSearchParams(prev)
+      nextParams.set('semester', newSem)
+      return nextParams
+    }, { replace: true })
+  }
 
   // ─────────────────────────────────────────
   // 4. Data Loading
@@ -84,20 +93,28 @@ export const StudentTuition = () => {
 
   useEffect(() => {
     const loadSemesters = async () => {
+      const semParam = searchParams.get('semester')
       try {
         const res = await api.get('/semesters')
         if (res.data?.data && res.data.data.length > 0) {
           setSemesters(res.data.data)
-          const active = res.data.data.find((s) => s.isActive) || res.data.data[0]
-          setSelectedSemester(active.semesterCode)
+          const matched = semParam && res.data.data.find((s) => s.semesterCode === semParam)
+          if (matched) {
+            setSelectedSemester(matched.semesterCode)
+          } else if (semParam) {
+            setSelectedSemester(semParam)
+          } else {
+            const active = res.data.data.find((s) => s.isActive) || res.data.data[0]
+            setSelectedSemester(active.semesterCode)
+          }
         }
       } catch (err) {
         console.error('Lỗi tải danh sách học kỳ:', err)
-        setSelectedSemester('2024-25_SEM2')
+        setSelectedSemester(semParam || '2024-25_SEM2')
       }
     }
     loadSemesters()
-  }, [])
+  }, [searchParams])
 
   useEffect(() => {
     if (selectedSemester) {
@@ -348,8 +365,8 @@ export const StudentTuition = () => {
     setCreatingPayOs(true)
     setPayOsQrError(false)
     try {
-      const returnUrl = `${window.location.origin}/student/tuition`
-      const cancelUrl = `${window.location.origin}/student/tuition?status=CANCELLED`
+      const returnUrl = `${window.location.origin}/student/tuition?semester=${encodeURIComponent(selectedSemester)}`
+      const cancelUrl = `${window.location.origin}/student/tuition?semester=${encodeURIComponent(selectedSemester)}&status=CANCELLED`
 
       const res = await api.post('/student/tuition/payos/create-payment-link', {
         semester: selectedSemester,
@@ -433,7 +450,7 @@ export const StudentTuition = () => {
             <Filter size={14} className="text-stone-500" />
             <select
               value={selectedSemester}
-              onChange={(e) => setSelectedSemester(e.target.value)}
+              onChange={(e) => handleSemesterChange(e.target.value)}
               className="bg-transparent text-xs font-semibold text-stone-800 focus:outline-none cursor-pointer font-mono"
             >
               {semesters.map((s) => (
@@ -1155,7 +1172,7 @@ export const StudentTuition = () => {
                 <p className="text-[10px] font-mono text-stone-500 uppercase">
                   PHÒNG KẾ HOẠCH - TÀI CHÍNH • CỔNG THANH TOÁN PAYOS
                 </p>
-                <h3 className="font-serif font-bold text-base sm:text-lg text-stone-900 uppercase mt-1 tracking-tight">
+                <h3 className="font-bold text-base sm:text-lg text-stone-900 uppercase mt-1 tracking-tight">
                   PHIẾU XÁC NHẬN NỘP HỌC PHÍ ĐIỆN TỬ
                 </h3>
                 <p className="text-[11px] font-mono text-stone-500 mt-1">
@@ -1200,7 +1217,7 @@ export const StudentTuition = () => {
 
                 <div className="py-1 text-xs">
                   <span className="text-stone-500 block">Số tiền viết bằng chữ:</span>
-                  <span className="italic font-serif text-stone-800 font-medium block pt-0.5">
+                  <span className="italic text-stone-800 font-medium block pt-0.5">
                     {numberToVietnameseWords(tuition?.totalAmount)}
                   </span>
                 </div>

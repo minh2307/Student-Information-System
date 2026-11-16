@@ -151,7 +151,7 @@ export const Header = ({ onToggleMobileMenu }) => {
           </span>
         </div>
         <div className="lg:hidden flex items-center gap-2">
-          <span className="font-serif font-bold text-stone-900 text-sm">
+          <span className="font-bold text-stone-900 text-sm tracking-tight">
             Rikkei <span className="text-red-700">EduPortal</span>
           </span>
         </div>

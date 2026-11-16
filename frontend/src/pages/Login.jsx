@@ -208,7 +208,7 @@ export const Login = () => {
               }}
             />
             <div>
-              <h1 className="font-serif font-bold text-sm sm:text-base text-stone-900 leading-tight uppercase tracking-tight">
+              <h1 className="font-bold text-sm sm:text-base text-stone-900 leading-tight uppercase tracking-tight">
                 HỌC VIỆN ĐÀO TẠO RIKKEI
               </h1>
               <p className="text-[10px] text-red-700 font-mono font-medium tracking-wide uppercase">

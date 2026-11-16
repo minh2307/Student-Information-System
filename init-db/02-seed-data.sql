@@ -41,7 +41,7 @@ SELECT setval('lecturer_profiles_id_seq', (SELECT MAX(id) FROM lecturer_profiles
 
 -- 2b. Hồ sơ Sinh viên
 INSERT INTO student_profiles (id, user_id, student_code, major, current_semester, credits_earned, total_required_credits, current_cgpa, previous_cgpa) VALUES
-(1, 4, 'SV2024001', 'B.Tech - Computer Science', 6, 84, 160, 8.74, 8.62),
+(1, 4, 'SV2024001', 'B.Tech - Computer Science', 6, 54, 160, 8.87, 8.80),
 (2, 5, 'SV2024002', 'B.Tech - Software Engineering', 4, 52, 160, 8.15, 8.05),
 (3, 9, 'SV2024003', 'B.Tech - Artificial Intelligence', 4, 48, 160, 8.40, 8.25),
 (4, 10, 'SV2024004', 'B.Tech - Information Security', 6, 78, 160, 8.55, 8.42),
