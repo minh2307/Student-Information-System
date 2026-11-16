@@ -1,6 +1,7 @@
 package com.rikkei.eduportal.enrollment.controller;
 
 import com.rikkei.eduportal.common.ApiResponse;
+import com.rikkei.eduportal.enrollment.dto.BatchImportResult;
 import com.rikkei.eduportal.enrollment.dto.ExamScheduleDto;
 import com.rikkei.eduportal.enrollment.dto.ExamScheduleRequest;
 import com.rikkei.eduportal.enrollment.service.ExamScheduleService;
@@ -54,6 +55,18 @@ public class AdminExamScheduleController {
     }
 
     /**
+     * POST /api/v1/admin/exam-schedules/batch
+     * Nhập hàng loạt lịch thi từ file Excel hoặc mảng dữ liệu
+     */
+    @PostMapping("/batch")
+    public ResponseEntity<ApiResponse<BatchImportResult>> batchImportExamSchedules(
+            @RequestBody List<ExamScheduleRequest> requests,
+            @RequestParam(required = false, defaultValue = "true") boolean overwrite) {
+        BatchImportResult result = examScheduleService.batchImportExamSchedules(requests, overwrite);
+        return ResponseEntity.ok(ApiResponse.success("Xử lý nhập danh sách lịch thi thành công", result));
+    }
+
+    /**
      * PUT /api/v1/admin/exam-schedules/{id}
      * Cập nhật thời gian, phòng thi, hình thức thi của ca thi
      */
@@ -76,15 +89,17 @@ public class AdminExamScheduleController {
     }
 
     /**
-     * POST /api/v1/admin/exam-schedules/auto-generate?semester=...
-     * Tự động khởi tạo lịch thi dự thảo cho các lớp học phần chưa có lịch thi trong học kỳ
+     * POST /api/v1/admin/exam-schedules/auto-generate?semester=...&overwrite=...
+     * Tự động khởi tạo lịch thi dự thảo cho các lớp học phần trong học kỳ
      */
     @PostMapping("/auto-generate")
     public ResponseEntity<ApiResponse<Map<String, Object>>> autoGenerate(
-            @RequestParam(required = false) String semester) {
-        int count = examScheduleService.autoGenerateExamSchedules(semester);
+            @RequestParam(required = false) String semester,
+            @RequestParam(required = false, defaultValue = "false") boolean overwrite) {
+        int count = examScheduleService.autoGenerateExamSchedules(semester, overwrite);
         return ResponseEntity.ok(ApiResponse.success("Tự động tạo lịch thi thành công", Map.of(
                 "createdCount", count,
+                "overwrite", overwrite,
                 "semester", semester != null ? semester : "2024-25_SEM2"
         )));
     }

@@ -2,6 +2,7 @@ package com.rikkei.eduportal.enrollment.repository;
 
 import com.rikkei.eduportal.enrollment.entity.ExamSchedule;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -30,6 +31,10 @@ public interface ExamScheduleRepository extends JpaRepository<ExamSchedule, Long
     boolean existsByClassSectionId(Long classSectionId);
 
     List<ExamSchedule> findByClassSectionId(Long classSectionId);
+
+    @Modifying
+    @Query("DELETE FROM ExamSchedule es WHERE es.classSection.id IN (SELECT cs.id FROM ClassSection cs WHERE cs.semesterName = :semester)")
+    void deleteBySemester(@Param("semester") String semester);
 
     @Query("SELECT es FROM ExamSchedule es " +
            "JOIN FETCH es.classSection cs " +

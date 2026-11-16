@@ -4,10 +4,12 @@ import com.rikkei.eduportal.enrollment.dto.PayOSPaymentLinkResponse;
 import com.rikkei.eduportal.enrollment.dto.PayOSWebhookPayload;
 import com.rikkei.eduportal.enrollment.dto.TuitionDto;
 import com.rikkei.eduportal.enrollment.entity.Notification;
+import com.rikkei.eduportal.enrollment.entity.Semester;
 import com.rikkei.eduportal.enrollment.entity.StudentProfile;
 import com.rikkei.eduportal.enrollment.entity.TuitionFee;
 import com.rikkei.eduportal.enrollment.entity.User;
 import com.rikkei.eduportal.enrollment.repository.NotificationRepository;
+import com.rikkei.eduportal.enrollment.repository.SemesterRepository;
 import com.rikkei.eduportal.enrollment.repository.StudentProfileRepository;
 import com.rikkei.eduportal.enrollment.repository.TuitionFeeRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,6 +45,9 @@ class PayOSServiceTest {
     @Mock
     private TuitionService tuitionService;
 
+    @Mock
+    private SemesterRepository semesterRepository;
+
     private PayOSService payOSService;
 
     private final String testChecksumKey = "test-checksum-key-32bytes-secret!!";
@@ -57,7 +62,8 @@ class PayOSServiceTest {
                 studentProfileRepository,
                 notificationRepository,
                 dashboardService,
-                tuitionService
+                tuitionService,
+                semesterRepository
         );
 
         ReflectionTestUtils.setField(payOSService, "clientId", "demo-client-id");
@@ -81,7 +87,8 @@ class PayOSServiceTest {
         tuition.setId(5L);
         tuition.setStudent(student);
         tuition.setSemesterName("2024-25_SEM2");
-        tuition.setTotalCredits(10);
+        tuition.setTotalCredits(15);
+        tuition.setIsFinalized(true);
         tuition.setCreditUnitPrice(BigDecimal.valueOf(450000));
         tuition.setFacilityFee(BigDecimal.valueOf(300000));
         tuition.setTotalAmount(BigDecimal.valueOf(4800000));
@@ -254,5 +261,55 @@ class PayOSServiceTest {
         when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2024-25_SEM2")).thenReturn(Optional.of(tuition));
 
         assertTrue(payOSService.syncPaymentStatus("SV2024001", "2024-25_SEM2", 123456L));
+    }
+
+    @Test
+    @DisplayName("TC-PAYOS-10: Từ chối tạo liên kết thanh toán khi học kỳ đã đóng")
+    void testCreatePaymentLink_FailsWhenSemesterIsClosed() {
+        when(dashboardService.resolveStudent("SV2024001")).thenReturn(student);
+        Semester closedSemester = new Semester("2024-25_SEM1", "Học kỳ 1 (2024-2025)", "2024-2025", false, false);
+        when(semesterRepository.findFirstBySemesterCodeOrSemesterName("2024-25_SEM1", "2024-25_SEM1"))
+                .thenReturn(Optional.of(closedSemester));
+
+        com.rikkei.eduportal.enrollment.exception.BusinessException ex = assertThrows(
+                com.rikkei.eduportal.enrollment.exception.BusinessException.class,
+                () -> payOSService.createPaymentLink("SV2024001", "2024-25_SEM1")
+        );
+
+        assertTrue(ex.getMessage().contains("đã đóng"));
+        verify(tuitionFeeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("TC-PAYOS-11: Từ chối tạo liên kết thanh toán khi chưa chốt đăng ký tín chỉ")
+    void testCreatePaymentLink_FailsWhenNotFinalized() {
+        tuition.setIsFinalized(false);
+        when(dashboardService.resolveStudent("SV2024001")).thenReturn(student);
+        when(tuitionService.getStudentTuition("SV2024001", "2024-25_SEM2")).thenReturn(new TuitionDto());
+        when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2024-25_SEM2")).thenReturn(Optional.of(tuition));
+
+        com.rikkei.eduportal.enrollment.exception.BusinessException ex = assertThrows(
+                com.rikkei.eduportal.enrollment.exception.BusinessException.class,
+                () -> payOSService.createPaymentLink("SV2024001", "2024-25_SEM2")
+        );
+
+        assertTrue(ex.getMessage().contains("chốt đăng ký tín chỉ"));
+    }
+
+    @Test
+    @DisplayName("TC-PAYOS-12: Từ chối tạo liên kết thanh toán khi số tín chỉ dưới 12 TC")
+    void testCreatePaymentLink_FailsWhenCreditsLessThan12() {
+        tuition.setIsFinalized(true);
+        tuition.setTotalCredits(9);
+        when(dashboardService.resolveStudent("SV2024001")).thenReturn(student);
+        when(tuitionService.getStudentTuition("SV2024001", "2024-25_SEM2")).thenReturn(new TuitionDto());
+        when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2024-25_SEM2")).thenReturn(Optional.of(tuition));
+
+        com.rikkei.eduportal.enrollment.exception.BusinessException ex = assertThrows(
+                com.rikkei.eduportal.enrollment.exception.BusinessException.class,
+                () -> payOSService.createPaymentLink("SV2024001", "2024-25_SEM2")
+        );
+
+        assertTrue(ex.getMessage().contains("tối thiểu 12 tín chỉ"));
     }
 }

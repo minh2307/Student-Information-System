@@ -52,6 +52,9 @@ class CourseRegistrationServiceTest {
     @Mock
     private SlotReservationRepository reservationRepository;
 
+    @Mock
+    private SemesterRepository semesterRepository;
+
     @InjectMocks
     private CourseRegistrationService registrationService;
 
@@ -215,6 +218,23 @@ class CourseRegistrationServiceTest {
         );
 
         assertTrue(ex.getMessage().contains("Vượt quá giới hạn đăng ký tối đa 24 tín chỉ"));
+    }
+
+    @Test
+    void testEnroll_FailsWhenSemesterIsClosed() {
+        when(dashboardService.resolveStudent("SV2024001")).thenReturn(student);
+        when(classSectionRepository.findByIdWithLock(100L)).thenReturn(Optional.of(section));
+
+        Semester closedSemester = new Semester("2024-25_SEM2", "Học kỳ 2 (2024-2025)", "2024-2025", false, false);
+        when(semesterRepository.findFirstBySemesterCodeOrSemesterName("2024-25_SEM2", "2024-25_SEM2"))
+                .thenReturn(Optional.of(closedSemester));
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                registrationService.enroll("SV2024001", 100L)
+        );
+
+        assertTrue(ex.getMessage().contains("đã đóng cổng đăng ký"));
+        verify(enrollmentRepository, never()).save(any());
     }
 
     @Test

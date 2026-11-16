@@ -9,6 +9,7 @@ import com.rikkei.eduportal.enrollment.exception.ResourceNotFoundException;
 import com.rikkei.eduportal.enrollment.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class CourseRegistrationService {
@@ -33,6 +35,44 @@ public class CourseRegistrationService {
     private final StudentDashboardService dashboardService;
     private final RealtimeSeatService realtimeSeatService;
     private final SlotReservationRepository reservationRepository;
+    private final SemesterRepository semesterRepository;
+    private final TuitionFeeRepository tuitionFeeRepository;
+
+    @Autowired
+    public CourseRegistrationService(StudentProfileRepository studentProfileRepository,
+                                   ClassSectionRepository classSectionRepository,
+                                   EnrollmentRepository enrollmentRepository,
+                                   GradeRepository gradeRepository,
+                                   CourseRepository courseRepository,
+                                   StudentDashboardService dashboardService,
+                                   RealtimeSeatService realtimeSeatService,
+                                   SlotReservationRepository reservationRepository,
+                                   SemesterRepository semesterRepository,
+                                   TuitionFeeRepository tuitionFeeRepository) {
+        this.studentProfileRepository = studentProfileRepository;
+        this.classSectionRepository = classSectionRepository;
+        this.enrollmentRepository = enrollmentRepository;
+        this.gradeRepository = gradeRepository;
+        this.courseRepository = courseRepository;
+        this.dashboardService = dashboardService;
+        this.realtimeSeatService = realtimeSeatService;
+        this.reservationRepository = reservationRepository;
+        this.semesterRepository = semesterRepository;
+        this.tuitionFeeRepository = tuitionFeeRepository;
+    }
+
+    public CourseRegistrationService(StudentProfileRepository studentProfileRepository,
+                                   ClassSectionRepository classSectionRepository,
+                                   EnrollmentRepository enrollmentRepository,
+                                   GradeRepository gradeRepository,
+                                   CourseRepository courseRepository,
+                                   StudentDashboardService dashboardService,
+                                   RealtimeSeatService realtimeSeatService,
+                                   SlotReservationRepository reservationRepository,
+                                   SemesterRepository semesterRepository) {
+        this(studentProfileRepository, classSectionRepository, enrollmentRepository, gradeRepository,
+                courseRepository, dashboardService, realtimeSeatService, reservationRepository, semesterRepository, null);
+    }
 
     public CourseRegistrationService(StudentProfileRepository studentProfileRepository,
                                    ClassSectionRepository classSectionRepository,
@@ -42,14 +82,8 @@ public class CourseRegistrationService {
                                    StudentDashboardService dashboardService,
                                    RealtimeSeatService realtimeSeatService,
                                    SlotReservationRepository reservationRepository) {
-        this.studentProfileRepository = studentProfileRepository;
-        this.classSectionRepository = classSectionRepository;
-        this.enrollmentRepository = enrollmentRepository;
-        this.gradeRepository = gradeRepository;
-        this.courseRepository = courseRepository;
-        this.dashboardService = dashboardService;
-        this.realtimeSeatService = realtimeSeatService;
-        this.reservationRepository = reservationRepository;
+        this(studentProfileRepository, classSectionRepository, enrollmentRepository, gradeRepository,
+                courseRepository, dashboardService, realtimeSeatService, reservationRepository, null);
     }
 
     /**
@@ -74,6 +108,19 @@ public class CourseRegistrationService {
                 enrolledSectionMap.put(e.getClassSection().getId(), e);
             }
         }
+
+        Set<Long> completedCourseIds = allStudentEnrollments.stream()
+                .filter(e -> "COMPLETED".equalsIgnoreCase(e.getStatus()) && e.getClassSection() != null && e.getClassSection().getCourse() != null)
+                .map(e -> e.getClassSection().getCourse().getId())
+                .collect(Collectors.toSet());
+
+        Set<Long> enrolledCourseIdsInSemester = allStudentEnrollments.stream()
+                .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus()))
+                        && e.getClassSection() != null
+                        && e.getClassSection().getCourse() != null
+                        && (semester == null || semester.isBlank() || semester.trim().equalsIgnoreCase(e.getClassSection().getSemesterName())))
+                .map(e -> e.getClassSection().getCourse().getId())
+                .collect(Collectors.toSet());
 
         // 2. Lấy danh sách các slot đang giữ chỗ của riêng sinh viên này
         List<SlotReservation> myReservations = reservationRepository.findActiveByStudentId(student.getId(), now);
@@ -137,6 +184,10 @@ public class CourseRegistrationService {
             }
 
             Enrollment enrolled = enrolledSectionMap.get(sec.getId());
+            Long cId = (sec.getCourse() != null) ? sec.getCourse().getId() : null;
+            boolean isCourseCompleted = cId != null && completedCourseIds.contains(cId);
+            boolean isCourseEnrolledInSemester = cId != null && enrolledCourseIdsInSemester.contains(cId);
+
             if (enrolled != null) {
                 dto.setEnrollmentId(enrolled.getId());
                 dto.setEnrollmentStatus(enrolled.getStatus());
@@ -148,6 +199,14 @@ public class CourseRegistrationService {
                     dto.setIsEnrolled(true);
                 }
                 dto.setHasConflict(Boolean.TRUE.equals(enrolled.getHasConflict()));
+            } else if (isCourseCompleted) {
+                dto.setIsCompleted(true);
+                dto.setIsEnrolled(false);
+                dto.setEnrollmentStatus("COMPLETED");
+            } else if (isCourseEnrolledInSemester) {
+                dto.setIsCompleted(false);
+                dto.setIsEnrolled(true);
+                dto.setEnrollmentStatus("REGISTERED");
             } else {
                 dto.setIsEnrolled(false);
                 dto.setIsCompleted(false);
@@ -181,6 +240,33 @@ public class CourseRegistrationService {
 
         if (!"OPEN".equalsIgnoreCase(section.getStatus())) {
             throw new BusinessException("Lớp học phần hiện không mở cho đăng ký (Trạng thái: " + section.getStatus() + ")");
+        }
+
+        // Rule 0: Kiểm tra học kỳ đã đóng đăng ký hay chưa
+        if (section.getSemesterName() != null && !section.getSemesterName().isBlank() && semesterRepository != null) {
+            semesterRepository.findFirstBySemesterCodeOrSemesterName(section.getSemesterName().trim(), section.getSemesterName().trim())
+                    .ifPresent(sem -> {
+                        if (Boolean.FALSE.equals(sem.getIsRegistrationOpen())) {
+                            throw new BusinessException(String.format(
+                                    "Học kỳ %s đã đóng cổng đăng ký. Không thể đăng ký thêm học phần.",
+                                    sem.getSemesterName() != null ? sem.getSemesterName() : section.getSemesterName()
+                            ));
+                        }
+                    });
+        }
+
+        // Rule 0.1: Kiểm tra sinh viên đã chốt tín chỉ hoặc đã thanh toán học phí cho kỳ này chưa
+        if (section.getSemesterName() != null && !section.getSemesterName().isBlank() && tuitionFeeRepository != null) {
+            String semName = section.getSemesterName().trim();
+            tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), semName)
+                    .ifPresent(tf -> {
+                        if ("PAID".equalsIgnoreCase(tf.getStatus())) {
+                            throw new BusinessException(String.format("Học kỳ %s đã được thanh toán học phí thành công. Không thể đăng ký thêm học phần.", semName));
+                        }
+                        if (Boolean.TRUE.equals(tf.getIsFinalized())) {
+                            throw new BusinessException(String.format("Bạn đã chốt danh sách đăng ký tín chỉ cho học kỳ %s. Nếu muốn đăng ký thêm môn, vui lòng vào trang Học phí hủy chốt để mở lại đăng ký.", semName));
+                        }
+                    });
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -266,7 +352,23 @@ public class CourseRegistrationService {
                 student.getId(), section.getSemesterName()
         );
 
+        // Rule 3.1: Không cho phép đăng ký trùng môn học trong cùng học kỳ
+        if (section.getCourse() != null && section.getCourse().getId() != null) {
+            boolean alreadyEnrolledInSameCourseInSemester = currentSemesterEnrollments.stream()
+                    .anyMatch(e -> e.getClassSection() != null
+                            && e.getClassSection().getCourse() != null
+                            && Objects.equals(section.getCourse().getId(), e.getClassSection().getCourse().getId())
+                            && !Objects.equals(section.getId(), e.getClassSection().getId()));
+            if (alreadyEnrolledInSameCourseInSemester) {
+                throw new BusinessException(String.format(
+                        "Bạn đã đăng ký một lớp học phần khác thuộc môn '%s' trong học kỳ này rồi. Mỗi môn học chỉ được đăng ký tối đa 1 lớp học phần.",
+                        section.getCourse().getName()
+                ));
+            }
+        }
+
         int currentCredits = currentSemesterEnrollments.stream()
+                .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus())))
                 .filter(e -> !Objects.equals(e.getClassSection().getId(), section.getId()))
                 .mapToInt(e -> (e.getClassSection() != null && e.getClassSection().getCourse() != null)
                         ? e.getClassSection().getCourse().getCredits() : 0)
@@ -328,6 +430,33 @@ public class CourseRegistrationService {
             throw new BusinessException("Bạn hiện không có lớp học phần nào đang trong phiên giữ chỗ.");
         }
 
+        // Kiểm tra tổng hạn mức tín chỉ cho toàn bộ các lớp giữ chỗ trước khi thực thi
+        Map<String, Integer> heldCreditsBySemester = new HashMap<>();
+        for (SlotReservation hold : activeHolds) {
+            ClassSection sec = hold.getClassSection();
+            if (sec != null && sec.getSemesterName() != null) {
+                int creds = (sec.getCourse() != null && sec.getCourse().getCredits() != null) ? sec.getCourse().getCredits() : 3;
+                heldCreditsBySemester.merge(sec.getSemesterName().trim(), creds, Integer::sum);
+            }
+        }
+
+        for (Map.Entry<String, Integer> entry : heldCreditsBySemester.entrySet()) {
+            String sem = entry.getKey();
+            int heldCreds = entry.getValue();
+            List<Enrollment> currentEnrs = enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(student.getId(), sem);
+            int currentCreds = currentEnrs.stream()
+                    .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus())))
+                    .mapToInt(e -> (e.getClassSection() != null && e.getClassSection().getCourse() != null && e.getClassSection().getCourse().getCredits() != null)
+                            ? e.getClassSection().getCourse().getCredits() : 0)
+                    .sum();
+            if (currentCreds + heldCreds > MAX_CREDITS_PER_SEMESTER) {
+                throw new BusinessException(String.format(
+                        "Không thể xác nhận đăng ký: Tổng số tín chỉ của các môn giữ chỗ (%d TC) kết hợp với các môn đã đăng ký (%d TC) trong kỳ %s là %d TC, vượt quá giới hạn tối đa %d tín chỉ/học kỳ!",
+                        heldCreds, currentCreds, sem, (currentCreds + heldCreds), MAX_CREDITS_PER_SEMESTER
+                ));
+            }
+        }
+
         List<EnrollmentResponse> enrolledList = new ArrayList<>();
         for (SlotReservation hold : activeHolds) {
             EnrollmentResponse response = enroll(studentIdentifier, hold.getClassSection().getId());
@@ -352,6 +481,19 @@ public class CourseRegistrationService {
 
         if ("CANCELLED".equalsIgnoreCase(enrollment.getStatus())) {
             return; // Đã hủy từ trước
+        }
+
+        if (enrollment.getClassSection() != null && enrollment.getClassSection().getSemesterName() != null && tuitionFeeRepository != null) {
+            String semName = enrollment.getClassSection().getSemesterName().trim();
+            tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), semName)
+                    .ifPresent(tf -> {
+                        if ("PAID".equalsIgnoreCase(tf.getStatus())) {
+                            throw new BusinessException(String.format("Học kỳ %s đã thanh toán học phí thành công. Không thể hủy học phần.", semName));
+                        }
+                        if (Boolean.TRUE.equals(tf.getIsFinalized())) {
+                            throw new BusinessException(String.format("Bạn đã chốt danh sách đăng ký tín chỉ cho học kỳ %s. Nếu muốn hủy môn, vui lòng vào trang Học phí hủy chốt trước.", semName));
+                        }
+                    });
         }
 
         ClassSection section = enrollment.getClassSection();

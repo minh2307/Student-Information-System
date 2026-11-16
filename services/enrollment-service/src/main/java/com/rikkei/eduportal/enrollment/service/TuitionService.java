@@ -5,11 +5,13 @@ import com.rikkei.eduportal.enrollment.entity.Enrollment;
 import com.rikkei.eduportal.enrollment.entity.Notification;
 import com.rikkei.eduportal.enrollment.entity.StudentProfile;
 import com.rikkei.eduportal.enrollment.entity.TuitionFee;
+import com.rikkei.eduportal.enrollment.exception.BusinessException;
 import com.rikkei.eduportal.enrollment.repository.EnrollmentRepository;
 import com.rikkei.eduportal.enrollment.repository.NotificationRepository;
 import com.rikkei.eduportal.enrollment.repository.StudentProfileRepository;
 import com.rikkei.eduportal.enrollment.repository.TuitionFeeRepository;
 import com.rikkei.eduportal.enrollment.util.VietQrPayloadGenerator;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,17 +42,29 @@ public class TuitionService {
     private final EnrollmentRepository enrollmentRepository;
     private final NotificationRepository notificationRepository;
     private final StudentDashboardService dashboardService;
+    private final com.rikkei.eduportal.enrollment.repository.SemesterRepository semesterRepository;
+
+    @Autowired
+    public TuitionService(TuitionFeeRepository tuitionFeeRepository,
+                          StudentProfileRepository studentProfileRepository,
+                          EnrollmentRepository enrollmentRepository,
+                          NotificationRepository notificationRepository,
+                          StudentDashboardService dashboardService,
+                          com.rikkei.eduportal.enrollment.repository.SemesterRepository semesterRepository) {
+        this.tuitionFeeRepository = tuitionFeeRepository;
+        this.studentProfileRepository = studentProfileRepository;
+        this.enrollmentRepository = enrollmentRepository;
+        this.notificationRepository = notificationRepository;
+        this.dashboardService = dashboardService;
+        this.semesterRepository = semesterRepository;
+    }
 
     public TuitionService(TuitionFeeRepository tuitionFeeRepository,
                           StudentProfileRepository studentProfileRepository,
                           EnrollmentRepository enrollmentRepository,
                           NotificationRepository notificationRepository,
                           StudentDashboardService dashboardService) {
-        this.tuitionFeeRepository = tuitionFeeRepository;
-        this.studentProfileRepository = studentProfileRepository;
-        this.enrollmentRepository = enrollmentRepository;
-        this.notificationRepository = notificationRepository;
-        this.dashboardService = dashboardService;
+        this(tuitionFeeRepository, studentProfileRepository, enrollmentRepository, notificationRepository, dashboardService, null);
     }
 
     @Transactional
@@ -110,23 +124,25 @@ public class TuitionService {
             tuition.setDueDate(LocalDate.now().plusDays(30)); // 30 ngày theo quy tắc BR-07
             tuition = tuitionFeeRepository.save(tuition);
         } else {
-            // Tự động quyết toán lại nếu sinh viên có thay đổi môn học (đăng ký thêm / hủy bớt)
-            BigDecimal currentPaid = tuition.getPaidAmount() != null ? tuition.getPaidAmount() : BigDecimal.ZERO;
-            tuition.setTotalCredits(totalCredits);
-            tuition.setCreditUnitPrice(CREDIT_UNIT_PRICE);
-            tuition.setFacilityFee(facilityFee);
-            tuition.setTotalAmount(calculatedTotalAmount);
+            // Tự động quyết toán lại nếu sinh viên chưa chốt tín chỉ và chưa thanh toán
+            if (!Boolean.TRUE.equals(tuition.getIsFinalized()) && !"PAID".equalsIgnoreCase(tuition.getStatus())) {
+                BigDecimal currentPaid = tuition.getPaidAmount() != null ? tuition.getPaidAmount() : BigDecimal.ZERO;
+                tuition.setTotalCredits(totalCredits);
+                tuition.setCreditUnitPrice(CREDIT_UNIT_PRICE);
+                tuition.setFacilityFee(facilityFee);
+                tuition.setTotalAmount(calculatedTotalAmount);
 
-            if (currentPaid.compareTo(calculatedTotalAmount) >= 0 && calculatedTotalAmount.compareTo(BigDecimal.ZERO) > 0) {
-                tuition.setStatus("PAID");
-            } else if (currentPaid.compareTo(BigDecimal.ZERO) > 0 && currentPaid.compareTo(calculatedTotalAmount) < 0) {
-                tuition.setStatus("PARTIAL");
-            } else if (calculatedTotalAmount.compareTo(BigDecimal.ZERO) == 0) {
-                tuition.setStatus("PAID");
-            } else {
-                tuition.setStatus("UNPAID");
+                if (currentPaid.compareTo(calculatedTotalAmount) >= 0 && calculatedTotalAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    tuition.setStatus("PAID");
+                } else if (currentPaid.compareTo(BigDecimal.ZERO) > 0 && currentPaid.compareTo(calculatedTotalAmount) < 0) {
+                    tuition.setStatus("PARTIAL");
+                } else if (calculatedTotalAmount.compareTo(BigDecimal.ZERO) == 0) {
+                    tuition.setStatus("PAID");
+                } else {
+                    tuition.setStatus("UNPAID");
+                }
+                tuition = tuitionFeeRepository.save(tuition);
             }
-            tuition = tuitionFeeRepository.save(tuition);
         }
 
         BigDecimal paidAmount = tuition.getPaidAmount() != null ? tuition.getPaidAmount() : BigDecimal.ZERO;
@@ -200,7 +216,120 @@ public class TuitionService {
         dto.setVietQrQuickLink(currentQuickLink);
         dto.setSupportedBanks(supportedBanks);
 
+        boolean isSemOpen = true;
+        if (semesterRepository != null) {
+            var semOpt = semesterRepository.findFirstBySemesterCodeOrSemesterName(activeSemester, activeSemester);
+            if (semOpt.isPresent()) {
+                isSemOpen = Boolean.TRUE.equals(semOpt.get().getIsRegistrationOpen());
+            }
+        }
+        dto.setIsSemesterOpen(isSemOpen);
+        dto.setIsFinalized(Boolean.TRUE.equals(tuition.getIsFinalized()) || "PAID".equalsIgnoreCase(tuition.getStatus()));
+        dto.setFinalizedAt(tuition.getFinalizedAt());
+        dto.setMinimumCreditsRequired(12);
+
         return dto;
+    }
+
+    @Transactional
+    public TuitionDto finalizeTuitionCredits(String studentIdentifier, String semester) {
+        StudentProfile student = dashboardService.resolveStudent(studentIdentifier);
+        String targetSemester = (semester != null && !semester.trim().isEmpty()) ? semester.trim() : "2024-25_SEM2";
+
+        if (semesterRepository != null) {
+            semesterRepository.findFirstBySemesterCodeOrSemesterName(targetSemester, targetSemester)
+                    .ifPresent(sem -> {
+                        if (Boolean.FALSE.equals(sem.getIsRegistrationOpen())) {
+                            throw new BusinessException(String.format("Học kỳ %s đã đóng cổng đăng ký. Không thể thực hiện thao tác chốt tín chỉ.", targetSemester));
+                        }
+                    });
+        }
+
+        TuitionFee tuition = tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), targetSemester)
+                .orElseGet(() -> {
+                    getStudentTuition(studentIdentifier, targetSemester);
+                    return tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), targetSemester).orElseThrow();
+                });
+
+        if ("PAID".equalsIgnoreCase(tuition.getStatus())) {
+            throw new BusinessException("Học kỳ này đã được thanh toán học phí thành công.");
+        }
+
+        // Lấy số tín chỉ thực tế hiện tại
+        List<Enrollment> enrollments = enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(student.getId(), targetSemester);
+        int actualCredits = enrollments.stream()
+                .mapToInt(e -> (e.getClassSection() != null && e.getClassSection().getCourse() != null && e.getClassSection().getCourse().getCredits() != null)
+                        ? e.getClassSection().getCourse().getCredits() : 0)
+                .sum();
+
+        if (actualCredits < 12) {
+            throw new BusinessException(String.format(
+                    "Số tín chỉ đăng ký hiện tại (%d TC) chưa đạt mức tối thiểu 12 tín chỉ theo quy chế đào tạo. Vui lòng đăng ký đủ tối thiểu 12 tín chỉ trước khi chốt học phần và thanh toán.",
+                    actualCredits
+            ));
+        }
+
+        if (actualCredits > 24) {
+            throw new BusinessException(String.format(
+                    "Số tín chỉ đăng ký hiện tại (%d TC) vượt quá hạn mức tối đa 24 tín chỉ theo quy định. Vui lòng điều chỉnh trước khi chốt.",
+                    actualCredits
+            ));
+        }
+
+        BigDecimal facilityFee = (actualCredits > 0) ? BASE_FACILITY_FEE : BigDecimal.ZERO;
+        BigDecimal calculatedTotal = CREDIT_UNIT_PRICE.multiply(BigDecimal.valueOf(actualCredits)).add(facilityFee);
+        if (actualCredits > 0 && calculatedTotal.compareTo(BigDecimal.valueOf(2000.00)) < 0) {
+            calculatedTotal = BigDecimal.valueOf(2000.00);
+        }
+
+        tuition.setTotalCredits(actualCredits);
+        tuition.setCreditUnitPrice(CREDIT_UNIT_PRICE);
+        tuition.setFacilityFee(facilityFee);
+        tuition.setTotalAmount(calculatedTotal);
+        tuition.setIsFinalized(true);
+        tuition.setFinalizedAt(LocalDateTime.now());
+        tuitionFeeRepository.save(tuition);
+
+        if (student.getUser() != null) {
+            Notification notification = new Notification();
+            notification.setUser(student.getUser());
+            notification.setTitle("Chốt danh sách đăng ký tín chỉ thành công");
+            notification.setMessage(String.format("Bạn đã chốt thành công %d tín chỉ cho học kỳ %s. Vui lòng tiến hành thanh toán học phí.", actualCredits, targetSemester));
+            notification.setType("TUITION");
+            notification.setLinkUrl("/student/tuition");
+            notification.setIsRead(false);
+            notificationRepository.save(notification);
+        }
+
+        return getStudentTuition(studentIdentifier, targetSemester);
+    }
+
+    @Transactional
+    public TuitionDto unfinalizeTuitionCredits(String studentIdentifier, String semester) {
+        StudentProfile student = dashboardService.resolveStudent(studentIdentifier);
+        String targetSemester = (semester != null && !semester.trim().isEmpty()) ? semester.trim() : "2024-25_SEM2";
+
+        TuitionFee tuition = tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), targetSemester)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy thông tin học phí của học kỳ " + targetSemester));
+
+        if ("PAID".equalsIgnoreCase(tuition.getStatus())) {
+            throw new BusinessException("Học kỳ này đã được thanh toán học phí thành công. Không thể hủy chốt hoặc thay đổi đăng ký tín chỉ.");
+        }
+
+        if (semesterRepository != null) {
+            semesterRepository.findFirstBySemesterCodeOrSemesterName(targetSemester, targetSemester)
+                    .ifPresent(sem -> {
+                        if (Boolean.FALSE.equals(sem.getIsRegistrationOpen())) {
+                            throw new BusinessException(String.format("Học kỳ %s đã đóng cổng đăng ký. Không thể mở lại đăng ký tín chỉ.", targetSemester));
+                        }
+                    });
+        }
+
+        tuition.setIsFinalized(false);
+        tuition.setFinalizedAt(null);
+        tuitionFeeRepository.save(tuition);
+
+        return getStudentTuition(studentIdentifier, targetSemester);
     }
 
     @Transactional
@@ -208,11 +337,32 @@ public class TuitionService {
         StudentProfile student = dashboardService.resolveStudent(studentIdentifier);
         String targetSemester = (semester != null && !semester.trim().isEmpty()) ? semester.trim() : "2024-25_SEM2";
 
+        // 1. Kiểm tra học kỳ đã đóng
+        if (semesterRepository != null) {
+            semesterRepository.findFirstBySemesterCodeOrSemesterName(targetSemester, targetSemester)
+                    .ifPresent(sem -> {
+                        if (Boolean.FALSE.equals(sem.getIsRegistrationOpen())) {
+                            throw new BusinessException(String.format("Học kỳ %s đã đóng. Cổng thanh toán học phí không còn mở cho học kỳ này.", targetSemester));
+                        }
+                    });
+        }
+
         TuitionFee tuition = tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), targetSemester)
                 .orElseGet(() -> {
                     getStudentTuition(studentIdentifier, targetSemester);
                     return tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), targetSemester).orElseThrow();
                 });
+
+        // 2. Phải chốt đăng ký tín chỉ trước khi thanh toán
+        if (!Boolean.TRUE.equals(tuition.getIsFinalized()) && !"PAID".equalsIgnoreCase(tuition.getStatus())) {
+            throw new BusinessException("Bạn chưa thực hiện thao tác chốt đăng ký tín chỉ cho học kỳ này. Vui lòng kiểm tra và chốt đăng ký tín chỉ (tối thiểu 12 tín chỉ) trước khi thanh toán.");
+        }
+
+        // 3. Phải đạt tối thiểu 12 tín chỉ
+        if (tuition.getTotalCredits() == null || tuition.getTotalCredits() < 12) {
+            throw new BusinessException(String.format("Số tín chỉ của bạn (%d TC) chưa đạt mức tối thiểu 12 tín chỉ theo quy chế đào tạo. Không thể thanh toán học phí.",
+                    tuition.getTotalCredits() != null ? tuition.getTotalCredits() : 0));
+        }
 
         tuition.setPaidAmount(tuition.getTotalAmount());
         tuition.setStatus("PAID");

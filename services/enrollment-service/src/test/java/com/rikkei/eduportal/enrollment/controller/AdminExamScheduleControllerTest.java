@@ -167,7 +167,7 @@ class AdminExamScheduleControllerTest {
     @Test
     @DisplayName("POST /api/v1/admin/exam-schedules/auto-generate: Tự động lập lịch thi")
     void testAutoGenerate() throws Exception {
-        when(examScheduleService.autoGenerateExamSchedules("2024-25_SEM2")).thenReturn(5);
+        when(examScheduleService.autoGenerateExamSchedules("2024-25_SEM2", false)).thenReturn(5);
 
         mockMvc.perform(post("/api/v1/admin/exam-schedules/auto-generate")
                         .param("semester", "2024-25_SEM2")
@@ -175,8 +175,27 @@ class AdminExamScheduleControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is(200)))
                 .andExpect(jsonPath("$.data.createdCount", is(5)))
+                .andExpect(jsonPath("$.data.overwrite", is(false)))
                 .andExpect(jsonPath("$.data.semester", is("2024-25_SEM2")));
 
-        verify(examScheduleService, times(1)).autoGenerateExamSchedules("2024-25_SEM2");
+        verify(examScheduleService, times(1)).autoGenerateExamSchedules("2024-25_SEM2", false);
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/admin/exam-schedules/auto-generate with overwrite=true")
+    void testAutoGenerateWithOverwrite() throws Exception {
+        when(examScheduleService.autoGenerateExamSchedules("2024-25_SEM2", true)).thenReturn(10);
+
+        mockMvc.perform(post("/api/v1/admin/exam-schedules/auto-generate")
+                        .param("semester", "2024-25_SEM2")
+                        .param("overwrite", "true")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is(200)))
+                .andExpect(jsonPath("$.data.createdCount", is(10)))
+                .andExpect(jsonPath("$.data.overwrite", is(true)))
+                .andExpect(jsonPath("$.data.semester", is("2024-25_SEM2")));
+
+        verify(examScheduleService, times(1)).autoGenerateExamSchedules("2024-25_SEM2", true);
     }
 }

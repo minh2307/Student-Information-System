@@ -55,6 +55,12 @@ public class TuitionFee {
     @Column(name = "payos_order_code")
     private Long payosOrderCode;
 
+    @Column(name = "is_finalized")
+    private Boolean isFinalized = false;
+
+    @Column(name = "finalized_at")
+    private LocalDateTime finalizedAt;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -101,6 +107,12 @@ public class TuitionFee {
 
     public String getPaymentMethod() { return paymentMethod; }
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+
+    public Boolean getIsFinalized() { return isFinalized; }
+    public void setIsFinalized(Boolean isFinalized) { this.isFinalized = isFinalized; }
+
+    public LocalDateTime getFinalizedAt() { return finalizedAt; }
+    public void setFinalizedAt(LocalDateTime finalizedAt) { this.finalizedAt = finalizedAt; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

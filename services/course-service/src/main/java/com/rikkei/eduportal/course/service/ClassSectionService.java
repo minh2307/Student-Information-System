@@ -3,6 +3,7 @@ package com.rikkei.eduportal.course.service;
 import com.rikkei.eduportal.common.SectionStatus;
 import com.rikkei.eduportal.course.dto.request.ClassSectionCreateRequest;
 import com.rikkei.eduportal.course.dto.request.ClassSectionUpdateRequest;
+import com.rikkei.eduportal.course.dto.response.BatchImportResult;
 import com.rikkei.eduportal.course.dto.response.ClassSectionResponse;
 
 import java.util.List;
@@ -18,4 +19,6 @@ public interface ClassSectionService {
     ClassSectionResponse updateSection(Long id, ClassSectionUpdateRequest request);
 
     void deleteSection(Long id);
+
+    BatchImportResult<ClassSectionResponse> batchImportSections(List<ClassSectionCreateRequest> requests);
 }

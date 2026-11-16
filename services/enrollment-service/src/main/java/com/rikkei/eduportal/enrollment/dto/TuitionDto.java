@@ -38,6 +38,12 @@ public class TuitionDto {
     // Danh sách ngân hàng hỗ trợ quét VietQR (VietinBank, MB Bank)
     private List<BankOptionDto> supportedBanks;
 
+    // Chốt đăng ký tín chỉ & quy chế tín chỉ tối thiểu
+    private Boolean isFinalized = false;
+    private LocalDateTime finalizedAt;
+    private Boolean isSemesterOpen = true;
+    private Integer minimumCreditsRequired = 12;
+
     public TuitionDto() {}
 
     public static class TuitionCourseItemDto {
@@ -177,4 +183,16 @@ public class TuitionDto {
 
     public List<BankOptionDto> getSupportedBanks() { return supportedBanks; }
     public void setSupportedBanks(List<BankOptionDto> supportedBanks) { this.supportedBanks = supportedBanks; }
+
+    public Boolean getIsFinalized() { return isFinalized; }
+    public void setIsFinalized(Boolean isFinalized) { this.isFinalized = isFinalized; }
+
+    public LocalDateTime getFinalizedAt() { return finalizedAt; }
+    public void setFinalizedAt(LocalDateTime finalizedAt) { this.finalizedAt = finalizedAt; }
+
+    public Boolean getIsSemesterOpen() { return isSemesterOpen; }
+    public void setIsSemesterOpen(Boolean isSemesterOpen) { this.isSemesterOpen = isSemesterOpen; }
+
+    public Integer getMinimumCreditsRequired() { return minimumCreditsRequired; }
+    public void setMinimumCreditsRequired(Integer minimumCreditsRequired) { this.minimumCreditsRequired = minimumCreditsRequired; }
 }

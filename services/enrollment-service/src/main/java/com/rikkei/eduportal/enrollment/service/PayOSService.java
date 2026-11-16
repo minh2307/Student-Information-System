@@ -15,6 +15,7 @@ import com.rikkei.eduportal.enrollment.repository.TuitionFeeRepository;
 import com.rikkei.eduportal.enrollment.util.VietQrPayloadGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,7 @@ public class PayOSService {
     private final NotificationRepository notificationRepository;
     private final StudentDashboardService dashboardService;
     private final TuitionService tuitionService;
+    private final com.rikkei.eduportal.enrollment.repository.SemesterRepository semesterRepository;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
@@ -60,18 +62,29 @@ public class PayOSService {
     @Value("${payos.cancel-url:http://localhost:5173/student/tuition?status=CANCELLED}")
     private String cancelUrl;
 
+    @Autowired
     public PayOSService(TuitionFeeRepository tuitionFeeRepository,
                         StudentProfileRepository studentProfileRepository,
                         NotificationRepository notificationRepository,
                         StudentDashboardService dashboardService,
-                        TuitionService tuitionService) {
+                        TuitionService tuitionService,
+                        com.rikkei.eduportal.enrollment.repository.SemesterRepository semesterRepository) {
         this.tuitionFeeRepository = tuitionFeeRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.notificationRepository = notificationRepository;
         this.dashboardService = dashboardService;
         this.tuitionService = tuitionService;
+        this.semesterRepository = semesterRepository;
         this.objectMapper = new ObjectMapper();
         this.restTemplate = new RestTemplate();
+    }
+
+    public PayOSService(TuitionFeeRepository tuitionFeeRepository,
+                        StudentProfileRepository studentProfileRepository,
+                        NotificationRepository notificationRepository,
+                        StudentDashboardService dashboardService,
+                        TuitionService tuitionService) {
+        this(tuitionFeeRepository, studentProfileRepository, notificationRepository, dashboardService, tuitionService, null);
     }
 
     /**
@@ -87,10 +100,30 @@ public class PayOSService {
         StudentProfile student = dashboardService.resolveStudent(studentIdentifier);
         String targetSemester = (semester != null && !semester.trim().isEmpty()) ? semester.trim() : "2024-25_SEM2";
 
+        if (semesterRepository != null) {
+            semesterRepository.findFirstBySemesterCodeOrSemesterName(targetSemester, targetSemester)
+                    .ifPresent(sem -> {
+                        if (Boolean.FALSE.equals(sem.getIsRegistrationOpen())) {
+                            throw new BusinessException("Học kỳ " + targetSemester + " đã đóng. Không thể tạo liên kết thanh toán học phí cho học kỳ này.");
+                        }
+                    });
+        }
+
         // Đồng bộ dữ liệu học phí mới nhất
         TuitionDto tuitionDto = tuitionService.getStudentTuition(studentIdentifier, targetSemester);
         TuitionFee tuition = tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), targetSemester)
                 .orElseThrow(() -> new IllegalStateException("Không tìm thấy bản ghi học phí cho kỳ " + targetSemester));
+
+        // Phải chốt đăng ký tín chỉ trước khi thanh toán
+        if (!Boolean.TRUE.equals(tuition.getIsFinalized()) && !"PAID".equalsIgnoreCase(tuition.getStatus())) {
+            throw new BusinessException("Bạn chưa thực hiện thao tác chốt đăng ký tín chỉ cho học kỳ này. Vui lòng kiểm tra và chốt đăng ký tín chỉ (tối thiểu 12 tín chỉ) trước khi thanh toán.");
+        }
+
+        // Phải đạt tối thiểu 12 tín chỉ
+        if (tuition.getTotalCredits() == null || tuition.getTotalCredits() < 12) {
+            throw new BusinessException(String.format("Số tín chỉ của bạn (%d TC) chưa đạt mức tối thiểu 12 tín chỉ theo quy chế đào tạo. Không thể tạo liên kết thanh toán học phí.",
+                    tuition.getTotalCredits() != null ? tuition.getTotalCredits() : 0));
+        }
 
         BigDecimal remainingAmount = tuition.getTotalAmount().subtract(
                 tuition.getPaidAmount() != null ? tuition.getPaidAmount() : BigDecimal.ZERO

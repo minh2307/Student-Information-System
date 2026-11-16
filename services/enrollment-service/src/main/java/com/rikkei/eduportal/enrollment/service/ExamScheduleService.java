@@ -1,5 +1,6 @@
 package com.rikkei.eduportal.enrollment.service;
 
+import com.rikkei.eduportal.enrollment.dto.BatchImportResult;
 import com.rikkei.eduportal.enrollment.dto.ExamScheduleDto;
 import com.rikkei.eduportal.enrollment.dto.ExamScheduleRequest;
 import com.rikkei.eduportal.enrollment.entity.ClassSection;
@@ -82,7 +83,7 @@ public class ExamScheduleService {
 
     @Transactional
     public ExamScheduleDto createExamSchedule(ExamScheduleRequest request) {
-        if (request.getClassSectionId() == null) {
+        if (request.getClassSectionId() == null && (request.getSectionCode() == null || request.getSectionCode().trim().isEmpty())) {
             throw new BusinessException("Vui lòng chọn lớp học phần cần xếp lịch thi");
         }
         if (request.getExamDate() == null) {
@@ -98,8 +99,16 @@ public class ExamScheduleService {
             throw new BusinessException("Phòng thi không được để trống");
         }
 
-        ClassSection section = classSectionRepository.findById(request.getClassSectionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học phần với ID: " + request.getClassSectionId()));
+        ClassSection section = null;
+        if (request.getClassSectionId() != null) {
+            section = classSectionRepository.findById(request.getClassSectionId()).orElse(null);
+        }
+        if (section == null && request.getSectionCode() != null && !request.getSectionCode().trim().isEmpty()) {
+            section = classSectionRepository.findBySectionCode(request.getSectionCode().trim()).orElse(null);
+        }
+        if (section == null) {
+            throw new ResourceNotFoundException("Không tìm thấy lớp học phần với thông tin đã cung cấp");
+        }
 
         ExamSchedule es = new ExamSchedule();
         es.setClassSection(section);
@@ -112,6 +121,81 @@ public class ExamScheduleService {
 
         ExamSchedule saved = examScheduleRepository.save(es);
         return mapToDto(saved);
+    }
+
+    @Transactional
+    public BatchImportResult batchImportExamSchedules(List<ExamScheduleRequest> requests, boolean overwriteExisting) {
+        if (requests == null || requests.isEmpty()) {
+            return new BatchImportResult(0, 0, 0, List.of("Danh sách nhập rỗng"), List.of());
+        }
+
+        int total = requests.size();
+        int successCount = 0;
+        int failureCount = 0;
+        List<String> errors = new ArrayList<>();
+        List<ExamScheduleDto> successfulItems = new ArrayList<>();
+
+        for (int i = 0; i < requests.size(); i++) {
+            ExamScheduleRequest req = requests.get(i);
+            int rowNumber = i + 1;
+            try {
+                if (req.getClassSectionId() == null && (req.getSectionCode() == null || req.getSectionCode().trim().isEmpty())) {
+                    throw new BusinessException("Dòng " + rowNumber + ": Thiếu mã lớp học phần (sectionCode)");
+                }
+                if (req.getExamDate() == null) {
+                    throw new BusinessException("Dòng " + rowNumber + ": Ngày thi không được để trống");
+                }
+                if (req.getStartTime() == null || req.getEndTime() == null) {
+                    throw new BusinessException("Dòng " + rowNumber + ": Giờ bắt đầu và kết thúc không được để trống");
+                }
+                if (!req.getStartTime().isBefore(req.getEndTime())) {
+                    throw new BusinessException("Dòng " + rowNumber + ": Giờ bắt đầu phải trước giờ kết thúc");
+                }
+                if (req.getRoomName() == null || req.getRoomName().trim().isEmpty()) {
+                    throw new BusinessException("Dòng " + rowNumber + ": Phòng thi không được để trống");
+                }
+
+                ClassSection section = null;
+                if (req.getClassSectionId() != null) {
+                    section = classSectionRepository.findById(req.getClassSectionId()).orElse(null);
+                }
+                if (section == null && req.getSectionCode() != null && !req.getSectionCode().trim().isEmpty()) {
+                    section = classSectionRepository.findBySectionCode(req.getSectionCode().trim()).orElse(null);
+                }
+                if (section == null) {
+                    throw new ResourceNotFoundException("Dòng " + rowNumber + ": Không tìm thấy lớp học phần có mã: " +
+                            (req.getSectionCode() != null ? req.getSectionCode() : req.getClassSectionId()));
+                }
+
+                List<ExamSchedule> existingList = examScheduleRepository.findByClassSectionId(section.getId());
+                ExamSchedule es;
+                if (!existingList.isEmpty()) {
+                    if (!overwriteExisting) {
+                        throw new BusinessException("Dòng " + rowNumber + ": Lớp " + section.getSectionCode() + " đã có lịch thi (bật chế độ Ghi đè để cập nhật)");
+                    }
+                    es = existingList.get(0);
+                } else {
+                    es = new ExamSchedule();
+                    es.setClassSection(section);
+                }
+
+                es.setExamDate(req.getExamDate());
+                es.setStartTime(req.getStartTime());
+                es.setEndTime(req.getEndTime());
+                es.setRoomName(req.getRoomName().trim());
+                es.setExamType(req.getExamType() != null && !req.getExamType().trim().isEmpty() ? req.getExamType().trim() : "TỰ LUẬN");
+                es.setNotes(req.getNotes() != null && !req.getNotes().trim().isEmpty() ? req.getNotes().trim() : "Sinh viên mang theo Thẻ sinh viên khi vào phòng thi");
+
+                ExamSchedule saved = examScheduleRepository.save(es);
+                successfulItems.add(mapToDto(saved));
+                successCount++;
+            } catch (Exception ex) {
+                failureCount++;
+                errors.add(ex.getMessage() != null ? ex.getMessage() : ("Dòng " + rowNumber + ": Lỗi không xác định"));
+            }
+        }
+
+        return new BatchImportResult(total, successCount, failureCount, errors, successfulItems);
     }
 
     @Transactional
@@ -159,8 +243,18 @@ public class ExamScheduleService {
 
     @Transactional
     public int autoGenerateExamSchedules(String semester) {
+        return autoGenerateExamSchedules(semester, false);
+    }
+
+    @Transactional
+    public int autoGenerateExamSchedules(String semester, boolean overwrite) {
         String targetSemester = (semester != null && !semester.trim().isEmpty()) ? semester.trim() : "2024-25_SEM2";
         List<ClassSection> sections = classSectionRepository.findBySemester(targetSemester);
+
+        if (overwrite) {
+            examScheduleRepository.deleteBySemester(targetSemester);
+            examScheduleRepository.flush();
+        }
 
         int count = 0;
         LocalDate baseDate = LocalDate.now().plusWeeks(2);
@@ -169,7 +263,7 @@ public class ExamScheduleService {
 
         for (int i = 0; i < sections.size(); i++) {
             ClassSection cs = sections.get(i);
-            if (examScheduleRepository.existsByClassSectionId(cs.getId())) {
+            if (!overwrite && examScheduleRepository.existsByClassSectionId(cs.getId())) {
                 continue;
             }
 

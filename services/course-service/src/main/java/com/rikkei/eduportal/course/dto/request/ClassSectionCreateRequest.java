@@ -13,11 +13,11 @@ public class ClassSectionCreateRequest {
     @NotBlank(message = "Mã lớp học phần không được để trống")
     private String sectionCode;
 
-    @NotNull(message = "Môn học không được để trống")
     private Long courseId;
+    private String courseCode;
 
-    @NotNull(message = "Giảng viên không được để trống")
     private Long lecturerId;
+    private String lecturerCode;
 
     @NotBlank(message = "Tên học kỳ không được để trống")
     private String semesterName;
@@ -49,8 +49,14 @@ public class ClassSectionCreateRequest {
     public Long getCourseId() { return courseId; }
     public void setCourseId(Long courseId) { this.courseId = courseId; }
 
+    public String getCourseCode() { return courseCode; }
+    public void setCourseCode(String courseCode) { this.courseCode = courseCode; }
+
     public Long getLecturerId() { return lecturerId; }
     public void setLecturerId(Long lecturerId) { this.lecturerId = lecturerId; }
+
+    public String getLecturerCode() { return lecturerCode; }
+    public void setLecturerCode(String lecturerCode) { this.lecturerCode = lecturerCode; }
 
     public String getSemesterName() { return semesterName; }
     public void setSemesterName(String semesterName) { this.semesterName = semesterName; }

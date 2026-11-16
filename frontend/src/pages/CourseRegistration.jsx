@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { alertDialog, confirmDialog } from '../store/confirmStore'
+import { toast } from '../store/toastStore'
 import api from '../services/api'
 import ScheduleOptimizerModal from '../components/ScheduleOptimizerModal'
 import { 
@@ -58,6 +60,27 @@ export const CourseRegistration = () => {
   })
 
   const [availableSections, setAvailableSections] = useState([])
+  const [tuitionInfo, setTuitionInfo] = useState(null)
+  const [finalizing, setFinalizing] = useState(false)
+
+  const fetchTuitionInfo = async () => {
+    try {
+      const res = await api.get('/student/tuition', { params: { semester } })
+      if (res.data?.data) {
+        setTuitionInfo(res.data.data)
+      }
+    } catch (err) {
+      console.debug('Không tải được thông tin học phí:', err)
+    }
+  }
+
+  useEffect(() => {
+    fetchTuitionInfo()
+  }, [semester])
+
+  const isRegistrationLocked = Boolean(
+    tuitionInfo?.status === 'PAID' || tuitionInfo?.isFinalized
+  )
 
   // State đồng hồ đếm lùi thời gian thực mỗi 1 giây (Precision Client-side Ticking)
   const [nowTimestamp, setNowTimestamp] = useState(Date.now())
@@ -225,6 +248,36 @@ export const CourseRegistration = () => {
 
   // Giữ chỗ 1 lớp học phần trong 5 phút (EDUP-203, F-06)
   const handleReserveSlot = async (sectionId) => {
+    if (!currentSemesterObj.registrationOpen) {
+      alertDialog({
+        title: 'Học kỳ đã đóng',
+        message: `Cổng đăng ký học phần cho ${currentSemesterObj.semesterName} hiện đang đóng. Không thể giữ chỗ học phần.`,
+        variant: 'warning'
+      })
+      return
+    }
+    if (isRegistrationLocked) {
+      alertDialog({
+        title: 'Đăng ký học phần đã khóa',
+        message: tuitionInfo?.status === 'PAID'
+          ? 'Học kỳ này bạn đã hoàn tất nộp học phí. Danh sách học phần đã khóa cố định.'
+          : 'Học kỳ này bạn đã chốt danh sách tín chỉ. Vui lòng bấm "Mở lại đăng ký" nếu muốn thay đổi học phần.',
+        variant: 'warning'
+      })
+      return
+    }
+
+    const targetSec = availableSections.find((s) => s.id === sectionId)
+    const targetCredits = targetSec?.credits || 0
+    if (enrolledSummary.credits + targetCredits > 24) {
+      alertDialog({
+        title: 'Vượt quá hạn mức 24 tín chỉ',
+        message: `Không thể giữ chỗ: Tổng số tín chỉ sẽ vượt quá hạn mức tối đa 24 tín chỉ trong học kỳ! (Hiện tại đã có: ${enrolledSummary.credits} TC + Lớp này: ${targetCredits} TC = ${enrolledSummary.credits + targetCredits} TC).`,
+        variant: 'warning'
+      })
+      return
+    }
+
     setActionLoadingId(sectionId)
     setMessage({ type: '', text: '' })
     try {
@@ -273,6 +326,39 @@ export const CourseRegistration = () => {
   // 1-Chạm xác nhận tất cả các lớp đang giữ chỗ
   const handleBatchEnrollHeld = async () => {
     if (activeReservations.length === 0) return
+    if (!currentSemesterObj.registrationOpen) {
+      alertDialog({
+        title: 'Học kỳ đã đóng',
+        message: `Cổng đăng ký học phần cho ${currentSemesterObj.semesterName} hiện đang đóng. Không thể đăng ký học phần.`,
+        variant: 'warning'
+      })
+      return
+    }
+    if (isRegistrationLocked) {
+      alertDialog({
+        title: 'Đăng ký học phần đã khóa',
+        message: tuitionInfo?.status === 'PAID'
+          ? 'Học kỳ này bạn đã hoàn tất nộp học phí. Danh sách học phần đã khóa cố định.'
+          : 'Học kỳ này bạn đã chốt danh sách tín chỉ. Vui lòng bấm "Mở lại đăng ký" nếu muốn thay đổi học phần.',
+        variant: 'warning'
+      })
+      return
+    }
+
+    const reservedCredits = activeReservations.reduce((sum, r) => {
+      const sec = availableSections.find(s => s.id === r.classSectionId)
+      return sum + (sec?.credits || r.credits || 3)
+    }, 0)
+
+    if (enrolledSummary.credits + reservedCredits > 24) {
+      alertDialog({
+        title: 'Vượt quá hạn mức 24 tín chỉ',
+        message: `Không thể đăng ký: Tổng số tín chỉ sẽ là ${enrolledSummary.credits + reservedCredits} TC (Đã có: ${enrolledSummary.credits} TC + Giữ chỗ: ${reservedCredits} TC), vượt quá hạn mức tối đa 24 tín chỉ/học kỳ!\n\nVui lòng hủy bớt môn giữ chỗ hoặc môn đã đăng ký trước khi xác nhận.`,
+        variant: 'danger'
+      })
+      return
+    }
+
     setActionLoadingId('batch-enroll')
     setMessage({ type: '', text: '' })
     try {
@@ -297,7 +383,14 @@ export const CourseRegistration = () => {
   // 1-Chạm hủy toàn bộ các lớp đang giữ chỗ
   const handleBatchCancelHeld = async () => {
     if (activeReservations.length === 0) return
-    if (!window.confirm('Bạn có chắc chắn muốn hủy toàn bộ các lớp đang trong phiên giữ chỗ 5 phút?')) return
+    const confirmed = await confirmDialog({
+      title: 'Hủy toàn bộ giữ chỗ',
+      message: 'Bạn có chắc chắn muốn hủy toàn bộ các lớp đang trong phiên giữ chỗ 5 phút?',
+      confirmText: 'Hủy tất cả',
+      cancelText: 'Giữ lại',
+      variant: 'danger',
+    })
+    if (!confirmed) return
     setActionLoadingId('batch-cancel')
     try {
       await api.delete('/student/class-sections/my-reservations')
@@ -477,6 +570,26 @@ export const CourseRegistration = () => {
   const handleEnroll = async (sectionId) => {
     setMessage({ type: '', text: '' })
 
+    if (!currentSemesterObj.registrationOpen) {
+      alertDialog({
+        title: 'Học kỳ đã đóng',
+        message: `Cổng đăng ký học phần cho ${currentSemesterObj.semesterName} hiện đang đóng. Không thể đăng ký thêm học phần.`,
+        variant: 'warning'
+      })
+      return
+    }
+
+    if (isRegistrationLocked) {
+      alertDialog({
+        title: 'Đăng ký học phần đã khóa',
+        message: tuitionInfo?.status === 'PAID'
+          ? 'Học kỳ này bạn đã hoàn tất thanh toán học phí. Danh sách học phần đã khóa cố định.'
+          : 'Học kỳ này bạn đã chốt danh sách tín chỉ. Vui lòng bấm "Mở lại đăng ký" nếu muốn đăng ký thêm học phần.',
+        variant: 'warning'
+      })
+      return
+    }
+
     // Kiểm tra chặn ngay phía Client nếu vượt quá giới hạn 24 tín chỉ
     const targetSec = availableSections.find((s) => s.id === sectionId)
     const targetCredits = targetSec?.credits || 0
@@ -520,6 +633,7 @@ export const CourseRegistration = () => {
       // Đồng bộ ngầm với backend
       fetchSections()
       fetchActiveReservations()
+      fetchTuitionInfo()
     } catch (err) {
       const errMsg =
         err.response?.data?.message ||
@@ -531,6 +645,16 @@ export const CourseRegistration = () => {
   }
 
   const handleCancelEnrollment = async (enrollmentId) => {
+    if (isRegistrationLocked) {
+      alertDialog({
+        title: 'Đăng ký học phần đã khóa',
+        message: tuitionInfo?.status === 'PAID'
+          ? 'Học kỳ này bạn đã hoàn tất nộp học phí. Không thể hủy học phần.'
+          : 'Học kỳ này bạn đã chốt danh sách tín chỉ. Vui lòng bấm "Mở lại đăng ký" nếu muốn hủy học phần.',
+        variant: 'warning'
+      })
+      return
+    }
     setActionLoadingId(enrollmentId)
     setMessage({ type: '', text: '' })
     try {
@@ -556,11 +680,110 @@ export const CourseRegistration = () => {
 
       // Đồng bộ ngầm với backend
       fetchSections()
+      fetchTuitionInfo()
     } catch (err) {
       const errMsg = err.response?.data?.message || 'Lỗi khi hủy đăng ký'
       setMessage({ type: 'error', text: errMsg })
     } finally {
       setActionLoadingId(null)
+    }
+  }
+
+  const handleFinalizeCredits = async () => {
+    if (!currentSemesterObj.registrationOpen) {
+      alertDialog({
+        title: 'Học kỳ đã đóng',
+        message: 'Học kỳ này hiện đang đóng cổng đăng ký, không thể thao tác chốt tín chỉ.',
+        variant: 'warning'
+      })
+      return
+    }
+
+    if (enrolledSummary.credits < 12) {
+      alertDialog({
+        title: 'Chưa đủ tín chỉ tối thiểu',
+        message: `Hiện tại bạn mới đăng ký ${enrolledSummary.credits} tín chỉ, chưa đạt mức tối thiểu 12 tín chỉ theo quy định đào tạo. Vui lòng đăng ký thêm học phần trước khi chốt.`,
+        variant: 'warning'
+      })
+      return
+    }
+
+    const confirmed = await confirmDialog({
+      title: 'Xác nhận chốt đăng ký tín chỉ',
+      message: `Bạn đang thực hiện chốt ${enrolledSummary.credits} tín chỉ cho học kỳ này. Sau khi chốt, danh mục học phần sẽ được cố định và khóa lại để tiến hành nộp học phí. Bạn có chắc chắn muốn chốt?`,
+      confirmText: 'Chốt đăng ký tín chỉ',
+      cancelText: 'Hủy',
+      variant: 'default',
+    })
+
+    if (!confirmed) return
+
+    setFinalizing(true)
+    try {
+      const res = await api.post('/student/tuition/finalize', { semester })
+      if (res.data?.data) {
+        setTuitionInfo(res.data.data)
+        toast.success(`Đã chốt thành công ${enrolledSummary.credits} tín chỉ! Bạn có thể chuyển sang nộp học phí.`)
+        fetchSections()
+        fetchTuitionInfo()
+      }
+    } catch (err) {
+      alertDialog({
+        title: 'Không thể chốt tín chỉ',
+        message: err.response?.data?.message || err.message,
+        variant: 'danger'
+      })
+    } finally {
+      setFinalizing(false)
+    }
+  }
+
+  const handleUnfinalizeCredits = async () => {
+    if (!currentSemesterObj.registrationOpen) {
+      alertDialog({
+        title: 'Học kỳ đã đóng',
+        message: 'Học kỳ này hiện đang đóng cổng đăng ký, không thể mở lại.',
+        variant: 'warning'
+      })
+      return
+    }
+
+    if (tuitionInfo?.status === 'PAID') {
+      alertDialog({
+        title: 'Đã hoàn tất thanh toán học phí',
+        message: 'Học kỳ này đã hoàn tất thanh toán học phí, không thể hủy chốt hoặc thay đổi học phần.',
+        variant: 'warning'
+      })
+      return
+    }
+
+    const confirmed = await confirmDialog({
+      title: 'Mở lại đăng ký tín chỉ (Hủy chốt)',
+      message: 'Sau khi mở lại đăng ký, bạn có thể tự do thêm/hủy học phần. Tuy nhiên bạn sẽ phải chốt lại tín chỉ (tối thiểu 12 TC) trước khi có thể nộp học phí. Bạn có chắc muốn mở lại?',
+      confirmText: 'Mở lại đăng ký',
+      cancelText: 'Giữ nguyên',
+      variant: 'warning',
+    })
+
+    if (!confirmed) return
+
+    setFinalizing(true)
+    try {
+      const res = await api.post('/student/tuition/unfinalize', { semester })
+      if (res.data?.data) {
+        setTuitionInfo(res.data.data)
+        toast.info('Đã mở lại đăng ký tín chỉ. Bây giờ bạn có thể thêm/hủy môn học.')
+        fetchSections()
+        fetchTuitionInfo()
+      }
+    } catch (err) {
+      alertDialog({
+        title: 'Không thể mở lại đăng ký',
+        message: err.response?.data?.message || err.message,
+        variant: 'danger'
+      })
+    } finally {
+      setFinalizing(false)
     }
   }
 
@@ -613,10 +836,10 @@ export const CourseRegistration = () => {
 
           <button
             onClick={() => setOptimizerModalOpen(true)}
-            className="px-3.5 py-1.5 bg-gradient-to-r from-red-700 via-rose-700 to-amber-700 hover:from-red-800 hover:to-amber-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition shrink-0 cursor-pointer"
-            title="AI Xếp Thời Khóa Biểu Tự Động (CSP Optimizer)"
+            className="px-3.5 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition shrink-0 cursor-pointer"
+            title="AI Xếp Thời Khóa Biểu Tự Động"
           >
-            <Sparkles size={14} className="text-amber-200 animate-pulse" />
+            <Sparkles size={14} className="text-amber-300" />
             <span>AI Xếp Lịch</span>
           </button>
         </div>
@@ -663,36 +886,36 @@ export const CourseRegistration = () => {
         </div>
       )}
 
-      {/* 3. TRUNG TÂM GIỮ CHỖ 5 PHÚT (5-Minute Slot Reservation Command Center) */}
+      {/* 3. Danh sách học phần đang giữ chỗ tạm thời */}
       {activeReservations.length > 0 && (
-        <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-50/40 to-stone-50 border-2 border-amber-300 shadow-md text-xs text-amber-950 space-y-4 animate-in fade-in slide-in-from-top-2">
-          {/* Header trung tâm giữ chỗ */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/60 border border-amber-300 shadow-xs text-xs text-amber-950 space-y-4 animate-in fade-in slide-in-from-top-2">
+          {/* Header giữ chỗ */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200/80 pb-3.5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs shrink-0">
                 <Timer size={20} className="animate-spin" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-bold text-amber-950 uppercase tracking-tight">
-                    Trung Tâm Giữ Chỗ Tạm Thời 5 Phút (Slot Hold)
+                    Danh sách học phần đang giữ chỗ tạm thời (5 phút)
                   </h2>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-200 text-amber-900 border border-amber-300">
-                    {activeReservations.length} Lớp Đang Giữ
+                    {activeReservations.length} Lớp
                   </span>
                 </div>
                 <p className="text-[11px] text-amber-800 mt-0.5">
-                  Các vị trí học này được khóa độc quyền trong 300 giây. Vui lòng bấm Xác nhận trước khi đồng hồ về 00:00!
+                  Các vị trí học này được giữ chỗ tạm thời trong 5 phút. Vui lòng bấm Xác nhận trước khi hết hạn giữ chỗ.
                 </p>
               </div>
             </div>
 
-            {/* Quick Actions hàng loạt */}
+            {/* Actions hàng loạt */}
             <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
               <button
                 onClick={handleBatchEnrollHeld}
                 disabled={actionLoadingId === 'batch-enroll'}
-                className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition disabled:opacity-50 cursor-pointer"
+                className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition disabled:opacity-50 cursor-pointer"
               >
                 {actionLoadingId === 'batch-enroll' ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
                 <span>Xác nhận tất cả ({activeReservations.length} lớp)</span>
@@ -903,16 +1126,77 @@ export const CourseRegistration = () => {
             <div className="flex items-center gap-2 text-stone-700">
               <CreditCard size={15} className="text-red-700 shrink-0" />
               <span>
-                Học phí tạm tính: <strong className="font-mono text-red-800 font-bold">{(enrolledSummary.credits * 450000 + 300000).toLocaleString('vi-VN')} đ</strong> ({enrolledSummary.credits} TC × 450.000đ + 300.000đ CSVC)
+                Học phí {tuitionInfo?.isFinalized ? 'chính thức' : 'tạm tính'}: <strong className="font-mono text-red-800 font-bold">{((tuitionInfo?.amount || (enrolledSummary.credits * 450000 + 300000))).toLocaleString('vi-VN')} đ</strong> ({enrolledSummary.credits} TC × 450.000đ + 300.000đ CSVC)
               </span>
             </div>
-            <Link
-              to="/student/tuition"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-lg shadow-2xs transition"
-            >
-              <span>Nộp học phí VietQR Napas247</span>
-              <ChevronRight size={14} />
-            </Link>
+
+            <div className="flex items-center gap-2">
+              {tuitionInfo?.status === 'PAID' ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold rounded-lg text-xs font-mono">
+                    <CheckCircle2 size={13} className="text-emerald-700" />
+                    <span>ĐÃ NỘP HỌC PHÍ</span>
+                  </span>
+                  <Link
+                    to="/student/tuition"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg shadow-2xs transition"
+                  >
+                    <span>Xem biên lai học phí</span>
+                    <ChevronRight size={14} />
+                  </Link>
+                </div>
+              ) : tuitionInfo?.isFinalized ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-900 border border-blue-200 font-bold rounded-lg text-xs font-mono">
+                    <Lock size={12} className="text-blue-700" />
+                    <span>ĐÃ CHỐT {tuitionInfo.totalCredits || enrolledSummary.credits} TC</span>
+                  </span>
+                  {currentSemesterObj.registrationOpen && (
+                    <button
+                      type="button"
+                      onClick={handleUnfinalizeCredits}
+                      disabled={finalizing}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-stone-100 text-stone-700 font-medium rounded-lg border border-stone-300 shadow-2xs transition cursor-pointer text-xs"
+                      title="Mở lại đăng ký nếu muốn chỉnh sửa môn học"
+                    >
+                      <RotateCcw size={12} />
+                      <span>{finalizing ? 'Đang mở lại...' : 'Mở lại đăng ký'}</span>
+                    </button>
+                  )}
+                  <Link
+                    to="/student/tuition"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-lg shadow-2xs transition text-xs"
+                  >
+                    <span>Nộp học phí VietQR</span>
+                    <ChevronRight size={14} />
+                  </Link>
+                </div>
+              ) : !currentSemesterObj.registrationOpen ? (
+                <span className="text-stone-500 font-medium px-2.5 py-1 bg-stone-100 rounded-lg border border-stone-200 text-xs">
+                  Học kỳ đã đóng cổng thanh toán
+                </span>
+              ) : enrolledSummary.credits < 12 ? (
+                <button
+                  type="button"
+                  onClick={handleFinalizeCredits}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-semibold rounded-lg shadow-2xs transition cursor-pointer text-xs"
+                  title="Nhấn để xem hướng dẫn điều kiện tín chỉ tối thiểu"
+                >
+                  <AlertCircle size={13} className="text-amber-700" />
+                  <span>Chốt đăng ký ({enrolledSummary.credits}/12 TC)</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleFinalizeCredits}
+                  disabled={finalizing}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-700 hover:bg-red-800 text-white font-bold rounded-xl shadow-2xs transition cursor-pointer text-xs"
+                >
+                  {finalizing ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={14} />}
+                  <span>Chốt đăng ký ({enrolledSummary.credits} TC) để nộp học phí</span>
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -1143,19 +1427,26 @@ export const CourseRegistration = () => {
                         Đã chốt điểm
                       </span>
                     ) : sec.isEnrolled ? (
-                      <button
-                        onClick={() => setCancelModal({
-                          open: true,
-                          enrollmentId: sec.enrollmentId,
-                          sectionCode: sec.sectionCode,
-                          courseName: sec.courseName,
-                        })}
-                        disabled={isBusy}
-                        className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-red-700 hover:text-red-900 hover:bg-red-50 border border-stone-200 hover:border-red-200 flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
-                      >
-                        {isBusy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                        <span>Hủy lớp</span>
-                      </button>
+                      isRegistrationLocked ? (
+                        <span className="px-3 py-1.5 rounded-lg text-xs font-mono font-medium text-stone-600 bg-stone-100 border border-stone-200 flex items-center gap-1 select-none" title="Môn học đã cố định theo danh sách chốt tín chỉ">
+                          <Lock size={12} className="text-stone-500" />
+                          <span>Đã cố định</span>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setCancelModal({
+                            open: true,
+                            enrollmentId: sec.enrollmentId,
+                            sectionCode: sec.sectionCode,
+                            courseName: sec.courseName,
+                          })}
+                          disabled={isBusy}
+                          className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-red-700 hover:text-red-900 hover:bg-red-50 border border-stone-200 hover:border-red-200 flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          {isBusy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                          <span>Hủy lớp</span>
+                        </button>
+                      )
                     ) : isHeldByMe ? (
                       <div className="flex items-center gap-1.5 bg-amber-100/80 p-1.5 rounded-xl border border-amber-300">
                         <span className="px-2 py-1 bg-amber-500 text-white rounded-lg text-[11px] font-bold font-mono flex items-center gap-1 shadow-2xs">
@@ -1178,6 +1469,11 @@ export const CourseRegistration = () => {
                           Hủy
                         </button>
                       </div>
+                    ) : isRegistrationLocked ? (
+                      <span className="px-3 py-1.5 rounded-lg text-[11px] font-mono text-stone-400 bg-stone-50 border border-stone-200 flex items-center gap-1 select-none" title="Đã chốt học phần. Bấm 'Mở lại đăng ký' ở thanh tổng kết bên dưới nếu muốn chọn thêm môn">
+                        <Lock size={11} className="text-stone-400" />
+                        <span>Đã khóa chọn môn</span>
+                      </span>
                     ) : (
                       <div className="flex items-center gap-1.5">
                         <button

@@ -40,6 +40,28 @@ public class TuitionController {
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin học phí thành công", dto));
     }
 
+    @PostMapping("/finalize")
+    public ResponseEntity<ApiResponse<TuitionDto>> finalizeTuitionCredits(
+            @RequestBody(required = false) Map<String, String> body,
+            @RequestParam(required = false) String semester,
+            HttpServletRequest request) {
+        String studentIdentifier = extractUser(request);
+        String targetSemester = (body != null && body.containsKey("semester")) ? body.get("semester") : semester;
+        TuitionDto dto = tuitionService.finalizeTuitionCredits(studentIdentifier, targetSemester);
+        return ResponseEntity.ok(ApiResponse.success("Chốt đăng ký tín chỉ thành công", dto));
+    }
+
+    @PostMapping("/unfinalize")
+    public ResponseEntity<ApiResponse<TuitionDto>> unfinalizeTuitionCredits(
+            @RequestBody(required = false) Map<String, String> body,
+            @RequestParam(required = false) String semester,
+            HttpServletRequest request) {
+        String studentIdentifier = extractUser(request);
+        String targetSemester = (body != null && body.containsKey("semester")) ? body.get("semester") : semester;
+        TuitionDto dto = tuitionService.unfinalizeTuitionCredits(studentIdentifier, targetSemester);
+        return ResponseEntity.ok(ApiResponse.success("Hủy chốt đăng ký tín chỉ thành công", dto));
+    }
+
     @PostMapping("/pay")
     public ResponseEntity<ApiResponse<TuitionDto>> payTuition(
             @RequestBody(required = false) Map<String, String> body,

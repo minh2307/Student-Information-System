@@ -202,6 +202,18 @@ class ExamScheduleServiceTest {
     }
 
     @Test
+    @DisplayName("Admin: Tự động khởi tạo lịch thi với overwrite = true")
+    void testAutoGenerateExamSchedules_Overwrite() {
+        when(classSectionRepository.findBySemester("2024-25_SEM2")).thenReturn(List.of(section));
+
+        int count = examScheduleService.autoGenerateExamSchedules("2024-25_SEM2", true);
+
+        assertEquals(1, count);
+        verify(examScheduleRepository, times(1)).deleteBySemester("2024-25_SEM2");
+        verify(examScheduleRepository, times(1)).save(any(ExamSchedule.class));
+    }
+
+    @Test
     @DisplayName("Admin: Lấy chi tiết lịch thi theo ID thành công")
     void testGetExamScheduleById_Success() {
         when(examScheduleRepository.findById(1L)).thenReturn(Optional.of(exam));

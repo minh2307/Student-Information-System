@@ -26,7 +26,8 @@ import {
   X,
   Smartphone,
   QrCode,
-  WifiOff
+  WifiOff,
+  CalendarOff,
 } from 'lucide-react'
 
 // Mapping ngày trong tuần
@@ -74,6 +75,33 @@ const timeStringToFloat = (tStr) => {
   return parseFloat(parts[0]) + parseFloat(parts[1] || 0) / 60
 }
 
+// Tìm thứ 2 của tuần chứa date
+const getMonday = (d) => {
+  const date = new Date(d)
+  const day = date.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  date.setDate(date.getDate() + diff)
+  date.setHours(0, 0, 0, 0)
+  return date
+}
+
+// Format dd/mm/yyyy
+const formatDate = (d) => {
+  if (!d) return ''
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const year = d.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
+// Format dd/mm
+const formatShortDate = (d) => {
+  if (!d) return ''
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  return `${day}/${month}`
+}
+
 export const StudentTimetable = () => {
   const [semesters, setSemesters] = useState([])
   const [selectedSemester, setSelectedSemester] = useState('')
@@ -82,7 +110,7 @@ export const StudentTimetable = () => {
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false)
   const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 768) ? 'list' : 'grid') // Mobile auto 'list', Desktop 'grid'
   const [selectedClassDetail, setSelectedClassDetail] = useState(null)
-  const [weekOffset, setWeekOffset] = useState(0)
+  const [currentMonday, setCurrentMonday] = useState(() => getMonday(new Date()))
 
   // State đồng bộ Calendar (.ics)
   const [showSyncModal, setShowSyncModal] = useState(false)
@@ -202,29 +230,144 @@ export const StudentTimetable = () => {
     }
   }
 
-  // Xác định thứ hôm nay
-  const todayKey = useMemo(() => {
-    const day = new Date().getDay()
-    // getDay: 0 is Sun, 1 is Mon, 2 is Tue ...
-    const map = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
-    return map[day]
-  }, [])
+  // Tìm thông tin học kỳ hiện tại đang chọn
+  const currentSemesterObj = useMemo(() => {
+    return semesters.find((s) => s.semesterCode === selectedSemester) || null
+  }, [semesters, selectedSemester])
 
-  // Tính ngày bắt đầu và kết thúc của tuần đang xem
-  const currentWeekRange = useMemo(() => {
+  // Tự động neo tuần khi đổi học kỳ
+  useEffect(() => {
+    if (!currentSemesterObj) return
     const now = new Date()
-    // Di chuyển theo weekOffset
-    now.setDate(now.getDate() + weekOffset * 7)
-    const day = now.getDay()
-    const diffToMon = day === 0 ? -6 : 1 - day // thứ 2
-    const mon = new Date(now)
-    mon.setDate(now.getDate() + diffToMon)
-    const sun = new Date(mon)
-    sun.setDate(mon.getDate() + 6)
+    const start = currentSemesterObj.startDate ? new Date(currentSemesterObj.startDate) : null
+    const end = currentSemesterObj.endDate ? new Date(currentSemesterObj.endDate) : null
 
-    const format = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
-    return `${format(mon)} - ${format(sun)}`
-  }, [weekOffset])
+    if (start && end && now >= start && now <= end) {
+      setCurrentMonday(getMonday(now))
+    } else if (start) {
+      setCurrentMonday(getMonday(start))
+    } else {
+      setCurrentMonday(getMonday(now))
+    }
+  }, [selectedSemester, semesters])
+
+  // Trạng thái của tuần hiện tại đối với học kỳ
+  const weekInfo = useMemo(() => {
+    if (!currentMonday) {
+      return {
+        rangeStr: '',
+        inSemester: true,
+        weekNumber: 1,
+        message: '',
+        isCurrentWeek: false,
+      }
+    }
+
+    const sunday = new Date(currentMonday)
+    sunday.setDate(currentMonday.getDate() + 6)
+    sunday.setHours(23, 59, 59, 999)
+
+    const rangeStr = `${formatDate(currentMonday)} - ${formatDate(sunday)}`
+    const todayMonday = getMonday(new Date())
+    const isCurrentWeek = currentMonday.getTime() === todayMonday.getTime()
+
+    const start = currentSemesterObj?.startDate ? new Date(currentSemesterObj.startDate) : null
+    const end = currentSemesterObj?.endDate ? new Date(currentSemesterObj.endDate) : null
+
+    if (!start || !end) {
+      return {
+        rangeStr,
+        inSemester: true,
+        weekNumber: null,
+        message: 'Lịch học tuần',
+        isCurrentWeek,
+      }
+    }
+
+    if (sunday < start) {
+      const diffDays = Math.ceil((start.getTime() - sunday.getTime()) / 86400000)
+      const diffWeeks = Math.ceil(diffDays / 7)
+      return {
+        rangeStr,
+        inSemester: false,
+        reason: 'before_start',
+        message: `Học kỳ ${currentSemesterObj.semesterName} chưa bắt đầu (Kỳ học bắt đầu từ ngày ${formatDate(start)}, còn khoảng ${diffWeeks} tuần nữa).`,
+        isCurrentWeek,
+      }
+    }
+
+    if (currentMonday > end) {
+      return {
+        rangeStr,
+        inSemester: false,
+        reason: 'after_end',
+        message: `Tuần này nằm ngoài thời gian học kỳ ${currentSemesterObj.semesterName} (Học kỳ đã kết thúc vào ngày ${formatDate(end)} - Đang trong kỳ nghỉ hè / nghỉ giữa kỳ).`,
+        isCurrentWeek,
+      }
+    }
+
+    const startMonday = getMonday(start)
+    const weekNumber = Math.max(1, Math.floor((currentMonday.getTime() - startMonday.getTime()) / (7 * 86400000)) + 1)
+
+    return {
+      rangeStr,
+      inSemester: true,
+      weekNumber,
+      message: `Tuần học thứ ${weekNumber} của học kỳ`,
+      isCurrentWeek,
+    }
+  }, [currentMonday, currentSemesterObj])
+
+  // Danh sách các ngày trong tuần đang xem kèm ngày cụ thể
+  const weekDays = useMemo(() => {
+    if (!currentMonday) return []
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    return DAY_MAP.map((d, index) => {
+      const dayDate = new Date(currentMonday)
+      dayDate.setDate(currentMonday.getDate() + index)
+      dayDate.setHours(0, 0, 0, 0)
+
+      return {
+        ...d,
+        date: dayDate,
+        dateStr: formatShortDate(dayDate),
+        fullDateStr: formatDate(dayDate),
+        isToday: dayDate.getTime() === today.getTime(),
+      }
+    })
+  }, [currentMonday])
+
+  const handlePrevWeek = () => {
+    setCurrentMonday((prev) => {
+      const next = new Date(prev)
+      next.setDate(prev.getDate() - 7)
+      return next
+    })
+  }
+
+  const handleNextWeek = () => {
+    setCurrentMonday((prev) => {
+      const next = new Date(prev)
+      next.setDate(prev.getDate() + 7)
+      return next
+    })
+  }
+
+  const handleJumpToDefault = () => {
+    const now = new Date()
+    const start = currentSemesterObj?.startDate ? new Date(currentSemesterObj.startDate) : null
+    const end = currentSemesterObj?.endDate ? new Date(currentSemesterObj.endDate) : null
+
+    if (start && end && now >= start && now <= end) {
+      setCurrentMonday(getMonday(now))
+    } else if (start) {
+      setCurrentMonday(getMonday(start))
+    } else {
+      setCurrentMonday(getMonday(now))
+    }
+  }
 
   // Theo dõi trạng thái mạng Online / Offline trên Mobile
   useEffect(() => {
@@ -520,41 +663,54 @@ export const StudentTimetable = () => {
       </div>
 
       {/* Week Navigation */}
-      <div className="flex items-center justify-between bg-white px-5 py-3 rounded-xl border border-slate-200 shadow-sm print:hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white px-5 py-3.5 rounded-xl border border-slate-200 shadow-sm print:hidden">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setWeekOffset(prev => prev - 1)}
-            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition"
+            onClick={handlePrevWeek}
+            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition cursor-pointer"
             title="Tuần trước"
           >
             <ChevronLeft size={16} />
           </button>
           <button
-            onClick={() => setWeekOffset(0)}
-            className="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+            onClick={handleJumpToDefault}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer flex items-center gap-1.5"
+            title="Quay về tuần học chuẩn / tuần hiện tại"
           >
-            Tuần hiện tại
+            <CalendarDays size={13} className="text-red-600" />
+            <span>
+              {weekInfo.isCurrentWeek
+                ? 'Tuần này (Hôm nay)'
+                : weekInfo.weekNumber
+                ? `Tuần ${weekInfo.weekNumber} của kỳ`
+                : 'Tuần học chuẩn'}
+            </span>
           </button>
           <button
-            onClick={() => setWeekOffset(prev => prev + 1)}
-            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition"
+            onClick={handleNextWeek}
+            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition cursor-pointer"
             title="Tuần sau"
           >
             <ChevronRight size={16} />
           </button>
         </div>
 
-        <div className="text-xs sm:text-sm font-semibold text-slate-700 flex items-center gap-2">
-          <Clock size={15} className="text-red-600" />
-          <span>Khoảng thời gian: <strong className="text-red-700">{currentWeekRange}</strong></span>
+        <div className="text-xs sm:text-sm font-semibold text-slate-700 flex items-center gap-2 flex-wrap">
+          <Clock size={15} className="text-red-600 shrink-0" />
+          <span>Khoảng thời gian: <strong className="text-red-700 font-mono">{weekInfo.rangeStr}</strong></span>
+          {weekInfo.weekNumber && (
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
+              Tuần học {weekInfo.weekNumber}
+            </span>
+          )}
         </div>
 
-        <div className="hidden sm:flex items-center gap-3 text-xs text-slate-500">
+        <div className="hidden lg:flex items-center gap-3 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-red-500"></span> Hôm nay
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Hôm nay
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-red-100 border border-red-300"></span> Có tiết học
+            <span className="w-2.5 h-2.5 rounded bg-red-100 border border-red-300"></span> Có tiết học
           </span>
         </div>
       </div>
@@ -564,6 +720,24 @@ export const StudentTimetable = () => {
         <div className="bg-white rounded-2xl p-16 border border-slate-200 text-center">
           <div className="inline-block w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
           <p className="mt-3 text-sm text-slate-500">Đang tải lịch học học kỳ...</p>
+        </div>
+      ) : !weekInfo.inSemester ? (
+        <div className="bg-white rounded-2xl p-12 border border-dashed border-amber-300 bg-amber-50/20 text-center shadow-xs">
+          <div className="w-14 h-14 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <CalendarOff size={28} />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">Không có lịch học trong tuần này</h3>
+          <p className="text-xs text-slate-600 mt-1.5 max-w-lg mx-auto leading-relaxed">
+            {weekInfo.message}
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <button
+              onClick={handleJumpToDefault}
+              className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer"
+            >
+              Quay lại tuần học của kỳ
+            </button>
+          </div>
         </div>
       ) : timetable.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 border border-dashed border-slate-300 text-center">
@@ -590,18 +764,20 @@ export const StudentTimetable = () => {
                   <th className="py-3.5 px-3 w-36 text-center font-bold border-r border-slate-200 text-slate-500">
                     Ca / Khung Giờ
                   </th>
-                  {DAY_MAP.map((day) => {
-                    const isToday = day.key === todayKey && weekOffset === 0
+                  {weekDays.map((day) => {
                     return (
                       <th
                         key={day.key}
                         className={`py-3.5 px-3 text-center font-bold border-r border-slate-200 last:border-r-0 ${
-                          isToday ? 'bg-red-50/80 text-red-700' : ''
+                          day.isToday ? 'bg-red-50/90 text-red-700' : ''
                         }`}
                       >
                         <div className="flex flex-col items-center gap-0.5">
-                          <span className="text-xs">{day.label}</span>
-                          {isToday && (
+                          <span className="text-xs font-bold">{day.label}</span>
+                          <span className="text-[11px] font-semibold text-slate-500 font-mono">
+                            ({day.dateStr})
+                          </span>
+                          {day.isToday && (
                             <span className="inline-block px-2 py-0.2 rounded-full text-[10px] bg-red-600 text-white font-semibold shadow-xs">
                               Hôm nay
                             </span>
@@ -625,15 +801,14 @@ export const StudentTimetable = () => {
                     </td>
 
                     {/* 7 Days Columns */}
-                    {DAY_MAP.map((day) => {
-                      const isToday = day.key === todayKey && weekOffset === 0
+                    {weekDays.map((day) => {
                       const matchedClasses = getClassesForSlot(day.key, slot)
 
                       return (
                         <td
                           key={day.key}
                           className={`p-2 border-r border-slate-200 last:border-r-0 align-top h-28 transition-colors ${
-                            isToday ? 'bg-red-50/20' : ''
+                            day.isToday ? 'bg-red-50/20' : ''
                           }`}
                         >
                           {matchedClasses.length > 0 ? (
@@ -700,6 +875,7 @@ export const StudentTimetable = () => {
           {timetable.map((item, index) => {
             const palette = getCourseColor(item.courseCode)
             const dayObj = DAY_MAP.find(d => d.key === item.dayOfWeek) || { label: item.dayOfWeek }
+            const matchedDay = weekDays.find(d => d.key === item.dayOfWeek)
             return (
               <div
                 key={item.id || index}
@@ -707,8 +883,13 @@ export const StudentTimetable = () => {
                 className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-slate-50 transition cursor-pointer"
               >
                 <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center font-bold border ${palette.border} ${palette.bg}`}>
+                  <div className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center font-bold border ${palette.border} ${palette.bg}`}>
                     <span className="text-xs font-bold text-slate-900">{dayObj.short || item.dayOfWeek}</span>
+                    {matchedDay && (
+                      <span className="text-[10px] font-mono text-slate-600 font-medium mt-0.5">
+                        {matchedDay.dateStr}
+                      </span>
+                    )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
