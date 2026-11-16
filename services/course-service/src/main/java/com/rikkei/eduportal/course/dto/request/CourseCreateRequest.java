@@ -26,6 +26,7 @@ public class CourseCreateRequest {
     private String syllabusDescription;
 
     private Long prerequisiteCourseId;
+    private String prerequisiteCourseCode;
 
     public CourseCreateRequest() {}
 
@@ -55,4 +56,7 @@ public class CourseCreateRequest {
 
     public Long getPrerequisiteCourseId() { return prerequisiteCourseId; }
     public void setPrerequisiteCourseId(Long prerequisiteCourseId) { this.prerequisiteCourseId = prerequisiteCourseId; }
+
+    public String getPrerequisiteCourseCode() { return prerequisiteCourseCode; }
+    public void setPrerequisiteCourseCode(String prerequisiteCourseCode) { this.prerequisiteCourseCode = prerequisiteCourseCode; }
 }

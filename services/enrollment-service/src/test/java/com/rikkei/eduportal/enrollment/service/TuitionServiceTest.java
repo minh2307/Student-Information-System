@@ -4,6 +4,7 @@ import com.rikkei.eduportal.enrollment.dto.TuitionDto;
 import com.rikkei.eduportal.enrollment.entity.*;
 import com.rikkei.eduportal.enrollment.repository.EnrollmentRepository;
 import com.rikkei.eduportal.enrollment.repository.NotificationRepository;
+import com.rikkei.eduportal.enrollment.repository.SemesterRepository;
 import com.rikkei.eduportal.enrollment.repository.StudentProfileRepository;
 import com.rikkei.eduportal.enrollment.repository.TuitionFeeRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,9 @@ class TuitionServiceTest {
 
     @Mock
     private StudentDashboardService dashboardService;
+
+    @Mock
+    private SemesterRepository semesterRepository;
 
     @InjectMocks
     private TuitionService tuitionService;
@@ -152,6 +156,7 @@ class TuitionServiceTest {
         existing.setStudent(sampleStudent);
         existing.setSemesterName("2024-25_SEM2");
         existing.setTotalCredits(15);
+        existing.setIsFinalized(true);
         existing.setTotalAmount(BigDecimal.valueOf(7050000.00));
         existing.setPaidAmount(BigDecimal.ZERO);
         existing.setStatus("UNPAID");
@@ -169,5 +174,90 @@ class TuitionServiceTest {
         assertEquals(0, BigDecimal.ZERO.compareTo(result.getRemainingAmount()));
         assertNotNull(result.getTransactionCode());
         verify(notificationRepository, times(1)).save(any(Notification.class));
+    }
+
+    @Test
+    void testPayTuition_FailsWhenSemesterIsClosed() {
+        when(dashboardService.resolveStudent("sv2024001")).thenReturn(sampleStudent);
+        Semester closedSemester = new Semester("2024-25_SEM1", "Học kỳ 1 (2024-2025)", "2024-2025", false, false);
+        when(semesterRepository.findFirstBySemesterCodeOrSemesterName("2024-25_SEM1", "2024-25_SEM1"))
+                .thenReturn(Optional.of(closedSemester));
+
+        com.rikkei.eduportal.enrollment.exception.BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                com.rikkei.eduportal.enrollment.exception.BusinessException.class,
+                () -> tuitionService.payTuition("sv2024001", "2024-25_SEM1", "VietQR Napas247")
+        );
+
+        assertTrue(ex.getMessage().contains("đã đóng"));
+        verify(tuitionFeeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Thanh toán thất bại nếu chưa thực hiện chốt đăng ký tín chỉ")
+    void testPayTuition_FailsWhenNotFinalized() {
+        TuitionFee existing = new TuitionFee();
+        existing.setId(201L);
+        existing.setStudent(sampleStudent);
+        existing.setSemesterName("2024-25_SEM2");
+        existing.setTotalCredits(15);
+        existing.setIsFinalized(false);
+        existing.setStatus("UNPAID");
+
+        when(dashboardService.resolveStudent("sv2024001")).thenReturn(sampleStudent);
+        when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2024-25_SEM2"))
+                .thenReturn(Optional.of(existing));
+
+        com.rikkei.eduportal.enrollment.exception.BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                com.rikkei.eduportal.enrollment.exception.BusinessException.class,
+                () -> tuitionService.payTuition("sv2024001", "2024-25_SEM2", "VietQR Napas247")
+        );
+
+        assertTrue(ex.getMessage().contains("chốt đăng ký tín chỉ"));
+    }
+
+    @Test
+    @DisplayName("Thanh toán thất bại nếu số tín chỉ dưới 12 TC")
+    void testPayTuition_FailsWhenCreditsLessThan12() {
+        TuitionFee existing = new TuitionFee();
+        existing.setId(202L);
+        existing.setStudent(sampleStudent);
+        existing.setSemesterName("2024-25_SEM2");
+        existing.setTotalCredits(9);
+        existing.setIsFinalized(true);
+        existing.setStatus("UNPAID");
+
+        when(dashboardService.resolveStudent("sv2024001")).thenReturn(sampleStudent);
+        when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2024-25_SEM2"))
+                .thenReturn(Optional.of(existing));
+
+        com.rikkei.eduportal.enrollment.exception.BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                com.rikkei.eduportal.enrollment.exception.BusinessException.class,
+                () -> tuitionService.payTuition("sv2024001", "2024-25_SEM2", "VietQR Napas247")
+        );
+
+        assertTrue(ex.getMessage().contains("tối thiểu 12 tín chỉ"));
+    }
+
+    @Test
+    @DisplayName("Chốt tín chỉ thất bại nếu số tín chỉ dưới 12 TC")
+    void testFinalizeCredits_FailsWhenLessThan12() {
+        when(dashboardService.resolveStudent("sv2024001")).thenReturn(sampleStudent);
+        TuitionFee existing = new TuitionFee();
+        existing.setId(203L);
+        existing.setStudent(sampleStudent);
+        existing.setSemesterName("2024-25_SEM2");
+        existing.setStatus("UNPAID");
+
+        when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2024-25_SEM2"))
+                .thenReturn(Optional.of(existing));
+        when(enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(1L, "2024-25_SEM2"))
+                .thenReturn(Collections.emptyList()); // 0 TC
+
+        com.rikkei.eduportal.enrollment.exception.BusinessException ex = org.junit.jupiter.api.Assertions.assertThrows(
+                com.rikkei.eduportal.enrollment.exception.BusinessException.class,
+                () -> tuitionService.finalizeTuitionCredits("sv2024001", "2024-25_SEM2")
+        );
+
+        assertTrue(ex.getMessage().contains("tối thiểu 12 tín chỉ"));
     }
 }

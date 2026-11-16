@@ -2,6 +2,7 @@ package com.rikkei.eduportal.course.service;
 
 import com.rikkei.eduportal.course.dto.request.CourseCreateRequest;
 import com.rikkei.eduportal.course.dto.request.CourseUpdateRequest;
+import com.rikkei.eduportal.course.dto.response.BatchImportResult;
 import com.rikkei.eduportal.course.dto.response.CourseResponse;
 import com.rikkei.eduportal.course.entity.Course;
 import com.rikkei.eduportal.course.exception.DuplicateResourceException;
@@ -55,6 +56,9 @@ public class CourseServiceImpl implements CourseService {
         if (request.getPrerequisiteCourseId() != null) {
             prerequisite = courseRepository.findById(request.getPrerequisiteCourseId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy môn học tiên quyết với ID: " + request.getPrerequisiteCourseId()));
+        } else if (request.getPrerequisiteCourseCode() != null && !request.getPrerequisiteCourseCode().trim().isEmpty()) {
+            prerequisite = courseRepository.findByCourseCode(request.getPrerequisiteCourseCode().trim().toUpperCase())
+                    .orElse(null);
         }
 
         Course course = new Course();
@@ -113,6 +117,53 @@ public class CourseServiceImpl implements CourseService {
         }
 
         courseRepository.delete(course);
+    }
+
+    @Override
+    @Transactional(noRollbackFor = {Exception.class})
+    public BatchImportResult<CourseResponse> batchImportCourses(List<CourseCreateRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            return new BatchImportResult<>(0, 0, 0, List.of("Danh sách môn học rỗng"), List.of());
+        }
+
+        int total = requests.size();
+        int successCount = 0;
+        int failureCount = 0;
+        List<String> errors = new java.util.ArrayList<>();
+        List<CourseResponse> successfulItems = new java.util.ArrayList<>();
+
+        for (int i = 0; i < requests.size(); i++) {
+            CourseCreateRequest req = requests.get(i);
+            int rowNum = i + 1;
+            try {
+                if (req.getCourseCode() == null || req.getCourseCode().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Dòng " + rowNum + ": Mã môn học không được để trống");
+                }
+                if (req.getName() == null || req.getName().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Dòng " + rowNum + ": Tên môn học không được để trống");
+                }
+                if (req.getCredits() == null || req.getCredits() < 1) {
+                    req.setCredits(3);
+                }
+                if (req.getWeeklyHours() == null || req.getWeeklyHours() < 1) {
+                    req.setWeeklyHours(req.getCredits() != null ? req.getCredits() + 1 : 4);
+                }
+
+                String cleanCode = req.getCourseCode().trim().toUpperCase();
+                if (courseRepository.existsByCourseCode(cleanCode)) {
+                    throw new DuplicateResourceException("Dòng " + rowNum + ": Mã môn học '" + cleanCode + "' đã tồn tại trên hệ thống!");
+                }
+
+                CourseResponse created = createCourse(req);
+                successfulItems.add(created);
+                successCount++;
+            } catch (Exception ex) {
+                failureCount++;
+                errors.add(ex.getMessage() != null ? ex.getMessage() : ("Dòng " + rowNum + ": Lỗi không xác định"));
+            }
+        }
+
+        return new BatchImportResult<>(total, successCount, failureCount, errors, successfulItems);
     }
 
     private CourseResponse mapToResponse(Course course) {

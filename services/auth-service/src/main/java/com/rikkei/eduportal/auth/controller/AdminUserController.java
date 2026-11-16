@@ -1,5 +1,6 @@
 package com.rikkei.eduportal.auth.controller;
 
+import com.rikkei.eduportal.auth.dto.BatchImportResponse;
 import com.rikkei.eduportal.auth.dto.CreateUserRequest;
 import com.rikkei.eduportal.auth.dto.UpdateUserRequest;
 import com.rikkei.eduportal.auth.dto.UserProfileResponse;
@@ -45,6 +46,13 @@ public class AdminUserController {
         UserProfileResponse user = adminUserService.createUser(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>(201, "Tạo tài khoản người dùng thành công", user));
+    }
+
+    @PostMapping("/batch")
+    public ResponseEntity<ApiResponse<BatchImportResponse>> createUsersBatch(
+            @RequestBody List<CreateUserRequest> requests) {
+        BatchImportResponse result = adminUserService.batchCreateUsers(requests);
+        return ResponseEntity.ok(ApiResponse.success("Xử lý nhập danh sách người dùng thành công", result));
     }
 
     @PutMapping("/{id}")

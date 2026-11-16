@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import * as XLSX from 'xlsx'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { getRealAvatar } from '../utils/avatarUtils'
 import { toast } from '../store/toastStore'
-import { confirmDialog } from '../store/confirmStore'
-import { Plus, Search, UserCheck, Shield, Trash2, Edit2, X, Check, Lock, Unlock, AlertCircle, CheckCircle, Key, History, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { confirmDialog, alertDialog } from '../store/confirmStore'
+import { Plus, Search, UserCheck, Shield, Trash2, Edit2, X, Check, Lock, Unlock, AlertCircle, CheckCircle, Key, History, ChevronLeft, ChevronRight, Loader2, Download, Upload, FileSpreadsheet } from 'lucide-react'
 
 export const AdminUsers = () => {
   const currentUser = useAuthStore((state) => state.user)
@@ -18,6 +19,13 @@ export const AdminUsers = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  // Excel Import / Export State
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importRole, setImportRole] = useState('STUDENT') // 'STUDENT' | 'LECTURER'
+  const [parsedUserRows, setParsedUserRows] = useState([])
+  const [importingUsers, setImportingUsers] = useState(false)
+  const [userImportResult, setUserImportResult] = useState(null)
 
   // Audit Trail State
   const [showAuditModal, setShowAuditModal] = useState(false)
@@ -176,6 +184,15 @@ export const AdminUsers = () => {
 
   const handleCreateUser = async (e) => {
     e.preventDefault()
+    if (!createForm.username.trim() || !createForm.fullName.trim() || !createForm.email.trim() || !createForm.password.trim()) {
+      alertDialog({
+        title: 'Thiếu thông tin bắt buộc',
+        message: 'Vui lòng điền đầy đủ các thông tin: Tên đăng nhập, Họ và tên, Email và Mật khẩu.',
+        variant: 'warning'
+      })
+      return
+    }
+
     setSubmitting(true)
     setMessage({ type: '', text: '' })
 
@@ -229,6 +246,14 @@ export const AdminUsers = () => {
 
   const handleUpdateUser = async (e) => {
     e.preventDefault()
+    if (!editForm.fullName?.trim() || !editForm.email?.trim()) {
+      alertDialog({
+        title: 'Thiếu thông tin bắt buộc',
+        message: 'Vui lòng điền đầy đủ Họ và tên và Email.',
+        variant: 'warning'
+      })
+      return
+    }
     if (editForm.role === 'ADMIN' && editForm.status === 'LOCKED') {
       toast.warning('Tài khoản Quản trị viên (Admin) không thể chuyển sang trạng thái Khóa!')
       return
@@ -321,6 +346,301 @@ export const AdminUsers = () => {
     }
   }
 
+  // Tải file mẫu Excel cho Sinh viên
+  const downloadStudentTemplate = () => {
+    const sampleRows = [
+      {
+        'Tên đăng nhập (username)': 'sv2026001',
+        'Họ và tên': 'Nguyễn Văn Minh',
+        'Email': 'nguyenvanminh@rikkei.edu.vn',
+        'Mã sinh viên': 'SV2026001',
+        'Chuyên ngành': 'Kỹ thuật phần mềm',
+        'Mật khẩu (để trống mặc định 123456)': '123456',
+      },
+      {
+        'Tên đăng nhập (username)': 'sv2026002',
+        'Họ và tên': 'Trần Thị Mai',
+        'Email': 'tranthimai@rikkei.edu.vn',
+        'Mã sinh viên': 'SV2026002',
+        'Chuyên ngành': 'Khoa học máy tính',
+        'Mật khẩu (để trống mặc định 123456)': '123456',
+      },
+      {
+        'Tên đăng nhập (username)': 'sv2026003',
+        'Họ và tên': 'Lê Hoàng Nam',
+        'Email': 'lehoangnam@rikkei.edu.vn',
+        'Mã sinh viên': 'SV2026003',
+        'Chuyên ngành': 'Trí tuệ nhân tạo',
+        'Mật khẩu (để trống mặc định 123456)': '123456',
+      },
+    ]
+
+    const ws = XLSX.utils.json_to_sheet(sampleRows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Mau_Import_Sinh_Vien')
+    ws['!cols'] = [
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 30 },
+      { wch: 18 },
+      { wch: 25 },
+      { wch: 35 },
+    ]
+    XLSX.writeFile(wb, 'Mau_Import_Sinh_Vien.xlsx')
+  }
+
+  // Tải file mẫu Excel cho Giảng viên
+  const downloadLecturerTemplate = () => {
+    const sampleRows = [
+      {
+        'Tên đăng nhập (username)': 'gv_cntt_01',
+        'Họ và tên': 'TS. Nguyễn Văn Hùng',
+        'Email': 'nguyenvanhung@rikkei.edu.vn',
+        'Mã giảng viên': 'GV2026001',
+        'Khoa / Bộ môn': 'Khoa Công nghệ Thông tin',
+        'Học vị': 'Tiến sĩ',
+        'Mật khẩu (để trống mặc định 123456)': '123456',
+      },
+      {
+        'Tên đăng nhập (username)': 'gv_cntt_02',
+        'Họ và tên': 'ThS. Lê Thị Lan',
+        'Email': 'lethilan@rikkei.edu.vn',
+        'Mã giảng viên': 'GV2026002',
+        'Khoa / Bộ môn': 'Khoa Khoa học Máy tính',
+        'Học vị': 'Thạc sĩ',
+        'Mật khẩu (để trống mặc định 123456)': '123456',
+      },
+    ]
+
+    const ws = XLSX.utils.json_to_sheet(sampleRows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Mau_Import_Giang_Vien')
+    ws['!cols'] = [
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 30 },
+      { wch: 18 },
+      { wch: 28 },
+      { wch: 16 },
+      { wch: 35 },
+    ]
+    XLSX.writeFile(wb, 'Mau_Import_Giang_Vien.xlsx')
+  }
+
+  // Xuất danh sách người dùng ra Excel
+  const exportUsersToExcel = () => {
+    if (!users || users.length === 0) {
+      toast.warning('Không có dữ liệu người dùng để xuất Excel')
+      return
+    }
+
+    const rows = users.map((item, idx) => {
+      const u = item?.user || item || {}
+      const sp = item?.studentProfile
+      const lp = item?.lecturerProfile
+
+      let code = ''
+      let detail1 = ''
+      let detail2 = ''
+
+      if (u.role === 'STUDENT') {
+        code = sp?.studentCode || ''
+        detail1 = sp?.major || ''
+        detail2 = `Kỳ ${sp?.currentSemester || 1}`
+      } else if (u.role === 'LECTURER') {
+        code = lp?.lecturerCode || ''
+        detail1 = lp?.department || ''
+        detail2 = lp?.degree || ''
+      }
+
+      return {
+        'STT': idx + 1,
+        'Tên đăng nhập': u.username || '',
+        'Họ và tên': u.fullName || '',
+        'Email': u.email || '',
+        'Vai trò': u.role === 'STUDENT' ? 'Sinh viên' : u.role === 'LECTURER' ? 'Giảng viên' : 'Quản trị viên',
+        'Mã SV/GV': code,
+        'Khoa / Ngành': detail1,
+        'Học kỳ / Học vị': detail2,
+        'Trạng thái': u.status === 'ACTIVE' ? 'Hoạt động' : 'Đã khóa',
+        'Ngày tạo': u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '',
+      }
+    })
+
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Nguoi_Dung')
+
+    ws['!cols'] = [
+      { wch: 6 },
+      { wch: 18 },
+      { wch: 26 },
+      { wch: 28 },
+      { wch: 14 },
+      { wch: 14 },
+      { wch: 26 },
+      { wch: 18 },
+      { wch: 14 },
+      { wch: 16 },
+    ]
+
+    const filename = `Danh_Sach_Nguoi_Dung_${selectedRole || 'TAT_CA'}_${new Date().toISOString().split('T')[0]}.xlsx`
+    XLSX.writeFile(wb, filename)
+    toast.success('Đã xuất file Excel danh sách người dùng thành công!')
+  }
+
+  // Đọc file Excel người dùng tải lên
+  const handleUserFileUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result
+        const wb = XLSX.read(bstr, { type: 'binary' })
+        const wsname = wb.SheetNames[0]
+        const ws = wb.Sheets[wsname]
+        const rawJson = XLSX.utils.sheet_to_json(ws, { defval: '' })
+
+        if (!rawJson || rawJson.length === 0) {
+          alertDialog({
+            title: 'File Excel trống',
+            message: 'Không tìm thấy dữ liệu trong file đã chọn.',
+            variant: 'warning',
+          })
+          return
+        }
+
+        const parsed = rawJson.map((row, idx) => {
+          const getVal = (...keys) => {
+            for (const k of keys) {
+              const found = Object.keys(row).find(
+                (rk) => rk.trim().toLowerCase() === k.trim().toLowerCase()
+              )
+              if (found && row[found] !== undefined && row[found] !== '') {
+                return String(row[found]).trim()
+              }
+            }
+            return ''
+          }
+
+          const username = getVal('tên đăng nhập (username)', 'tên đăng nhập', 'username', 'user_name')
+          const fullName = getVal('họ và tên', 'họ tên', 'fullname', 'full_name', 'name')
+          const email = getVal('email', 'thư điện tử')
+          const password = getVal('mật khẩu (để trống mặc định 123456)', 'mật khẩu', 'password') || '123456'
+
+          const errors = []
+          if (!username) errors.push('Thiếu Tên đăng nhập')
+          else if (username.length < 3) errors.push('Tên đăng nhập tối thiểu 3 ký tự')
+
+          if (!fullName) errors.push('Thiếu Họ và tên')
+          if (!email) errors.push('Thiếu Email')
+          else if (!email.includes('@')) errors.push('Email không đúng định dạng')
+
+          if (importRole === 'STUDENT') {
+            const studentCode = getVal('mã sinh viên', 'mã sv', 'studentcode', 'student_code')
+            const major = getVal('chuyên ngành', 'ngành', 'khoa/ngành', 'major') || 'Kỹ thuật phần mềm'
+            return {
+              rowIdx: idx + 1,
+              username,
+              fullName,
+              email,
+              password,
+              role: 'STUDENT',
+              studentCode,
+              major,
+              isValid: errors.length === 0,
+              errors,
+            }
+          } else {
+            const lecturerCode = getVal('mã giảng viên', 'mã gv', 'lecturercode', 'lecturer_code')
+            const department = getVal('khoa / bộ môn', 'khoa', 'bộ môn', 'department') || 'Khoa CNTT'
+            const degree = getVal('học vị', 'trình độ', 'degree') || 'Thạc sĩ'
+            return {
+              rowIdx: idx + 1,
+              username,
+              fullName,
+              email,
+              password,
+              role: 'LECTURER',
+              lecturerCode,
+              department,
+              degree,
+              isValid: errors.length === 0,
+              errors,
+            }
+          }
+        })
+
+        setParsedUserRows(parsed)
+      } catch (err) {
+        console.error('Lỗi khi đọc file Excel:', err)
+        alertDialog({
+          title: 'Lỗi đọc file Excel',
+          message: 'Không thể đọc nội dung file. Vui lòng kiểm tra lại định dạng file .xlsx hoặc .xls.',
+          variant: 'danger',
+        })
+      }
+    }
+    reader.readAsBinaryString(file)
+  }
+
+  // Thực hiện Import người dùng
+  const handleExecuteUserImport = async () => {
+    const validRows = parsedUserRows.filter((r) => r.isValid)
+    if (validRows.length === 0) {
+      alertDialog({
+        title: 'Không có dữ liệu hợp lệ',
+        message: 'Không tìm thấy dòng dữ liệu hợp lệ nào để nhập.',
+        variant: 'warning',
+      })
+      return
+    }
+
+    setImportingUsers(true)
+    try {
+      const payload = validRows.map((r) => {
+        if (importRole === 'STUDENT') {
+          return {
+            username: r.username,
+            fullName: r.fullName,
+            email: r.email,
+            password: r.password,
+            role: 'STUDENT',
+            studentCode: r.studentCode,
+            major: r.major,
+          }
+        } else {
+          return {
+            username: r.username,
+            fullName: r.fullName,
+            email: r.email,
+            password: r.password,
+            role: 'LECTURER',
+            lecturerCode: r.lecturerCode,
+            department: r.department,
+            degree: r.degree,
+          }
+        }
+      })
+
+      const res = await api.post('/admin/users/batch', payload)
+      const resultData = res.data?.data || {}
+      setUserImportResult(resultData)
+      setShowImportModal(false)
+      setParsedUserRows([])
+      fetchUsers()
+      if (resultData.successCount > 0) {
+        toast.success(`Đã nhập thành công ${resultData.successCount} tài khoản!`)
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi nhập danh sách người dùng')
+    } finally {
+      setImportingUsers(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -331,20 +651,39 @@ export const AdminUsers = () => {
             CRUD tài khoản và phân quyền hồ sơ Sinh viên, Giảng viên, Quản trị viên
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={exportUsersToExcel}
+            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            title="Xuất danh sách người dùng ra file Excel"
+          >
+            <Download size={14} className="text-emerald-700" />
+            <span>Xuất Excel</span>
+          </button>
+          <button
+            onClick={() => {
+              setParsedUserRows([])
+              setShowImportModal(true)
+            }}
+            className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            title="Nhập danh sách Sinh viên / Giảng viên từ file Excel"
+          >
+            <Upload size={14} className="text-blue-700" />
+            <span>Nhập từ Excel</span>
+          </button>
           <button
             onClick={openAuditModal}
-            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition-colors"
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
           >
-            <History size={16} />
-            <span>Nhật ký Kiểm toán (Audit Trail)</span>
+            <History size={14} />
+            <span>Nhật ký</span>
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm shadow-blue-500/25 transition-colors"
+            className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
           >
-            <Plus size={16} />
-            <span>Thêm tài khoản mới</span>
+            <Plus size={15} />
+            <span>Thêm tài khoản</span>
           </button>
         </div>
       </div>
@@ -642,7 +981,6 @@ export const AdminUsers = () => {
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Tên đăng nhập *</label>
                   <input
                     type="text"
-                    required
                     value={createForm.username}
                     onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
                     placeholder="VD: sv2024005, gv003..."
@@ -667,7 +1005,6 @@ export const AdminUsers = () => {
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Họ và tên *</label>
                 <input
                   type="text"
-                  required
                   value={createForm.fullName}
                   onChange={(e) => setCreateForm({ ...createForm, fullName: e.target.value })}
                   placeholder="VD: Nguyễn Văn A"
@@ -680,7 +1017,6 @@ export const AdminUsers = () => {
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Email *</label>
                   <input
                     type="email"
-                    required
                     value={createForm.email}
                     onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
                     placeholder="email@rikkei.edu.vn"
@@ -693,7 +1029,6 @@ export const AdminUsers = () => {
                   </label>
                   <input
                     type="password"
-                    required
                     value={createForm.password}
                     onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                     placeholder="Tối thiểu 6 ký tự"
@@ -810,7 +1145,6 @@ export const AdminUsers = () => {
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Họ và tên *</label>
                   <input
                     type="text"
-                    required
                     value={editForm.fullName}
                     onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
                     className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
@@ -842,7 +1176,6 @@ export const AdminUsers = () => {
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Email *</label>
                 <input
                   type="email"
-                  required
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                   className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
@@ -1071,6 +1404,273 @@ export const AdminUsers = () => {
               >
                 Đóng
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Nhập Tài Khoản Hàng Loạt Từ Excel */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-3xl w-full overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <FileSpreadsheet className="text-blue-700" size={22} />
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">
+                    Nhập Danh Sách Tài Khoản Từ File Excel
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Khởi tạo hàng loạt tài khoản & hồ sơ Sinh viên hoặc Giảng viên
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowImportModal(false)
+                  setParsedUserRows([])
+                }}
+                className="text-slate-400 hover:text-slate-700 text-xl font-bold cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Role Selection Tabs */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  1. Chọn đối tượng cần nhập:
+                </label>
+                <div className="flex rounded-xl bg-slate-100 p-1 gap-1 max-w-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportRole('STUDENT')
+                      setParsedUserRows([])
+                    }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
+                      importRole === 'STUDENT'
+                        ? 'bg-white text-red-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Sinh viên
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportRole('LECTURER')
+                      setParsedUserRows([])
+                    }}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${
+                      importRole === 'LECTURER'
+                        ? 'bg-white text-emerald-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Giảng viên
+                  </button>
+                </div>
+              </div>
+
+              {/* Step 2: Download Template */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <span>2. Tải file mẫu {importRole === 'STUDENT' ? 'Sinh viên' : 'Giảng viên'}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-semibold">
+                      Chuẩn định dạng
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    File chứa sẵn tiêu đề cột và dữ liệu minh họa. Mật khẩu mặc định là 123456.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={importRole === 'STUDENT' ? downloadStudentTemplate : downloadLecturerTemplate}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 transition cursor-pointer shadow-2xs"
+                >
+                  <Download size={14} className="text-blue-600" />
+                  <span>Tải file mẫu ({importRole === 'STUDENT' ? 'Sinh viên' : 'Giảng viên'})</span>
+                </button>
+              </div>
+
+              {/* Step 3: Upload File */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  3. Tải lên file Excel (.xlsx, .xls)
+                </label>
+                <div className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center bg-slate-50/50 hover:bg-blue-50/30 transition cursor-pointer relative">
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleUserFileUpload}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  <Upload size={28} className="mx-auto text-slate-400 mb-2" />
+                  <div className="text-xs font-bold text-slate-800">
+                    Kéo thả file Excel vào đây hoặc <span className="text-blue-700 underline">bấm để chọn file</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">Định dạng hỗ trợ: .xlsx, .xls</div>
+                </div>
+              </div>
+
+              {/* Step 4: Preview Table */}
+              {parsedUserRows.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-900">
+                        Đã đọc {parsedUserRows.length} tài khoản:
+                      </span>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                        {parsedUserRows.filter((r) => r.isValid).length} hợp lệ
+                      </span>
+                      {parsedUserRows.some((r) => !r.isValid) && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                          {parsedUserRows.filter((r) => !r.isValid).length} dòng lỗi
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-xl overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse font-mono">
+                      <thead className="bg-slate-100 sticky top-0 text-[11px] text-slate-600 uppercase">
+                        <tr>
+                          <th className="py-2 px-3">#</th>
+                          <th className="py-2 px-3">Tên đăng nhập</th>
+                          <th className="py-2 px-3">Họ và tên</th>
+                          <th className="py-2 px-3">Email</th>
+                          <th className="py-2 px-3">
+                            {importRole === 'STUDENT' ? 'Mã SV / Ngành' : 'Mã GV / Khoa'}
+                          </th>
+                          <th className="py-2 px-3">Trạng thái</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {parsedUserRows.map((row) => (
+                          <tr
+                            key={row.rowIdx}
+                            className={row.isValid ? 'hover:bg-slate-50' : 'bg-rose-50/50'}
+                          >
+                            <td className="py-2 px-3 text-slate-400">{row.rowIdx}</td>
+                            <td className="py-2 px-3 font-bold text-slate-900">{row.username}</td>
+                            <td className="py-2 px-3 font-sans text-slate-800">{row.fullName}</td>
+                            <td className="py-2 px-3 text-slate-600">{row.email}</td>
+                            <td className="py-2 px-3 font-sans text-slate-700">
+                              {importRole === 'STUDENT'
+                                ? `${row.studentCode || '-'} • ${row.major || ''}`
+                                : `${row.lecturerCode || '-'} • ${row.department || ''}`}
+                            </td>
+                            <td className="py-2 px-3 font-sans">
+                              {row.isValid ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-bold">
+                                  <Check size={13} /> Sẵn sàng
+                                </span>
+                              ) : (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10px] text-rose-700 font-bold bg-rose-100 px-1.5 py-0.5 rounded"
+                                  title={row.errors.join('; ')}
+                                >
+                                  <AlertCircle size={11} /> {row.errors[0]}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowImportModal(false)
+                    setParsedUserRows([])
+                  }}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteUserImport}
+                  disabled={importingUsers || parsedUserRows.filter((r) => r.isValid).length === 0}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-semibold bg-blue-700 text-white hover:bg-blue-800 transition cursor-pointer disabled:opacity-50"
+                >
+                  {importingUsers && <Loader2 size={14} className="animate-spin" />}
+                  <span>
+                    Xác nhận Import ({parsedUserRows.filter((r) => r.isValid).length} tài khoản)
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Báo Cáo Kết Quả Nhập Người Dùng */}
+      {userImportResult && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+              <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                <CheckCircle className="text-emerald-600" size={20} />
+                Kết Quả Nhập Tài Khoản
+              </h3>
+              <button
+                onClick={() => setUserImportResult(null)}
+                className="text-slate-400 hover:text-slate-700 text-xl font-bold cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+                  <div className="text-2xl font-black text-emerald-700 font-mono">
+                    {userImportResult.successCount || 0}
+                  </div>
+                  <div className="text-xs font-semibold text-emerald-800 mt-0.5">Thành công</div>
+                </div>
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                  <div className="text-2xl font-black text-slate-700 font-mono">
+                    {userImportResult.failureCount || 0}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-600 mt-0.5">Thất bại / Trùng</div>
+                </div>
+              </div>
+
+              {userImportResult.errors && userImportResult.errors.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-xs font-bold text-slate-800">Chi tiết các dòng lỗi:</div>
+                  <div className="max-h-36 overflow-y-auto space-y-1 text-xs text-rose-700 bg-rose-50 p-3 rounded-xl border border-rose-200 font-mono text-[11px]">
+                    {userImportResult.errors.map((err, idx) => (
+                      <div key={idx} className="flex items-start gap-1">
+                        <span>&bull;</span>
+                        <span>{err}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setUserImportResult(null)}
+                  className="w-full py-2.5 rounded-xl font-semibold text-xs bg-slate-900 text-white hover:bg-slate-800 transition cursor-pointer"
+                >
+                  Đóng thông báo
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@ package com.rikkei.eduportal.course.controller;
 import com.rikkei.eduportal.common.ApiResponse;
 import com.rikkei.eduportal.course.dto.request.CourseCreateRequest;
 import com.rikkei.eduportal.course.dto.request.CourseUpdateRequest;
+import com.rikkei.eduportal.course.dto.response.BatchImportResult;
 import com.rikkei.eduportal.course.dto.response.CourseResponse;
 import com.rikkei.eduportal.course.service.CourseService;
 import jakarta.validation.Valid;
@@ -42,6 +43,13 @@ public class AdminCourseController {
         CourseResponse created = courseService.createCourse(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Tạo mới môn học thành công", created));
+    }
+
+    @PostMapping("/batch")
+    public ResponseEntity<ApiResponse<BatchImportResult<CourseResponse>>> createCoursesBatch(
+            @RequestBody List<CourseCreateRequest> requests) {
+        BatchImportResult<CourseResponse> result = courseService.batchImportCourses(requests);
+        return ResponseEntity.ok(ApiResponse.success("Xử lý nhập danh sách môn học thành công", result));
     }
 
     @PutMapping("/{id}")

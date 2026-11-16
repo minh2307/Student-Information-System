@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { getRealAvatar } from '../utils/avatarUtils'
+import { alertDialog } from '../store/confirmStore'
 import api from '../services/api'
 import { 
   User, 
@@ -63,6 +64,16 @@ export const Profile = () => {
   const handleUpdateContact = async (e) => {
     e.preventDefault()
     setMessage({ type: '', text: '' })
+
+    if (!fullName.trim() || !email.trim()) {
+      alertDialog({
+        title: 'Thiếu thông tin bắt buộc',
+        message: 'Vui lòng điền đầy đủ Họ và tên và Email đào tạo.',
+        variant: 'warning'
+      })
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -87,13 +98,30 @@ export const Profile = () => {
     e.preventDefault()
     setMessage({ type: '', text: '' })
 
+    if (!oldPassword.trim() || !newPassword.trim() || !confirmPassword.trim()) {
+      alertDialog({
+        title: 'Thiếu thông tin bắt buộc',
+        message: 'Vui lòng điền đầy đủ Mật khẩu hiện tại, Mật khẩu mới và Xác nhận mật khẩu mới.',
+        variant: 'warning'
+      })
+      return
+    }
+
     if (newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'Mật khẩu mới phải có tối thiểu 6 ký tự' })
+      alertDialog({
+        title: 'Mật khẩu không hợp lệ',
+        message: 'Mật khẩu mới phải có tối thiểu 6 ký tự.',
+        variant: 'warning'
+      })
       return
     }
 
     if (newPassword !== confirmPassword) {
-      setMessage({ type: 'error', text: 'Xác nhận mật khẩu mới không khớp' })
+      alertDialog({
+        title: 'Xác nhận mật khẩu không khớp',
+        message: 'Xác nhận mật khẩu mới không trùng khớp với mật khẩu mới đã nhập.',
+        variant: 'warning'
+      })
       return
     }
 
@@ -258,7 +286,6 @@ export const Profile = () => {
               <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">Họ và tên</label>
               <input
                 type="text"
-                required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-red-700 focus:bg-white transition"
@@ -269,7 +296,6 @@ export const Profile = () => {
               <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">Email đào tạo</label>
               <input
                 type="email"
-                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-red-700 focus:bg-white transition"
@@ -310,7 +336,6 @@ export const Profile = () => {
               <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">Mật khẩu hiện tại</label>
               <input
                 type="password"
-                required
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
                 placeholder="••••••••"
@@ -322,7 +347,6 @@ export const Profile = () => {
               <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">Mật khẩu mới (tối thiểu 6 ký tự)</label>
               <input
                 type="password"
-                required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="••••••••"
@@ -334,7 +358,6 @@ export const Profile = () => {
               <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">Xác nhận mật khẩu mới</label>
               <input
                 type="password"
-                required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"

@@ -6,6 +6,7 @@ import java.time.LocalTime;
 public class ExamScheduleRequest {
 
     private Long classSectionId;
+    private String sectionCode;
     private LocalDate examDate;
     private LocalTime startTime;
     private LocalTime endTime;
@@ -17,6 +18,9 @@ public class ExamScheduleRequest {
 
     public Long getClassSectionId() { return classSectionId; }
     public void setClassSectionId(Long classSectionId) { this.classSectionId = classSectionId; }
+
+    public String getSectionCode() { return sectionCode; }
+    public void setSectionCode(String sectionCode) { this.sectionCode = sectionCode; }
 
     public LocalDate getExamDate() { return examDate; }
     public void setExamDate(LocalDate examDate) { this.examDate = examDate; }

@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -138,6 +139,64 @@ public class AdminUserService {
         );
 
         return buildProfileResponse(savedUser);
+    }
+
+    @Transactional(noRollbackFor = {BadRequestException.class, IllegalArgumentException.class})
+    public BatchImportResponse batchCreateUsers(List<CreateUserRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            return new BatchImportResponse(0, 0, 0, List.of("Danh sách tài khoản nhập rỗng"), List.of());
+        }
+
+        int total = requests.size();
+        int successCount = 0;
+        int failureCount = 0;
+        List<String> errors = new ArrayList<>();
+        List<UserProfileResponse> createdUsers = new ArrayList<>();
+
+        for (int i = 0; i < requests.size(); i++) {
+            CreateUserRequest req = requests.get(i);
+            int rowNum = i + 1;
+            try {
+                if (!StringUtils.hasText(req.getUsername())) {
+                    throw new BadRequestException("Dòng " + rowNum + ": Tên đăng nhập không được để trống");
+                }
+                if (!StringUtils.hasText(req.getFullName())) {
+                    throw new BadRequestException("Dòng " + rowNum + ": Họ và tên không được để trống");
+                }
+                if (!StringUtils.hasText(req.getEmail())) {
+                    throw new BadRequestException("Dòng " + rowNum + ": Email không được để trống");
+                }
+                if (!StringUtils.hasText(req.getPassword())) {
+                    req.setPassword("123456");
+                }
+                if (req.getRole() == null) {
+                    req.setRole(Role.STUDENT);
+                }
+
+                UserProfileResponse profile = createUser(req);
+                createdUsers.add(profile);
+                successCount++;
+            } catch (Exception ex) {
+                failureCount++;
+                errors.add("Dòng " + rowNum + " (" + (req.getUsername() != null ? req.getUsername() : "N/A") + "): " + ex.getMessage());
+            }
+        }
+
+        if (successCount > 0) {
+            auditLogService.recordLog(
+                    "USER_BATCH_IMPORT",
+                    getCurrentActor(),
+                    "ROLE_ADMIN",
+                    "User",
+                    "BATCH",
+                    "Nhập hàng loạt tài khoản người dùng từ file Excel: " + successCount + " thành công, " + failureCount + " thất bại",
+                    null,
+                    "total=" + total + ", success=" + successCount + ", failure=" + failureCount,
+                    null
+            );
+        }
+
+        return new BatchImportResponse(total, successCount, failureCount, errors, createdUsers);
     }
 
     @Transactional

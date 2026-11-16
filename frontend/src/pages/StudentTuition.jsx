@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { toast } from '../store/toastStore'
+import { alertDialog, confirmDialog } from '../store/confirmStore'
 import {
   CreditCard,
   CheckCircle2,
@@ -207,7 +208,141 @@ export const StudentTuition = () => {
     }
   }
 
+  const currentSemesterObj = useMemo(() => {
+    return semesters.find((s) => s.semesterCode === selectedSemester) || null
+  }, [semesters, selectedSemester])
+
+  const isSemesterClosed = useMemo(() => {
+    if (!currentSemesterObj) return false
+    return currentSemesterObj.isRegistrationOpen === false
+  }, [currentSemesterObj])
+
+  const isFinalized = Boolean(tuition?.isFinalized || tuition?.status === 'PAID')
+  const totalCredits = tuition?.totalCredits || 0
+  const [finalizing, setFinalizing] = useState(false)
+
+  const handleFinalizeCredits = async () => {
+    if (isSemesterClosed) {
+      alertDialog({
+        title: 'Học kỳ đã đóng',
+        message: 'Học kỳ này đã kết thúc đợt đăng ký, không thể thao tác chốt tín chỉ.',
+        variant: 'warning'
+      })
+      return
+    }
+
+    if (totalCredits < 12) {
+      alertDialog({
+        title: 'Chưa đạt tối thiểu 12 tín chỉ',
+        message: `Hiện tại bạn mới đăng ký ${totalCredits} tín chỉ, chưa đạt mức tối thiểu 12 tín chỉ theo quy chế đào tạo. Vui lòng sang trang Đăng ký môn học để chọn thêm học phần trước khi chốt.`,
+        variant: 'warning'
+      })
+      return
+    }
+
+    const confirmed = await confirmDialog({
+      title: 'Xác nhận chốt đăng ký tín chỉ',
+      message: `Bạn đang thực hiện chốt ${totalCredits} tín chỉ cho học kỳ này. Sau khi chốt, danh sách học phần sẽ được cố định để tiến hành thanh toán học phí. Bạn có chắc chắn muốn chốt?`,
+      confirmText: 'Chốt đăng ký tín chỉ',
+      cancelText: 'Hủy',
+      variant: 'default',
+    })
+
+    if (!confirmed) return
+
+    setFinalizing(true)
+    try {
+      const res = await api.post('/student/tuition/finalize', { semester: selectedSemester })
+      if (res.data?.data) {
+        setTuition(res.data.data)
+        toast.success(`Đã chốt thành công ${totalCredits} tín chỉ! Bạn có thể thanh toán học phí ngay.`)
+      }
+    } catch (err) {
+      alertDialog({
+        title: 'Không thể chốt tín chỉ',
+        message: err.response?.data?.message || err.message,
+        variant: 'danger'
+      })
+    } finally {
+      setFinalizing(false)
+    }
+  }
+
+  const handleUnfinalizeCredits = async () => {
+    if (isSemesterClosed) {
+      alertDialog({
+        title: 'Học kỳ đã đóng',
+        message: 'Học kỳ này đã đóng cổng đăng ký, không thể mở lại.',
+        variant: 'warning'
+      })
+      return
+    }
+
+    if (tuition?.status === 'PAID') {
+      alertDialog({
+        title: 'Đã thanh toán học phí',
+        message: 'Học kỳ này đã hoàn tất thanh toán học phí, không thể hủy chốt hoặc thay đổi học phần.',
+        variant: 'warning'
+      })
+      return
+    }
+
+    const confirmed = await confirmDialog({
+      title: 'Mở lại đăng ký tín chỉ (Hủy chốt)',
+      message: 'Sau khi mở lại, bạn có thể thêm/hủy môn học. Bạn sẽ cần thực hiện chốt lại tín chỉ (tối thiểu 12 TC) trước khi có thể nộp học phí. Bạn có muốn tiếp tục?',
+      confirmText: 'Mở lại đăng ký',
+      cancelText: 'Giữ nguyên',
+      variant: 'warning',
+    })
+
+    if (!confirmed) return
+
+    setFinalizing(true)
+    try {
+      const res = await api.post('/student/tuition/unfinalize', { semester: selectedSemester })
+      if (res.data?.data) {
+        setTuition(res.data.data)
+        toast.info('Đã mở lại đăng ký tín chỉ. Bạn có thể sang trang Đăng ký môn học để điều chỉnh danh sách môn học.')
+      }
+    } catch (err) {
+      alertDialog({
+        title: 'Lỗi',
+        message: err.response?.data?.message || err.message,
+        variant: 'danger'
+      })
+    } finally {
+      setFinalizing(false)
+    }
+  }
+
   const handleOpenPayOs = async () => {
+    if (isSemesterClosed) {
+      alertDialog({
+        title: 'Học kỳ đã đóng',
+        message: 'Học kỳ này đã kết thúc đợt quyết toán tài chính, không thể thực hiện thanh toán.',
+        variant: 'warning'
+      })
+      return
+    }
+
+    if (!isFinalized && tuition?.status !== 'PAID') {
+      alertDialog({
+        title: 'Chưa chốt đăng ký tín chỉ',
+        message: `Bạn chưa thực hiện thao tác chốt đăng ký tín chỉ cho học kỳ này. Bạn cần đăng ký tối thiểu 12 tín chỉ (hiện có ${totalCredits} TC) và bấm "Chốt đăng ký tín chỉ" trước khi thanh toán học phí.`,
+        variant: 'warning'
+      })
+      return
+    }
+
+    if (totalCredits < 12) {
+      alertDialog({
+        title: 'Chưa đủ 12 tín chỉ tối thiểu',
+        message: `Học kỳ này bạn mới đăng ký ${totalCredits} / 12 tín chỉ tối thiểu. Vui lòng đăng ký đủ tối thiểu 12 tín chỉ trước khi thanh toán.`,
+        variant: 'warning'
+      })
+      return
+    }
+
     setCreatingPayOs(true)
     setPayOsQrError(false)
     try {
@@ -226,7 +361,11 @@ export const StudentTuition = () => {
         setPollingActive(true)
       }
     } catch (err) {
-      toast.error('Không thể tạo liên kết thanh toán PayOS: ' + (err.response?.data?.message || err.message))
+      alertDialog({
+        title: 'Không thể tạo liên kết thanh toán',
+        message: err.response?.data?.message || err.message,
+        variant: 'danger'
+      })
     } finally {
       setCreatingPayOs(false)
     }
@@ -273,8 +412,8 @@ export const StudentTuition = () => {
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700">
               Học Viện Công Nghệ Rikkei • Phòng Kế Hoạch - Tài Chính
             </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300">
-              Cổng PayOS Napas247
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-stone-100 text-stone-800 border border-stone-300">
+              Cổng Thanh Toán Napas247
             </span>
           </div>
           <h1 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight mt-1">
@@ -297,7 +436,7 @@ export const StudentTuition = () => {
             >
               {semesters.map((s) => (
                 <option key={s.id || s.semesterCode} value={s.semesterCode}>
-                  {s.semesterName} {s.isActive ? '(Hiện tại)' : ''}
+                  {s.semesterName} {s.isActive ? '(Hiện tại)' : ''} {s.isRegistrationOpen === false ? '(Đã đóng)' : ''}
                 </option>
               ))}
             </select>
@@ -357,6 +496,79 @@ export const StudentTuition = () => {
           >
             <X size={16} />
           </button>
+        </div>
+      )}
+
+      {/* Closed Semester Notification */}
+      {isSemesterClosed && (
+        <div className="p-4 rounded-2xl bg-stone-100 border border-stone-300 text-stone-800 flex items-center gap-3 animate-in fade-in">
+          <AlertCircle size={20} className="text-stone-600 shrink-0" />
+          <div>
+            <h4 className="font-bold text-xs sm:text-sm">Học kỳ này đã đóng</h4>
+            <p className="text-xs text-stone-600 mt-0.5">
+              Cổng quyết toán học phí trực tuyến đã khóa cho học kỳ này. Bạn chỉ có thể tra cứu thông tin học vụ và xem biên lai đã thanh toán.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Finalization & Minimum Credits Status Banner - Chỉ hiển thị khi chưa chốt */}
+      {!isSemesterClosed && tuition && tuition.status !== 'PAID' && !isFinalized && (
+        <div
+          className={`p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in ${
+            totalCredits < 12
+              ? 'bg-amber-50/70 border-amber-300 text-amber-950'
+              : 'bg-blue-50/70 border-blue-300 text-blue-950'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            {totalCredits < 12 ? (
+              <AlertTriangle size={22} className="text-amber-600 shrink-0 mt-0.5" />
+            ) : (
+              <ShieldCheck size={22} className="text-blue-600 shrink-0 mt-0.5" />
+            )}
+            <div>
+              <h4 className="font-bold text-xs sm:text-sm flex items-center gap-2">
+                <span>
+                  {totalCredits < 12
+                    ? 'Chưa đạt số tín chỉ tối thiểu để chốt học phần'
+                    : 'Yêu cầu chốt đăng ký tín chỉ trước khi thanh toán'}
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                  totalCredits < 12 ? 'bg-amber-200 text-amber-900' : 'bg-blue-200 text-blue-900'
+                }`}>
+                  {totalCredits}/12 TC
+                </span>
+              </h4>
+              <p className="text-xs mt-1 leading-relaxed opacity-90">
+                {totalCredits < 12
+                  ? `Bạn hiện mới đăng ký ${totalCredits} tín chỉ. Theo quy chế đào tạo, bạn cần đăng ký tối thiểu 12 tín chỉ (tối đa 24 TC) trong học kỳ này để đủ điều kiện chốt học phần và nộp học phí.`
+                  : `Bạn đã đăng ký hợp lệ ${totalCredits} tín chỉ. Vui lòng bấm "Chốt đăng ký tín chỉ" để cố định danh sách học phần chính thức của học kỳ trước khi nộp tiền.`}
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0 self-end sm:self-center">
+            {totalCredits < 12 ? (
+              <Link
+                to="/student/registration"
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-2xs whitespace-nowrap inline-flex items-center gap-1"
+              >
+                <span>Đến trang Đăng ký môn học</span>
+                <ChevronRight size={13} />
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={handleFinalizeCredits}
+                disabled={finalizing}
+                className="px-4 py-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer whitespace-nowrap flex items-center gap-1.5"
+              >
+                {finalizing ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={14} />}
+                <span>{finalizing ? 'Đang chốt...' : `Chốt đăng ký (${totalCredits} TC)`}</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -473,6 +685,26 @@ export const StudentTuition = () => {
                     </>
                   )}
                 </span>
+
+                {isFinalized && !isPaid && (
+                  <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-blue-100 text-blue-900 border border-blue-200 flex items-center gap-1">
+                    <ShieldCheck size={12} className="text-blue-700" />
+                    <span>ĐÃ CHỐT {tuition.totalCredits} TC</span>
+                  </span>
+                )}
+
+                {!isPaid && isFinalized && !isSemesterClosed && (
+                  <button
+                    type="button"
+                    onClick={handleUnfinalizeCredits}
+                    disabled={finalizing}
+                    className="text-[11px] text-stone-500 hover:text-red-700 underline underline-offset-2 transition cursor-pointer"
+                    title="Mở lại đăng ký nếu muốn chỉnh sửa môn học"
+                  >
+                    {finalizing ? 'Đang mở lại...' : 'Đổi môn (Mở lại ĐK)'}
+                  </button>
+                )}
+
                 <span className="text-xs text-stone-600 font-mono">
                   Kỳ đào tạo: <strong className="text-stone-900">{tuition.semesterName}</strong>
                 </span>
@@ -554,11 +786,21 @@ export const StudentTuition = () => {
               {!isPaid ? (
                 <button
                   onClick={handleOpenPayOs}
-                  disabled={creatingPayOs}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-xs font-bold bg-gradient-to-r from-red-700 via-rose-700 to-amber-700 hover:from-red-800 hover:to-amber-800 text-white transition shadow-sm hover:shadow cursor-pointer disabled:opacity-50 ring-2 ring-red-400/30"
+                  disabled={creatingPayOs || isSemesterClosed || !isFinalized || totalCredits < 12}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-xs font-bold bg-red-700 hover:bg-red-800 disabled:bg-stone-200 disabled:text-stone-400 disabled:cursor-not-allowed text-white transition shadow-2xs cursor-pointer"
                 >
-                  <Zap size={16} className="text-amber-200" />
-                  <span>{creatingPayOs ? 'Đang tạo mã PayOS QR...' : 'Thanh Toán Qua PayOS (VietQR)'}</span>
+                  <Zap size={16} className={isSemesterClosed || !isFinalized || totalCredits < 12 ? 'text-stone-400' : 'text-amber-300'} />
+                  <span>
+                    {creatingPayOs
+                      ? 'Đang tạo mã PayOS QR...'
+                      : isSemesterClosed
+                      ? 'Học kỳ đã đóng cổng thanh toán'
+                      : !isFinalized
+                      ? 'Cần chốt đăng ký tín chỉ trước khi thanh toán'
+                      : totalCredits < 12
+                      ? 'Chưa đủ 12 tín chỉ tối thiểu'
+                      : 'Thanh Toán Qua PayOS (VietQR)'}
+                  </span>
                 </button>
               ) : (
                 <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200 text-xs text-emerald-950 space-y-1.5 font-mono shadow-2xs">
@@ -669,8 +911,8 @@ export const StudentTuition = () => {
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-stone-200 flex items-center justify-between bg-stone-50/80 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-red-700 via-rose-700 to-amber-600 text-white flex items-center justify-center shadow-xs">
-                  <Zap size={20} />
+                <div className="w-9 h-9 rounded-xl bg-red-700 text-white flex items-center justify-center shadow-xs">
+                  <Zap size={18} className="text-amber-300" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -678,7 +920,7 @@ export const StudentTuition = () => {
                       Cổng Thanh Toán PayOS
                     </h3>
                     <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                      Live
+                      VietQR 24/7
                     </span>
                   </div>
                   <p className="text-[11px] text-stone-500">
@@ -703,7 +945,7 @@ export const StudentTuition = () => {
             {/* Modal Body */}
             <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
               {/* VietQR Code Card */}
-              <div className="relative mx-auto w-full bg-gradient-to-b from-stone-50 to-white border border-stone-200 rounded-2xl p-4 flex flex-col items-center justify-center shadow-2xs">
+              <div className="relative mx-auto w-full bg-stone-50/50 border border-stone-200 rounded-2xl p-4 flex flex-col items-center justify-center shadow-2xs">
                 <div className="w-full flex items-center justify-between pb-2 mb-3 border-b border-stone-200 text-[10px] font-mono font-bold">
                   <span className="text-red-700 uppercase flex items-center gap-1">
                     <QrCode size={13} /> Mã VietQR Thanh Toán
@@ -725,7 +967,7 @@ export const StudentTuition = () => {
                             : `https://img.vietqr.io/image/${payOsData.bin || '970422'}-${payOsData.accountNumber}-compact2.png?amount=${payOsData.amount || 0}&addInfo=${encodeURIComponent(
                                 payOsData.description || ''
                               )}&accountName=${encodeURIComponent(
-                                payOsData.accountName || 'NGUYEN QUANG VINH'
+                                payOsData.accountName || 'HOC VIEN CONG NGHE RIKKEI'
                               )}`
                         }
                         onError={() => setPayOsQrError(true)}
@@ -750,14 +992,14 @@ export const StudentTuition = () => {
                 <div className="flex justify-between items-center pb-2 border-b border-stone-200">
                   <span className="text-stone-500 font-sans">Ngân hàng thụ hưởng:</span>
                   <span className="text-stone-900 font-bold font-sans">
-                    MBBank (Ngân hàng TMCP Quân đội)
+                    {payOsData.bankName || 'Ngân hàng TMCP Quân đội (MBBank)'}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <span className="text-stone-500 font-sans">Chủ tài khoản:</span>
                   <strong className="text-stone-900 font-bold">
-                    {payOsData.accountName || 'NGUYEN QUANG VINH'}
+                    {payOsData.accountName || 'HOC VIEN CONG NGHE RIKKEI'}
                   </strong>
                 </div>
 

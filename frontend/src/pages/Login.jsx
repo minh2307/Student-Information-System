@@ -8,6 +8,7 @@ import {
   User, 
   GraduationCap, 
   ShieldAlert, 
+  AlertCircle,
   ArrowRight, 
   Bell, 
   Pin, 
@@ -29,6 +30,8 @@ const CATEGORIES = ['Tất cả', 'HỌC VỤ', 'LỊCH THI', 'HỌC BỔNG', 'H
 export const Login = () => {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [usernameError, setUsernameError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
   const [turnstileToken, setTurnstileToken] = useState('')
   const turnstileContainerRef = React.useRef(null)
   const widgetIdRef = React.useRef(null)
@@ -107,6 +110,22 @@ export const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault()
     setError('')
+    setUsernameError('')
+    setPasswordError('')
+
+    let hasError = false
+    if (!username.trim()) {
+      setUsernameError('Vui lòng nhập tên đăng nhập hoặc mã SV / mã GV.')
+      hasError = true
+    }
+    if (!password.trim()) {
+      setPasswordError('Vui lòng nhập mật khẩu bảo mật.')
+      hasError = true
+    }
+    if (hasError) {
+      return
+    }
+
     setLoading(true)
 
     const form = e.currentTarget
@@ -442,13 +461,23 @@ export const Login = () => {
                     </span>
                     <input
                       type="text"
-                      required
                       value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      onChange={(e) => {
+                        setUsername(e.target.value)
+                        if (usernameError) setUsernameError('')
+                      }}
                       placeholder="sv2024001, gv001, admin..."
-                      className="w-full pl-8 pr-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:outline-none focus:border-red-700 focus:bg-white transition"
+                      className={`w-full pl-8 pr-3 py-2 bg-stone-50 border rounded-lg text-xs font-mono focus:outline-none focus:bg-white transition ${
+                        usernameError ? 'border-red-600 focus:border-red-700 ring-1 ring-red-500/20' : 'border-stone-200 focus:border-red-700'
+                      }`}
                     />
                   </div>
+                  {usernameError && (
+                    <p className="mt-1 text-[11px] text-red-600 font-medium flex items-center gap-1">
+                      <AlertCircle size={12} className="shrink-0 text-red-600" />
+                      <span>{usernameError}</span>
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -461,13 +490,23 @@ export const Login = () => {
                     </span>
                     <input
                       type="password"
-                      required
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value)
+                        if (passwordError) setPasswordError('')
+                      }}
                       placeholder="••••••••"
-                      className="w-full pl-8 pr-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none focus:border-red-700 focus:bg-white transition"
+                      className={`w-full pl-8 pr-3 py-2 bg-stone-50 border rounded-lg text-xs focus:outline-none focus:bg-white transition ${
+                        passwordError ? 'border-red-600 focus:border-red-700 ring-1 ring-red-500/20' : 'border-stone-200 focus:border-red-700'
+                      }`}
                     />
                   </div>
+                  {passwordError && (
+                    <p className="mt-1 text-[11px] text-red-600 font-medium flex items-center gap-1">
+                      <AlertCircle size={12} className="shrink-0 text-red-600" />
+                      <span>{passwordError}</span>
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between text-xs pt-0.5">
