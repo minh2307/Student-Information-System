@@ -44,6 +44,7 @@ coverage/
 .env.*
 !.env.example
 !.env.template
+!.env.*.example
 *.local
 
 # SSL & Security Keys
@@ -97,7 +98,7 @@ logs/
 # Test Reports & Automation (Postman / Newman / Reports)
 # ====================================================================
 newman/
-reports/
+reports/*
 .scannerwork/
 
 # ====================================================================
@@ -153,3 +154,11 @@ BAO_CAO_DE_CUONG_DU_AN*
 REPORT*
 SRS_Specification*
 
+
+# ====================================================================
+# Documentation, Reports, Reviews & Backlog
+# ====================================================================
+docs/
+reports/
+TASK_FEE_03_PRE_PRODUCTION_REVIEW.md
+JIRA_SPRINT_BACKLOG.md

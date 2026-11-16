@@ -16,10 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class TuitionService {
@@ -36,6 +36,8 @@ public class TuitionService {
     public static final String DEFAULT_ACCOUNT_NAME = "HOC VIEN CONG NGHE RIKKEI";
     public static final BigDecimal CREDIT_UNIT_PRICE = BigDecimal.valueOf(100.00); // 100 VNĐ / 1 TC (chế độ kiểm thử chuyển khoản thật qua PayOS)
     public static final BigDecimal BASE_FACILITY_FEE = BigDecimal.valueOf(1000.00); // 1.000 VNĐ phí CSVC định mức kỳ
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final TuitionFeeRepository tuitionFeeRepository;
     private final StudentProfileRepository studentProfileRepository;
@@ -82,20 +84,62 @@ public class TuitionService {
 
         int totalCredits = 0;
         List<TuitionDto.TuitionCourseItemDto> courseItems = new ArrayList<>();
+        Set<Long> seenCourseIds = new HashSet<>();
 
         for (Enrollment e : enrollments) {
             if (e.getClassSection() != null && e.getClassSection().getCourse() != null) {
-                Integer cr = e.getClassSection().getCourse().getCredits();
+                com.rikkei.eduportal.enrollment.entity.Course c = e.getClassSection().getCourse();
+                if (c.getId() != null && !seenCourseIds.add(c.getId())) {
+                    // Tránh cộng trùng môn học do JOIN hoặc đăng ký trùng
+                    continue;
+                }
+                Integer cr = c.getCredits();
                 int credits = (cr != null) ? cr : 0;
                 totalCredits += credits;
                 BigDecimal fee = CREDIT_UNIT_PRICE.multiply(BigDecimal.valueOf(credits));
                 courseItems.add(new TuitionDto.TuitionCourseItemDto(
-                        e.getClassSection().getCourse().getCourseCode(),
-                        e.getClassSection().getCourse().getName(),
+                        c.getCourseCode(),
+                        c.getName(),
                         credits,
                         fee
                 ));
             }
+        }
+
+        TuitionFee tuition = tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), activeSemester)
+                .orElse(null);
+
+        // Chuẩn hóa định danh sinh viên
+        String studentCode = student.getStudentCode() != null ? student.getStudentCode().trim().toUpperCase() : "SV" + student.getId();
+        String studentName = (student.getUser() != null && student.getUser().getFullName() != null)
+                ? student.getUser().getFullName().trim()
+                : "Sinh viên " + studentCode;
+
+        boolean hasHistoricalPayment = tuition != null
+                && tuition.getPaidAmount() != null
+                && tuition.getPaidAmount().compareTo(BigDecimal.ZERO) > 0;
+
+        // Quy tắc 4 & 5: Nếu sinh viên chưa đăng ký học phần nào và chưa phát sinh giao dịch nộp tiền
+        // -> Không tự động sinh hóa đơn/công nợ vào CSDL, không tạo yêu cầu thanh toán VietQR/PayOS
+        if (totalCredits == 0 && !hasHistoricalPayment) {
+            TuitionDto dto = new TuitionDto();
+            if (tuition != null) {
+                dto.setId(tuition.getId());
+            }
+            dto.setSemesterName(activeSemester);
+            dto.setTotalCredits(0);
+            dto.setCreditUnitPrice(CREDIT_UNIT_PRICE);
+            dto.setFacilityFee(BigDecimal.ZERO);
+            dto.setTotalAmount(BigDecimal.ZERO);
+            dto.setPaidAmount(BigDecimal.ZERO);
+            dto.setRemainingAmount(BigDecimal.ZERO);
+            dto.setExcessAmount(BigDecimal.ZERO);
+            dto.setStatus("NOT_ENROLLED");
+            dto.setCourses(Collections.emptyList());
+            dto.setStudentCode(studentCode);
+            dto.setStudentName(studentName);
+            dto.setSupportedBanks(Collections.emptyList());
+            return dto;
         }
 
         // Fix công thức tính học phí:
@@ -108,9 +152,6 @@ public class TuitionService {
             calculatedTotalAmount = BigDecimal.valueOf(2000.00);
         }
 
-        TuitionFee tuition = tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), activeSemester)
-                .orElse(null);
-
         if (tuition == null) {
             tuition = new TuitionFee();
             tuition.setStudent(student);
@@ -120,7 +161,7 @@ public class TuitionService {
             tuition.setFacilityFee(facilityFee);
             tuition.setTotalAmount(calculatedTotalAmount);
             tuition.setPaidAmount(BigDecimal.ZERO);
-            tuition.setStatus(totalCredits == 0 ? "PAID" : "UNPAID");
+            tuition.setStatus("UNPAID");
             tuition.setDueDate(LocalDate.now().plusDays(30)); // 30 ngày theo quy tắc BR-07
             tuition = tuitionFeeRepository.save(tuition);
         } else {
@@ -136,7 +177,7 @@ public class TuitionService {
                     tuition.setStatus("PAID");
                 } else if (currentPaid.compareTo(BigDecimal.ZERO) > 0 && currentPaid.compareTo(calculatedTotalAmount) < 0) {
                     tuition.setStatus("PARTIAL");
-                } else if (calculatedTotalAmount.compareTo(BigDecimal.ZERO) == 0) {
+                } else if (calculatedTotalAmount.compareTo(BigDecimal.ZERO) == 0 && currentPaid.compareTo(BigDecimal.ZERO) > 0) {
                     tuition.setStatus("PAID");
                 } else {
                     tuition.setStatus("UNPAID");
@@ -146,16 +187,19 @@ public class TuitionService {
         }
 
         BigDecimal paidAmount = tuition.getPaidAmount() != null ? tuition.getPaidAmount() : BigDecimal.ZERO;
-        BigDecimal remainingAmount = tuition.getTotalAmount().subtract(paidAmount);
-        if (remainingAmount.compareTo(BigDecimal.ZERO) < 0) {
-            remainingAmount = BigDecimal.ZERO;
+        BigDecimal remainingAmount = BigDecimal.ZERO;
+        BigDecimal excessAmount = BigDecimal.ZERO;
+
+        if (tuition.getTotalAmount() != null) {
+            int comp = paidAmount.compareTo(tuition.getTotalAmount());
+            if (comp < 0) {
+                remainingAmount = tuition.getTotalAmount().subtract(paidAmount);
+            } else if (comp > 0) {
+                excessAmount = paidAmount.subtract(tuition.getTotalAmount());
+            }
         }
 
         // Chuẩn hóa cú pháp chuyển khoản: "HP <MSSV> <HOCKY>"
-        String studentCode = student.getStudentCode() != null ? student.getStudentCode().trim().toUpperCase() : "SV" + student.getId();
-        String studentName = (student.getUser() != null && student.getUser().getFullName() != null)
-                ? student.getUser().getFullName().trim()
-                : "Sinh viên " + studentCode;
         String transferContent = "HP " + studentCode + " " + activeSemester;
 
         // Số tiền đưa vào mã QR là số tiền còn nợ (hoặc tổng tiền nếu chưa đóng)
@@ -194,6 +238,7 @@ public class TuitionService {
         dto.setTotalAmount(tuition.getTotalAmount());
         dto.setPaidAmount(tuition.getPaidAmount());
         dto.setRemainingAmount(remainingAmount);
+        dto.setExcessAmount(excessAmount);
         dto.setStatus(tuition.getStatus());
         dto.setDueDate(tuition.getDueDate());
         dto.setPaymentDate(tuition.getPaymentDate());
@@ -350,8 +395,13 @@ public class TuitionService {
         TuitionFee tuition = tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), targetSemester)
                 .orElseGet(() -> {
                     getStudentTuition(studentIdentifier, targetSemester);
-                    return tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), targetSemester).orElseThrow();
+                    return tuitionFeeRepository.findByStudentIdAndSemesterName(student.getId(), targetSemester)
+                            .orElse(null);
                 });
+
+        if (tuition == null) {
+            throw new IllegalStateException("Chưa đăng ký học phần trong học kỳ này. Không phát sinh học phí để thanh toán.");
+        }
 
         // 2. Phải chốt đăng ký tín chỉ trước khi thanh toán
         if (!Boolean.TRUE.equals(tuition.getIsFinalized()) && !"PAID".equalsIgnoreCase(tuition.getStatus())) {
@@ -364,11 +414,16 @@ public class TuitionService {
                     tuition.getTotalCredits() != null ? tuition.getTotalCredits() : 0));
         }
 
+        if (tuition.getTotalAmount() == null || tuition.getTotalAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("Chưa đăng ký học phần trong học kỳ này. Không phát sinh học phí để thanh toán.");
+        }
+
         tuition.setPaidAmount(tuition.getTotalAmount());
         tuition.setStatus("PAID");
         tuition.setPaymentDate(LocalDateTime.now());
         tuition.setPaymentMethod(paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "VietQR Napas247");
-        String txnCode = "TXN-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 8999 + 1000);
+        int randomSuffix = SECURE_RANDOM.nextInt(9000) + 1000;
+        String txnCode = "TXN-" + System.currentTimeMillis() + "-" + randomSuffix;
         tuition.setTransactionCode(txnCode);
         tuitionFeeRepository.save(tuition);
 

@@ -14,6 +14,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -344,5 +345,109 @@ class AcademicAdvisorServiceImplTest {
         assertEquals("CS102", firstRec.getCourseCode());
         assertEquals("HIGH", firstRec.getRecommendedPriority());
         assertTrue(firstRec.getReason().contains("Môn học bị nợ/trượt (Điểm F)"));
+    }
+
+    @Test
+    @DisplayName("Case 10: InterruptedException - Restores interrupt flag, cancels future, and triggers fallback safely")
+    void case10_interruptedException_shouldRestoreInterruptFlagAndInvokeFallback() throws Exception {
+        ExecutorService mockExecutor = mock(ExecutorService.class);
+        @SuppressWarnings("unchecked")
+        Future<String> mockFuture = mock(Future.class);
+
+        AcademicAdvisorServiceImpl serviceWithMockExecutor = new AcademicAdvisorServiceImpl(
+                chatClient,
+                aiConfig,
+                promptBuilder,
+                fallbackService,
+                knowledgeBase,
+                enrollmentClient,
+                mockExecutor
+        );
+
+        when(aiConfig.isConfiguredWithRealKey()).thenReturn(true);
+        when(enrollmentClient.fetchAcademicContext(any(), eq("SV2024001"))).thenReturn(Optional.of(sampleContext));
+        when(mockExecutor.submit(any(Callable.class))).thenReturn(mockFuture);
+        when(mockFuture.get(anyLong(), any(TimeUnit.class))).thenThrow(new InterruptedException("Simulation of thread interrupt"));
+
+        AcademicAdvisorRequest request = new AcademicAdvisorRequest("Tư vấn lộ trình học tập");
+
+        try {
+            AcademicAdvisorResponse response = serviceWithMockExecutor.advise(request, "SV2024001", "mock-token");
+
+            assertNotNull(response);
+            assertTrue(response.isFallbackUsed());
+            assertEquals("FALLBACK", response.getMode());
+            assertTrue(Thread.currentThread().isInterrupted(), "Thread interrupt flag must be restored!");
+            verify(mockFuture).cancel(true);
+        } finally {
+            // Clean up interrupted status on current test thread so subsequent tests are unaffected
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    @DisplayName("Case 11: TimeoutException - Triggers timeout fallback and cancels future")
+    void case11_timeoutException_shouldInvokeFallbackAndCancelFuture() throws Exception {
+        ExecutorService mockExecutor = mock(ExecutorService.class);
+        @SuppressWarnings("unchecked")
+        Future<String> mockFuture = mock(Future.class);
+
+        AcademicAdvisorServiceImpl serviceWithMockExecutor = new AcademicAdvisorServiceImpl(
+                chatClient,
+                aiConfig,
+                promptBuilder,
+                fallbackService,
+                knowledgeBase,
+                enrollmentClient,
+                mockExecutor
+        );
+
+        when(aiConfig.isConfiguredWithRealKey()).thenReturn(true);
+        when(aiConfig.getTimeoutSeconds()).thenReturn(5);
+        when(enrollmentClient.fetchAcademicContext(any(), eq("SV2024001"))).thenReturn(Optional.of(sampleContext));
+        when(mockExecutor.submit(any(Callable.class))).thenReturn(mockFuture);
+        when(mockFuture.get(anyLong(), any(TimeUnit.class))).thenThrow(new TimeoutException("AI call timed out"));
+
+        AcademicAdvisorRequest request = new AcademicAdvisorRequest("Tư vấn học tập");
+
+        AcademicAdvisorResponse response = serviceWithMockExecutor.advise(request, "SV2024001", "mock-token");
+
+        assertNotNull(response);
+        assertTrue(response.isFallbackUsed());
+        assertEquals("FALLBACK", response.getMode());
+        verify(mockFuture).cancel(true);
+        assertFalse(Thread.currentThread().isInterrupted());
+    }
+
+    @Test
+    @DisplayName("Case 12: ExecutionException - Catches task failure and invokes fallback safely")
+    void case12_executionException_shouldInvokeFallbackSafely() throws Exception {
+        ExecutorService mockExecutor = mock(ExecutorService.class);
+        @SuppressWarnings("unchecked")
+        Future<String> mockFuture = mock(Future.class);
+
+        AcademicAdvisorServiceImpl serviceWithMockExecutor = new AcademicAdvisorServiceImpl(
+                chatClient,
+                aiConfig,
+                promptBuilder,
+                fallbackService,
+                knowledgeBase,
+                enrollmentClient,
+                mockExecutor
+        );
+
+        when(aiConfig.isConfiguredWithRealKey()).thenReturn(true);
+        when(enrollmentClient.fetchAcademicContext(any(), eq("SV2024001"))).thenReturn(Optional.of(sampleContext));
+        when(mockExecutor.submit(any(Callable.class))).thenReturn(mockFuture);
+        when(mockFuture.get(anyLong(), any(TimeUnit.class))).thenThrow(new ExecutionException("AI model crashed", new RuntimeException("Model overload")));
+
+        AcademicAdvisorRequest request = new AcademicAdvisorRequest("Tư vấn học tập");
+
+        AcademicAdvisorResponse response = serviceWithMockExecutor.advise(request, "SV2024001", "mock-token");
+
+        assertNotNull(response);
+        assertTrue(response.isFallbackUsed());
+        assertEquals("FALLBACK", response.getMode());
+        assertFalse(Thread.currentThread().isInterrupted());
     }
 }

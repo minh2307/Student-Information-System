@@ -937,7 +937,7 @@ export const ScheduleOptimizerModal = ({
                         ) : (
                           <>
                             <ShieldCheck size={15} />
-                            <span>Giữ chỗ cả phương án (5 phút)</span>
+                            <span>1-Chạm Giữ Chỗ Cả Phương Án (5 Phút)</span>
                           </>
                         )}
                       </button>

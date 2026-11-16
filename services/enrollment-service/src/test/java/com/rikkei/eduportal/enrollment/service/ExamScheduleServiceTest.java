@@ -200,7 +200,6 @@ class ExamScheduleServiceTest {
         assertEquals(1, count);
         verify(examScheduleRepository, times(1)).save(any(ExamSchedule.class));
     }
-
     @Test
     @DisplayName("Admin: Tự động khởi tạo lịch thi với overwrite = true")
     void testAutoGenerateExamSchedules_Overwrite() {

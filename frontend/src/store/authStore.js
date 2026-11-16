@@ -1,10 +1,31 @@
 import { create } from 'zustand'
 
-const storedToken = localStorage.getItem('eduportal_token')
-const storedRefreshToken = localStorage.getItem('eduportal_refresh_token')
+// Decoupled Auth Event Emitter (SOLID - Dependency Inversion Principle)
+const authSubscribers = new Set()
+
+export const subscribeAuth = (callback) => {
+  if (typeof callback === 'function') {
+    authSubscribers.add(callback)
+    return () => authSubscribers.delete(callback)
+  }
+  return () => {}
+}
+
+const notifyAuthSubscribers = (event, data = null) => {
+  authSubscribers.forEach((cb) => {
+    try {
+      cb(event, data)
+    } catch (err) {
+      console.warn('Error in auth subscriber callback', err)
+    }
+  })
+}
+
+const storedToken = typeof localStorage !== 'undefined' ? localStorage.getItem('eduportal_token') : null
+const storedRefreshToken = typeof localStorage !== 'undefined' ? localStorage.getItem('eduportal_refresh_token') : null
 let storedUser = null
 try {
-  const item = localStorage.getItem('eduportal_user')
+  const item = typeof localStorage !== 'undefined' ? localStorage.getItem('eduportal_user') : null
   if (item) storedUser = JSON.parse(item)
 } catch (e) {
   console.error('Error parsing stored user', e)
@@ -17,23 +38,28 @@ export const useAuthStore = create((set) => ({
   isAuthenticated: !!storedToken,
 
   login: (userData, token, refreshToken = null) => {
-    localStorage.setItem('eduportal_token', token)
-    if (refreshToken) {
-      localStorage.setItem('eduportal_refresh_token', refreshToken)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('eduportal_token', token)
+      if (refreshToken) {
+        localStorage.setItem('eduportal_refresh_token', refreshToken)
+      }
+      localStorage.setItem('eduportal_user', JSON.stringify(userData))
     }
-    localStorage.setItem('eduportal_user', JSON.stringify(userData))
     set({
       user: userData,
       token,
       refreshToken: refreshToken || null,
       isAuthenticated: true,
     })
+    notifyAuthSubscribers('LOGIN', userData)
   },
 
   setTokens: (token, refreshToken) => {
-    localStorage.setItem('eduportal_token', token)
-    if (refreshToken) {
-      localStorage.setItem('eduportal_refresh_token', refreshToken)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('eduportal_token', token)
+      if (refreshToken) {
+        localStorage.setItem('eduportal_refresh_token', refreshToken)
+      }
     }
     set((state) => ({
       ...state,
@@ -43,10 +69,10 @@ export const useAuthStore = create((set) => ({
   },
 
   logout: () => {
-    const refreshToken = localStorage.getItem('eduportal_refresh_token')
+    const refreshToken = typeof localStorage !== 'undefined' ? localStorage.getItem('eduportal_refresh_token') : null
     if (refreshToken) {
       try {
-        const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+        const baseURL = import.meta.env?.VITE_API_BASE_URL || '/api/v1'
         fetch(baseURL + '/auth/logout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -56,21 +82,26 @@ export const useAuthStore = create((set) => ({
         // ignore
       }
     }
-    localStorage.removeItem('eduportal_token')
-    localStorage.removeItem('eduportal_refresh_token')
-    localStorage.removeItem('eduportal_user')
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('eduportal_token')
+      localStorage.removeItem('eduportal_refresh_token')
+      localStorage.removeItem('eduportal_user')
+    }
     set({
       user: null,
       token: null,
       refreshToken: null,
       isAuthenticated: false,
     })
+    notifyAuthSubscribers('LOGOUT', null)
   },
 
   updateUser: (updatedData) => {
     set((state) => {
       const newUser = { ...state.user, ...updatedData }
-      localStorage.setItem('eduportal_user', JSON.stringify(newUser))
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('eduportal_user', JSON.stringify(newUser))
+      }
       return { user: newUser }
     })
   },

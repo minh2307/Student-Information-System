@@ -297,10 +297,11 @@ public class LecturerService {
                         "Không tìm thấy enrollment id: " + enrollmentId));
     }
 
-    private void checkOwnership(Long sectionId, Long lecturerId) {
-        classSectionRepo.findByIdAndLecturerId(sectionId, lecturerId)
-                .orElseThrow(() -> new AccessDeniedException(
-                        "Giảng viên không được phân công giảng dạy (không có quyền thao tác) trên lớp id: " + sectionId));
+    void checkOwnership(Long sectionId, Long lecturerId) {
+        if (classSectionRepo.findByIdAndLecturerId(sectionId, lecturerId).isEmpty()) {
+            throw new AccessDeniedException(
+                    "Giảng viên không được phân công giảng dạy (không có quyền thao tác) trên lớp id: " + sectionId);
+        }
     }
 
     /**

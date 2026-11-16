@@ -34,7 +34,16 @@ export const StudentAdvisorWidget = () => {
     sendMessage,
     skipStreaming,
     clearHistory,
+    loadUserHistory,
+    currentUserId,
   } = useAdvisorStore()
+
+  // Tự động đồng bộ đúng lịch sử chat theo User ID
+  useEffect(() => {
+    if (user?.id !== undefined && user?.id !== currentUserId) {
+      loadUserHistory(user.id)
+    }
+  }, [user?.id, currentUserId, loadUserHistory])
 
   const [isOpen, setIsOpen] = useState(false)
   const [isDismissed, setIsDismissed] = useState(false)

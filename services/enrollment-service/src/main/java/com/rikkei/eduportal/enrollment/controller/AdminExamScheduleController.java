@@ -13,7 +13,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping({"/api/v1/admin/exam-schedules", "/api/v1/admin/exams"})
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class AdminExamScheduleController {
 
     private final ExamScheduleService examScheduleService;
@@ -36,12 +35,12 @@ public class AdminExamScheduleController {
 
     /**
      * GET /api/v1/admin/exam-schedules/{id}
-     * Lấy chi tiết lịch thi theo ID
+     * Lấy chi tiết một lịch thi theo ID
      */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ExamScheduleDto>> getExamScheduleById(@PathVariable Long id) {
-        ExamScheduleDto dto = examScheduleService.getExamScheduleById(id);
-        return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết lịch thi thành công", dto));
+        ExamScheduleDto exam = examScheduleService.getExamScheduleById(id);
+        return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết lịch thi thành công", exam));
     }
 
     /**
