@@ -21,6 +21,7 @@ import {
 import api from '../services/api'
 import { toast } from '../store/toastStore'
 import { alertDialog } from '../store/confirmStore'
+import hybridBridge from '../services/hybridBridge'
 
 /**
  * Component Quét Mã QR Điểm Danh Chuyên Nghiệp (PWA / Mobile WebRTC Optimized).
@@ -273,6 +274,31 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
     }
   }
 
+  // Quét bằng Camera Native Android thông qua Secure Hybrid Bridge (TASK 7.4)
+  const handleNativeScan = useCallback(async () => {
+    setCameraError(null)
+    setErrorMessage(null)
+    setIsDuplicate(false)
+    setIsScanning(true)
+    try {
+      const result = await hybridBridge.requestQrScan({
+        title: 'Điểm Danh Sinh Viên',
+        hint: 'Đặt mã QR điểm danh vào trong khung vuông để quét',
+      })
+      if (result?.qrToken) {
+        setIsScanning(false)
+        await submitAttendance(result.qrToken)
+      }
+    } catch (err) {
+      setIsScanning(false)
+      const msg = err?.message || ''
+      if (msg === 'USER_CANCELLED' || msg.includes('CANCEL')) {
+        return
+      }
+      setCameraError(`Lỗi máy ảnh Native: ${msg}. Bạn có thể nhập mã điểm danh thủ công.`)
+    }
+  }, [])
+
   useEffect(() => {
     if (isOpen) {
       setCheckInResult(null)
@@ -280,16 +306,28 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
       setIsDuplicate(false)
       setManualToken('')
       if (activeTab === 'camera') {
-        startScanner()
+        if (hybridBridge.isHybridActive()) {
+          handleNativeScan()
+        } else {
+          startScanner()
+        }
       }
     } else {
-      stopScanner()
+      if (hybridBridge.isHybridActive()) {
+        hybridBridge.cancelQrScan()
+      } else {
+        stopScanner()
+      }
     }
 
     return () => {
-      stopScanner()
+      if (hybridBridge.isHybridActive()) {
+        hybridBridge.cancelQrScan()
+      } else {
+        stopScanner()
+      }
     }
-  }, [isOpen, activeTab, startScanner, stopScanner])
+  }, [isOpen, activeTab, startScanner, stopScanner, handleNativeScan])
 
   // Lắng nghe phím ESC & Khoá cuộn body khi mở Modal
   useEffect(() => {
@@ -434,7 +472,11 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
   }
 
   const handleClose = () => {
-    stopScanner()
+    if (hybridBridge.isHybridActive()) {
+      hybridBridge.cancelQrScan()
+    } else {
+      stopScanner()
+    }
     onClose()
   }
 
@@ -442,7 +484,11 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
     setCheckInResult(null)
     setErrorMessage(null)
     setIsDuplicate(false)
-    startScanner(selectedCameraId)
+    if (hybridBridge.isHybridActive()) {
+      handleNativeScan()
+    } else {
+      startScanner(selectedCameraId)
+    }
   }
 
   if (!isOpen) return null
@@ -612,7 +658,49 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
           ) : activeTab === 'camera' ? (
             /* Tab Camera Scanner */
             <div className="space-y-3">
-              {cameraError ? (
+              {hybridBridge.isHybridActive() ? (
+                <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl text-center space-y-4 text-white">
+                  <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto border border-emerald-500/30">
+                    <Smartphone size={32} className="animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Máy Ảnh Native Android</h4>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {isScanning
+                        ? 'Đang mở máy ảnh Native... Vui lòng hướng camera vào mã QR'
+                        : submitting
+                        ? 'Đang gửi dữ liệu điểm danh lên máy chủ...'
+                        : 'Nhấn nút bên dưới để mở camera quét mã QR'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleNativeScan}
+                    disabled={submitting}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" /> Đang Xác Thực Điểm Danh...
+                      </>
+                    ) : (
+                      <>
+                        <Camera size={14} /> Mở Camera Native
+                      </>
+                    )}
+                  </button>
+                  {errorMessage && (
+                    <p className="text-xs text-rose-400 bg-rose-950/60 p-2.5 rounded-lg border border-rose-800">
+                      {errorMessage}
+                    </p>
+                  )}
+                  {cameraError && (
+                    <p className="text-xs text-amber-400 bg-amber-950/60 p-2.5 rounded-lg border border-amber-800">
+                      {cameraError}
+                    </p>
+                  )}
+                </div>
+              ) : cameraError ? (
                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-3 text-center">
                   <AlertCircle size={26} className="text-amber-600 mx-auto" />
                   <div>
