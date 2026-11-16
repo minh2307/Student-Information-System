@@ -281,7 +281,7 @@ export const StudentDashboard = () => {
                     <span className="text-stone-600 text-xs font-mono">/10.0</span>
                   </div>
                   <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-0.5 mt-0.5">
-                    Tương đương 3.52 (Hệ 4)
+                    Tương đương {semesterProgress.currentCgpa ? ((Number(semesterProgress.currentCgpa) * 4) / 10).toFixed(2) : '0.00'} (Hệ 4)
                   </span>
                 </div>
 

@@ -238,34 +238,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Rule 3: STRICT SECURITY - API & SENSITIVE DATA PASSTHROUGH
-  // Never intercept or cache student records, auth, or transactional API endpoints
-  if (isSensitiveOrApiRequest(url)) {
-    event.respondWith(
-      fetch(request).catch(() => {
-        // Return clear offline JSON payload for downstream API calls when disconnected
-        return new Response(
-          JSON.stringify({
-            status: 503,
-            success: false,
-            message: 'Thiết bị đang ở chế độ Ngoại tuyến (Offline). Tính năng này yêu cầu kết nối mạng.',
-            offline: true
-          }),
-          {
-            status: 503,
-            statusText: 'Service Unavailable (Offline)',
-            headers: {
-              'Content-Type': 'application/json; charset=UTF-8',
-              'X-EduPortal-Offline': 'true'
-            }
-          }
-        );
-      })
-    );
-    return;
-  }
-
-  // Rule 4: HTML NAVIGATION - Network-First with SPA App Shell Fallback
+  // Rule 3: HTML NAVIGATION - Network-First with SPA App Shell Fallback
+  // Page navigations must always serve the SPA shell (index.html) even for routes matching /student/*, /admin/*
   if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
       fetch(request)
@@ -315,6 +289,33 @@ self.addEventListener('fetch', (event) => {
             }
           );
         })
+    );
+    return;
+  }
+
+  // Rule 4: STRICT SECURITY - API & SENSITIVE DATA PASSTHROUGH
+  // Never intercept or cache student records, auth, or transactional API endpoints
+  if (isSensitiveOrApiRequest(url)) {
+    event.respondWith(
+      fetch(request).catch(() => {
+        // Return clear offline JSON payload for downstream API calls when disconnected
+        return new Response(
+          JSON.stringify({
+            status: 503,
+            success: false,
+            message: 'Thiết bị đang ở chế độ Ngoại tuyến (Offline). Tính năng này yêu cầu kết nối mạng.',
+            offline: true
+          }),
+          {
+            status: 503,
+            statusText: 'Service Unavailable (Offline)',
+            headers: {
+              'Content-Type': 'application/json; charset=UTF-8',
+              'X-EduPortal-Offline': 'true'
+            }
+          }
+        );
+      })
     );
     return;
   }

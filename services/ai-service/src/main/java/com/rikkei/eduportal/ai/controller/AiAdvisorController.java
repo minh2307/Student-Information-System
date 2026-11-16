@@ -59,7 +59,8 @@ public class AiAdvisorController {
             authenticatedStudent = request.getStudentCode();
         }
         if (authenticatedStudent == null || authenticatedStudent.isBlank()) {
-            authenticatedStudent = "sv2024001";
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error(401, "Yêu cầu xác thực: Vui lòng đăng nhập để sử dụng cố vấn AI."));
         }
 
         log.info("REST request to academic advisor: '{}' (authenticated student: {})",
