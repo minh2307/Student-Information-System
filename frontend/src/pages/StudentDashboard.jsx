@@ -53,12 +53,12 @@ export const StudentDashboard = () => {
     },
     upcomingClasses: [],
     semesterProgress: {
-      creditsEarned: 54,
+      creditsEarned: 42,
       totalRequiredCredits: 160,
       attendanceRate: 98.0,
-      currentCgpa: 8.87,
+      currentCgpa: 8.84,
       previousCgpa: 8.80,
-      academicStanding: 'Xuất sắc',
+      academicStanding: 'Giỏi',
     },
   })
   const [academicWarnings, setAcademicWarnings] = useState([])
