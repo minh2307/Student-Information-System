@@ -4,6 +4,7 @@ import com.rikkei.eduportal.common.ApiResponse;
 import com.rikkei.eduportal.common.SectionStatus;
 import com.rikkei.eduportal.course.dto.request.ClassSectionCreateRequest;
 import com.rikkei.eduportal.course.dto.request.ClassSectionUpdateRequest;
+import com.rikkei.eduportal.course.dto.response.BatchImportResult;
 import com.rikkei.eduportal.course.dto.response.ClassSectionResponse;
 import com.rikkei.eduportal.course.service.ClassSectionService;
 import jakarta.validation.Valid;
@@ -45,6 +46,13 @@ public class AdminClassSectionController {
         ClassSectionResponse created = classSectionService.createSection(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Mở lớp học phần thành công", created));
+    }
+
+    @PostMapping("/batch")
+    public ResponseEntity<ApiResponse<BatchImportResult<ClassSectionResponse>>> createSectionsBatch(
+            @RequestBody List<ClassSectionCreateRequest> requests) {
+        BatchImportResult<ClassSectionResponse> result = classSectionService.batchImportSections(requests);
+        return ResponseEntity.ok(ApiResponse.success("Xử lý nhập danh sách lớp học phần hoàn tất", result));
     }
 
     @PutMapping("/{id}")

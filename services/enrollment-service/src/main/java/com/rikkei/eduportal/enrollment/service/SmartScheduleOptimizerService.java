@@ -49,6 +49,7 @@ public class SmartScheduleOptimizerService {
     private static final int DEFAULT_MAX_SOLUTIONS = 50;
     private static final int MAX_BATCH_SIZE = 4;
     private static final int RESERVATION_DURATION_MINUTES = 5;
+    public static final int MAX_CREDITS_PER_SEMESTER = 24;
 
     private final ClassSectionRepository classSectionRepository;
     private final RealtimeSeatService realtimeSeatService;
@@ -209,6 +210,54 @@ public class SmartScheduleOptimizerService {
             response.setStatus(OptimizationStatus.NO_SOLUTION);
             response.setConflictDetails("Môn học không có lớp khả dụng: " + missingCourses);
             return response;
+        }
+
+        // Case C: Kiểm tra tổng hạn mức tín chỉ tối đa 24 TC trong kỳ
+        int requestedCredits = targetsWithSections.stream().mapToInt(t -> t.credits).sum();
+        if (requestedCredits > MAX_CREDITS_PER_SEMESTER) {
+            long executionTimeMs = (System.nanoTime() - startNanos) / 1_000_000;
+            String msg = String.format("Tổng số tín chỉ yêu cầu xếp lịch (%d TC) vượt quá hạn mức tối đa %d tín chỉ trong một học kỳ.",
+                    requestedCredits, MAX_CREDITS_PER_SEMESTER);
+            ScheduleOptimizerResponse response = new ScheduleOptimizerResponse(
+                    false, false, 0, Collections.emptyList(), Collections.emptyList(), executionTimeMs,
+                    semester, distinctCourseIds.size(), 0, 0, Collections.emptyList(),
+                    msg
+            );
+            response.setStatus(OptimizationStatus.NO_SOLUTION);
+            response.setConflictDetails(msg);
+            return response;
+        }
+
+        if (studentCode != null && !studentCode.trim().isEmpty() && dashboardService != null && enrollmentRepository != null) {
+            try {
+                StudentProfile sp = dashboardService.resolveStudent(studentCode.trim());
+                if (sp != null && sp.getId() != null) {
+                    List<Enrollment> activeEnrs = enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(sp.getId(), semester);
+                    int currentCredits = activeEnrs.stream()
+                            .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus())))
+                            .filter(e -> e.getClassSection() != null && e.getClassSection().getCourse() != null
+                                    && !distinctCourseIds.contains(e.getClassSection().getCourse().getId()))
+                            .mapToInt(e -> (e.getClassSection() != null && e.getClassSection().getCourse() != null && e.getClassSection().getCourse().getCredits() != null)
+                                    ? e.getClassSection().getCourse().getCredits() : 0)
+                            .sum();
+
+                    if (currentCredits + requestedCredits > MAX_CREDITS_PER_SEMESTER) {
+                        long executionTimeMs = (System.nanoTime() - startNanos) / 1_000_000;
+                        String msg = String.format("Vượt quá hạn mức tối đa %d tín chỉ trong học kỳ! (Hiện tại đã đăng ký: %d TC + Yêu cầu thêm: %d TC = %d TC). Vui lòng chọn ít môn hơn.",
+                                MAX_CREDITS_PER_SEMESTER, currentCredits, requestedCredits, (currentCredits + requestedCredits));
+                        ScheduleOptimizerResponse response = new ScheduleOptimizerResponse(
+                                false, false, 0, Collections.emptyList(), Collections.emptyList(), executionTimeMs,
+                                semester, distinctCourseIds.size(), 0, 0, Collections.emptyList(),
+                                msg
+                        );
+                        response.setStatus(OptimizationStatus.NO_SOLUTION);
+                        response.setConflictDetails(msg);
+                        return response;
+                    }
+                }
+            } catch (Exception ex) {
+                log.debug("Bỏ qua kiểm tra số tín chỉ đã đăng ký cho sinh viên {}: {}", studentCode, ex.getMessage());
+            }
         }
 
         // 3. Chuẩn bị CSP Variables và Candidate Domains
@@ -861,6 +910,54 @@ public class SmartScheduleOptimizerService {
             }
         }
 
+        // 6.5. Kiểm tra hạn mức tín chỉ tối đa 24 tín chỉ trong kỳ
+        int batchCredits = 0;
+        for (Long sId : sectionIds) {
+            ClassSection sec = lockedSectionsMap.get(sId);
+            int creds = (sec.getCourse() != null && sec.getCourse().getCredits() != null) ? sec.getCourse().getCredits() : 3;
+            batchCredits += creds;
+        }
+
+        if (batchCredits > MAX_CREDITS_PER_SEMESTER) {
+            throw new BatchReservationException(
+                    "BATCH_RESERVATION_FAILED",
+                    "Không thể giữ chỗ combo học phần.",
+                    new BatchReservationErrorDetails(
+                            "CREDIT_LIMIT_EXCEEDED",
+                            "Hạn mức tín chỉ",
+                            "CREDIT_LIMIT_EXCEEDED",
+                            String.format("Tổng số tín chỉ trong combo (%d TC) vượt quá hạn mức tối đa %d tín chỉ/học kỳ.", batchCredits, MAX_CREDITS_PER_SEMESTER)
+                    )
+            );
+        }
+
+        if (enrollmentRepository != null && student != null && student.getId() != null && !lockedSectionsMap.isEmpty()) {
+            String sem = lockedSectionsMap.values().iterator().next().getSemesterName();
+            if (sem != null && !sem.isBlank()) {
+                List<Enrollment> currentEnrs = enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(student.getId(), sem.trim());
+                int currentCredits = currentEnrs.stream()
+                        .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus())))
+                        .filter(e -> !sectionIds.contains(e.getClassSection().getId()))
+                        .mapToInt(e -> (e.getClassSection() != null && e.getClassSection().getCourse() != null && e.getClassSection().getCourse().getCredits() != null)
+                                ? e.getClassSection().getCourse().getCredits() : 0)
+                        .sum();
+
+                if (currentCredits + batchCredits > MAX_CREDITS_PER_SEMESTER) {
+                    throw new BatchReservationException(
+                            "BATCH_RESERVATION_FAILED",
+                            "Không thể giữ chỗ combo học phần.",
+                            new BatchReservationErrorDetails(
+                                    "CREDIT_LIMIT_EXCEEDED",
+                                    "Hạn mức tín chỉ",
+                                    "CREDIT_LIMIT_EXCEEDED",
+                                    String.format("Vượt quá hạn mức tối đa %d tín chỉ trong học kỳ! (Hiện tại đã có: %d TC + Combo giữ chỗ: %d TC = %d TC).",
+                                            MAX_CREDITS_PER_SEMESTER, currentCredits, batchCredits, (currentCredits + batchCredits))
+                            )
+                    );
+                }
+            }
+        }
+
         LocalDateTime now = LocalDateTime.now();
 
         // 7. Kiểm tra điều kiện từng lớp theo thứ tự trong request
@@ -912,6 +1009,7 @@ public class SmartScheduleOptimizerService {
                             .anyMatch(e -> e.getClassSection() != null
                                     && e.getClassSection().getCourse() != null
                                     && course.getId().equals(e.getClassSection().getCourse().getId())
+                                    && (sec.getSemesterName() == null || e.getClassSection().getSemesterName() == null || sec.getSemesterName().equalsIgnoreCase(e.getClassSection().getSemesterName()))
                                     && ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus())));
 
                     if (alreadyEnrolledInCourse) {
@@ -922,7 +1020,7 @@ public class SmartScheduleOptimizerService {
                                         courseCode,
                                         courseName,
                                         "ALREADY_ENROLLED",
-                                        "Bạn đã có đăng ký học phần thuộc môn: " + courseName
+                                        "Bạn đã có đăng ký học phần thuộc môn: " + courseName + " trong học kỳ này."
                                 )
                         );
                     }

@@ -347,7 +347,7 @@ export function EarlyWarningModal({ open, onClose, sectionId, sectionCode, cours
         title={
           confirmTarget
             ? `Gửi cảnh báo cho ${confirmTarget.fullName}?`
-            : `Bắn cảnh báo tới ${atRiskCount} sinh viên?`
+            : `Gửi cảnh báo tới ${atRiskCount} sinh viên?`
         }
         description={
           confirmTarget
@@ -502,7 +502,7 @@ export function EarlyWarningModal({ open, onClose, sectionId, sectionCode, cours
                       className="px-4 py-2 bg-rose-700 hover:bg-rose-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition shrink-0 whitespace-nowrap"
                     >
                       {dispatching ? <Loader2 size={13} className="animate-spin" /> : <Bell size={13} />}
-                      Bắn Cảnh Báo 1-Chạm ({atRiskCount} SV)
+                      Gửi cảnh báo ({atRiskCount} SV)
                     </button>
                   )}
                 </div>

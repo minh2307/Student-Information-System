@@ -129,6 +129,8 @@ CREATE TABLE IF NOT EXISTS tuition_fees (
     transaction_code VARCHAR(255),
     payment_method VARCHAR(50),
     payos_order_code BIGINT,
+    is_finalized BOOLEAN DEFAULT FALSE,
+    finalized_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_student_semester_tuition UNIQUE (student_id, semester_name)
 );

@@ -2,6 +2,7 @@ package com.rikkei.eduportal.course.service;
 
 import com.rikkei.eduportal.course.dto.request.CourseCreateRequest;
 import com.rikkei.eduportal.course.dto.request.CourseUpdateRequest;
+import com.rikkei.eduportal.course.dto.response.BatchImportResult;
 import com.rikkei.eduportal.course.dto.response.CourseResponse;
 
 import java.util.List;
@@ -17,4 +18,6 @@ public interface CourseService {
     CourseResponse updateCourse(Long id, CourseUpdateRequest request);
 
     void deleteCourse(Long id);
+
+    BatchImportResult<CourseResponse> batchImportCourses(List<CourseCreateRequest> requests);
 }

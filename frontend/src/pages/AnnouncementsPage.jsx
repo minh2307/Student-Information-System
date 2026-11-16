@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '../store/authStore'
 import api from '../services/api'
 import { toast } from '../store/toastStore'
-import { confirmDialog } from '../store/confirmStore'
+import { confirmDialog, alertDialog } from '../store/confirmStore'
 import {
   Bell,
   Pin,
@@ -61,8 +61,12 @@ export const AnnouncementsPage = () => {
 
   const handleCreate = async (e) => {
     e.preventDefault()
-    if (!formData.title || !formData.content) {
-      toast.warning('Vui lòng nhập đầy đủ tiêu đề và nội dung thông báo!')
+    if (!formData.title?.trim() || !formData.author?.trim() || !formData.content?.trim()) {
+      alertDialog({
+        title: 'Thiếu thông tin bắt buộc',
+        message: 'Vui lòng nhập đầy đủ Tiêu đề, Đơn vị ban hành và Nội dung thông báo.',
+        variant: 'warning'
+      })
       return
     }
     setSubmitting(true)
@@ -345,7 +349,6 @@ export const AnnouncementsPage = () => {
                 </label>
                 <input
                   type="text"
-                  required
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="V/v: Lịch thi học kỳ II năm học 2024 - 2025..."
@@ -376,7 +379,6 @@ export const AnnouncementsPage = () => {
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.author}
                     onChange={(e) => setFormData({ ...formData, author: e.target.value })}
                     className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none focus:border-red-700"
@@ -389,7 +391,6 @@ export const AnnouncementsPage = () => {
                   Nội dung chi tiết công văn
                 </label>
                 <textarea
-                  required
                   rows={6}
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}

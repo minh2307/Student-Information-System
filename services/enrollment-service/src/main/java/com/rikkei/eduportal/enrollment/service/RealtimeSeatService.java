@@ -9,6 +9,7 @@ import com.rikkei.eduportal.enrollment.exception.ResourceNotFoundException;
 import com.rikkei.eduportal.enrollment.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -81,15 +82,37 @@ public class RealtimeSeatService {
     private final ClassSectionRepository classSectionRepo;
     private final EnrollmentRepository enrollmentRepo;
     private final StudentDashboardService dashboardService;
+    private final com.rikkei.eduportal.enrollment.repository.SemesterRepository semesterRepo;
+    private final TuitionFeeRepository tuitionFeeRepo;
+
+    @Autowired
+    public RealtimeSeatService(SlotReservationRepository reservationRepo,
+                               ClassSectionRepository classSectionRepo,
+                               EnrollmentRepository enrollmentRepo,
+                               StudentDashboardService dashboardService,
+                               com.rikkei.eduportal.enrollment.repository.SemesterRepository semesterRepo,
+                               TuitionFeeRepository tuitionFeeRepo) {
+        this.reservationRepo = reservationRepo;
+        this.classSectionRepo = classSectionRepo;
+        this.enrollmentRepo = enrollmentRepo;
+        this.dashboardService = dashboardService;
+        this.semesterRepo = semesterRepo;
+        this.tuitionFeeRepo = tuitionFeeRepo;
+    }
+
+    public RealtimeSeatService(SlotReservationRepository reservationRepo,
+                               ClassSectionRepository classSectionRepo,
+                               EnrollmentRepository enrollmentRepo,
+                               StudentDashboardService dashboardService,
+                               com.rikkei.eduportal.enrollment.repository.SemesterRepository semesterRepo) {
+        this(reservationRepo, classSectionRepo, enrollmentRepo, dashboardService, semesterRepo, null);
+    }
 
     public RealtimeSeatService(SlotReservationRepository reservationRepo,
                                ClassSectionRepository classSectionRepo,
                                EnrollmentRepository enrollmentRepo,
                                StudentDashboardService dashboardService) {
-        this.reservationRepo = reservationRepo;
-        this.classSectionRepo = classSectionRepo;
-        this.enrollmentRepo = enrollmentRepo;
-        this.dashboardService = dashboardService;
+        this(reservationRepo, classSectionRepo, enrollmentRepo, dashboardService, null);
     }
 
     // ================================================================== //
@@ -210,6 +233,30 @@ public class RealtimeSeatService {
             throw new BusinessException("Lớp học phần hiện không mở cho đăng ký.");
         }
 
+        // Kiểm tra xem học kỳ của lớp học phần có đang mở đăng ký hay đã đóng
+        if (section.getSemesterName() != null && !section.getSemesterName().isBlank() && semesterRepo != null) {
+            semesterRepo.findFirstBySemesterCodeOrSemesterName(section.getSemesterName().trim(), section.getSemesterName().trim())
+                    .ifPresent(sem -> {
+                        if (Boolean.FALSE.equals(sem.getIsRegistrationOpen())) {
+                            throw new BusinessException(String.format(
+                                    "Học kỳ %s đã đóng cổng đăng ký. Không thể giữ chỗ học phần.",
+                                    sem.getSemesterName() != null ? sem.getSemesterName() : section.getSemesterName()
+                            ));
+                        }
+                    });
+        }
+
+        // Kiểm tra xem sinh viên đã chốt tín chỉ hoặc đã thanh toán học phí kỳ này chưa
+        if (section.getSemesterName() != null && !section.getSemesterName().isBlank() && tuitionFeeRepo != null) {
+            String semName = section.getSemesterName().trim();
+            tuitionFeeRepo.findByStudentIdAndSemesterName(student.getId(), semName)
+                    .ifPresent(tf -> {
+                        if ("PAID".equalsIgnoreCase(tf.getStatus()) || Boolean.TRUE.equals(tf.getIsFinalized())) {
+                            throw new BusinessException(String.format("Học kỳ %s đã chốt đăng ký tín chỉ / đã thanh toán học phí. Không thể giữ chỗ thêm.", semName));
+                        }
+                    });
+        }
+
         LocalDateTime now = LocalDateTime.now();
 
         // 1. Trả về phiên giữ chỗ hiện tại nếu sinh viên đã giữ và còn hạn
@@ -235,6 +282,26 @@ public class RealtimeSeatService {
         if (totalOccupied >= section.getMaxCapacity()) {
             throw new BusinessException("Lớp học phần đã hết chỗ (Bao gồm "
                     + activeReservations + " vị trí đang được sinh viên khác giữ tạm thời).");
+        }
+
+        // 3.1. Kiểm tra giới hạn tín chỉ tối đa 24 tín chỉ trong kỳ
+        if (section.getSemesterName() != null && !section.getSemesterName().isBlank() && enrollmentRepo != null) {
+            String sem = section.getSemesterName().trim();
+            List<Enrollment> currentEnrs = enrollmentRepo.findActiveEnrollmentsByStudentAndSemester(student.getId(), sem);
+            int currentCredits = currentEnrs.stream()
+                    .filter(e -> !section.getId().equals(e.getClassSection().getId()))
+                    .mapToInt(e -> (e.getClassSection() != null && e.getClassSection().getCourse() != null && e.getClassSection().getCourse().getCredits() != null)
+                            ? e.getClassSection().getCourse().getCredits() : 0)
+                    .sum();
+            int newCredits = (section.getCourse() != null && section.getCourse().getCredits() != null)
+                    ? section.getCourse().getCredits() : 3;
+
+            if (currentCredits + newCredits > 24) {
+                throw new BusinessException(String.format(
+                        "Không thể giữ chỗ: Tổng số tín chỉ sẽ vượt quá hạn mức tối đa 24 tín chỉ trong học kỳ! (Hiện tại đã có: %d TC + Lớp này: %d TC = %d TC).",
+                        currentCredits, newCredits, (currentCredits + newCredits)
+                ));
+            }
         }
 
         // 4. Tạo phiên giữ chỗ 300 s

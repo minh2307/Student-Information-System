@@ -3,6 +3,7 @@ package com.rikkei.eduportal.course.service;
 import com.rikkei.eduportal.common.SectionStatus;
 import com.rikkei.eduportal.course.dto.request.ClassSectionCreateRequest;
 import com.rikkei.eduportal.course.dto.request.ClassSectionUpdateRequest;
+import com.rikkei.eduportal.course.dto.response.BatchImportResult;
 import com.rikkei.eduportal.course.dto.response.ClassSectionResponse;
 import com.rikkei.eduportal.course.entity.ClassSection;
 import com.rikkei.eduportal.course.entity.Course;
@@ -69,11 +70,27 @@ public class ClassSectionServiceImpl implements ClassSectionService {
             throw new InvalidOperationException("Giờ bắt đầu (" + request.getStartTime() + ") phải trước giờ kết thúc (" + request.getEndTime() + ")!");
         }
 
-        Course course = courseRepository.findById(request.getCourseId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy môn học với ID: " + request.getCourseId()));
+        Course course;
+        if (request.getCourseId() != null) {
+            course = courseRepository.findById(request.getCourseId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy môn học với ID: " + request.getCourseId()));
+        } else if (request.getCourseCode() != null && !request.getCourseCode().trim().isEmpty()) {
+            course = courseRepository.findByCourseCode(request.getCourseCode().trim().toUpperCase())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy môn học với mã: " + request.getCourseCode()));
+        } else {
+            throw new InvalidOperationException("Vui lòng cung cấp mã môn học hoặc ID môn học!");
+        }
 
-        LecturerProfile lecturer = lecturerProfileRepository.findById(request.getLecturerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giảng viên với ID: " + request.getLecturerId()));
+        LecturerProfile lecturer;
+        if (request.getLecturerId() != null) {
+            lecturer = lecturerProfileRepository.findById(request.getLecturerId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giảng viên với ID: " + request.getLecturerId()));
+        } else if (request.getLecturerCode() != null && !request.getLecturerCode().trim().isEmpty()) {
+            lecturer = lecturerProfileRepository.findByLecturerCode(request.getLecturerCode().trim().toUpperCase())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giảng viên với mã: " + request.getLecturerCode()));
+        } else {
+            throw new InvalidOperationException("Vui lòng cung cấp mã giảng viên hoặc ID giảng viên!");
+        }
 
         // 1. Kiểm tra trùng phòng học
         List<ClassSection> roomConflicts = classSectionRepository.findRoomConflicts(
@@ -96,7 +113,7 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         List<ClassSection> lecturerConflicts = classSectionRepository.findLecturerConflicts(
                 request.getSemesterName().trim(),
                 request.getDayOfWeek().trim().toUpperCase(),
-                request.getLecturerId(),
+                lecturer.getId(),
                 request.getStartTime(),
                 request.getEndTime(),
                 null
@@ -213,6 +230,54 @@ public class ClassSectionServiceImpl implements ClassSectionService {
         }
 
         classSectionRepository.delete(section);
+    }
+
+    @Override
+    @Transactional(noRollbackFor = {Exception.class})
+    public BatchImportResult<ClassSectionResponse> batchImportSections(List<ClassSectionCreateRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            return new BatchImportResult<>(0, 0, 0, List.of("Danh sách lớp học phần rỗng"), List.of());
+        }
+
+        int total = requests.size();
+        int successCount = 0;
+        int failureCount = 0;
+        List<String> errors = new java.util.ArrayList<>();
+        List<ClassSectionResponse> successfulItems = new java.util.ArrayList<>();
+
+        for (int i = 0; i < requests.size(); i++) {
+            ClassSectionCreateRequest req = requests.get(i);
+            int rowNum = i + 1;
+            try {
+                if (req.getSectionCode() == null || req.getSectionCode().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Dòng " + rowNum + ": Mã lớp học phần không được để trống");
+                }
+                if (req.getSemesterName() == null || req.getSemesterName().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Dòng " + rowNum + ": Tên học kỳ không được để trống");
+                }
+                if (req.getDayOfWeek() == null || req.getDayOfWeek().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Dòng " + rowNum + ": Thứ trong tuần không được để trống");
+                }
+                if (req.getStartTime() == null || req.getEndTime() == null) {
+                    throw new IllegalArgumentException("Dòng " + rowNum + ": Giờ bắt đầu và kết thúc không được để trống");
+                }
+                if (req.getRoomName() == null || req.getRoomName().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Dòng " + rowNum + ": Phòng học không được để trống");
+                }
+                if (req.getMaxCapacity() == null || req.getMaxCapacity() <= 0) {
+                    req.setMaxCapacity(40);
+                }
+
+                ClassSectionResponse created = createSection(req);
+                successfulItems.add(created);
+                successCount++;
+            } catch (Exception ex) {
+                failureCount++;
+                errors.add(ex.getMessage() != null ? ex.getMessage() : ("Dòng " + rowNum + ": Lỗi không xác định"));
+            }
+        }
+
+        return new BatchImportResult<>(total, successCount, failureCount, errors, successfulItems);
     }
 
     private ClassSectionResponse mapToResponse(ClassSection section) {

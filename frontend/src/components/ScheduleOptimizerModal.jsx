@@ -75,6 +75,8 @@ export const ScheduleOptimizerModal = ({
 
   useEffect(() => {
     if (open) {
+      setReservingMessage(null)
+      setLimitWarning(null)
       setLoadingCourses(true)
       api.get('/courses')
         .then(res => {
@@ -154,6 +156,8 @@ export const ScheduleOptimizerModal = ({
 
   const [selectedCourseIds, setSelectedCourseIds] = useState([])
 
+  const maxAllowedCredits = Math.max(0, 24 - enrolledCredits)
+
   // Tính tổng số tín chỉ của các môn đang được chọn
   const selectedCredits = useMemo(() => {
     return availableCourses
@@ -161,21 +165,28 @@ export const ScheduleOptimizerModal = ({
       .reduce((sum, c) => sum + (c.credits || 3), 0)
   }, [availableCourses, selectedCourseIds])
 
-  // Tự động chọn 3-4 môn học khả dụng (~12-16 TC) khi availableCourses lần đầu xuất hiện
+  const totalCombinedCredits = enrolledCredits + selectedCredits
+
+  // Tự động chọn 3-4 môn học khả dụng (~12-16 TC) nhưng không vượt quá hạn mức còn lại
   useEffect(() => {
     if (selectedCourseIds.length === 0 && availableCourses.length > 0) {
+      const cap = Math.min(16, maxAllowedCredits)
+      if (cap <= 0) {
+        setSelectedCourseIds([])
+        return
+      }
       let sum = 0
       const initial = []
       for (const c of availableCourses) {
         const cCredits = c.credits || 3
-        if (sum + cCredits <= 16) {
+        if (sum + cCredits <= cap) {
           initial.push(c.id)
           sum += cCredits
         }
       }
-      setSelectedCourseIds(initial.length > 0 ? initial : [availableCourses[0].id])
+      setSelectedCourseIds(initial.length > 0 ? initial : (availableCourses[0].credits <= cap ? [availableCourses[0].id] : []))
     }
-  }, [availableCourses])
+  }, [availableCourses, maxAllowedCredits])
 
   const [preferredShift, setPreferredShift] = useState('MORNING') // 'MORNING', 'AFTERNOON', 'ANY'
   const [avoidDays, setAvoidDays] = useState(['SAT', 'SUN'])
@@ -200,15 +211,26 @@ export const ScheduleOptimizerModal = ({
       return
     }
 
+    if (enrolledCredits >= 24) {
+      const msg = `Bạn đã đăng ký đủ hạn mức tối đa 24 tín chỉ trong học kỳ này (${enrolledCredits}/24 TC). Không thể chọn thêm môn học mới.`
+      toast.warning(msg, 'Đã đủ 24 tín chỉ')
+      setLimitWarning(msg)
+      return
+    }
+
     setSelectedCourseIds(prev => {
       if (prev.includes(id)) {
         setLimitWarning(null)
         return prev.filter(x => x !== id)
       }
       const targetCredits = targetCourse.credits || 3
-      if (selectedCredits + targetCredits > 24) {
-        const msg = `Quy định BR-01: Bạn chỉ có thể chọn tối đa 24 tín chỉ để AI xếp lịch! Hiện tại đã chọn ${selectedCredits} TC, thêm môn "${targetCourse.code}" (${targetCredits} TC) sẽ là ${selectedCredits + targetCredits} TC.`
-        toast.warning(msg, 'Hạn mức 24 tín chỉ (BR-01)')
+      const currentSelected = availableCourses
+        .filter(c => prev.includes(c.id))
+        .reduce((sum, c) => sum + (c.credits || 3), 0)
+
+      if (enrolledCredits + currentSelected + targetCredits > 24) {
+        const msg = `Vượt quá giới hạn tối đa 24 tín chỉ trong học kỳ! Hiện tại đã có ${enrolledCredits} TC đã đăng ký + ${currentSelected} TC đang chọn, thêm môn "${targetCourse.code}" (${targetCredits} TC) sẽ là ${enrolledCredits + currentSelected + targetCredits} TC > 24 TC.`
+        toast.warning(msg, 'Hạn mức 24 tín chỉ')
         setLimitWarning(msg)
         setTimeout(() => setLimitWarning(null), 5000)
         return prev
@@ -218,21 +240,28 @@ export const ScheduleOptimizerModal = ({
     })
   }
 
-  // Chọn nhanh gói tiêu chuẩn 15 - 18 tín chỉ cho các môn chưa đăng ký
+  // Chọn nhanh gói tiêu chuẩn 15 - 18 tín chỉ (hoặc theo hạn mức còn lại)
   const handleSelectStandardPackage = () => {
     setLimitWarning(null)
+    if (maxAllowedCredits <= 0) {
+      const msg = `Bạn đã đăng ký đủ ${enrolledCredits}/24 tín chỉ trong học kỳ này. Không thể chọn thêm môn mới.`
+      toast.warning(msg, 'Hạn mức 24 tín chỉ')
+      setLimitWarning(msg)
+      return
+    }
+    const targetCap = Math.min(18, maxAllowedCredits)
     let sum = 0
     const picked = []
     for (const c of availableCourses) {
       const cCredits = c.credits || 3
-      if (sum + cCredits <= 18) {
+      if (sum + cCredits <= targetCap) {
         picked.push(c.id)
         sum += cCredits
       }
     }
     setSelectedCourseIds(picked)
     if (picked.length > 0) {
-      toast.info(`Đã chọn gợi ý ${sum} tín chỉ (${picked.length} môn) cho AI xếp lịch.`, 'Gói chuẩn 15-18 TC')
+      toast.info(`Đã chọn gợi ý ${sum} tín chỉ (${picked.length} môn) cho AI xếp lịch. (Tổng sau khi xếp: ${enrolledCredits + sum}/24 TC).`, 'Gói gợi ý')
     }
   }
 
@@ -248,8 +277,8 @@ export const ScheduleOptimizerModal = ({
       return
     }
 
-    if (selectedCredits > 24) {
-      const msg = `Tổng số tín chỉ đang chọn (${selectedCredits} TC) vượt quá hạn mức tối đa 24 tín chỉ/học kỳ. Vui lòng bỏ bớt môn trước khi xếp lịch.`
+    if (totalCombinedCredits > 24) {
+      const msg = `Tổng số tín chỉ (${enrolledCredits} TC đã đăng ký + ${selectedCredits} TC đang chọn = ${totalCombinedCredits} TC) vượt quá hạn mức tối đa 24 tín chỉ/học kỳ. Vui lòng bỏ bớt môn trước khi xếp lịch.`
       toast.warning(msg, 'Vượt hạn mức 24 TC')
       setLimitWarning(msg)
       return
@@ -296,24 +325,34 @@ export const ScheduleOptimizerModal = ({
       const data = res.data?.data
 
       if (data && data.successCount > 0) {
+        const succMsg = `Đã giữ chỗ thành công ${data.successCount}/${sectionIds.length} lớp học phần trong 5 phút! Toàn bộ vị trí đã được khóa an toàn.`
         setReservingMessage({
           type: 'success',
-          text: `Đã giữ chỗ thành công ${data.successCount}/${sectionIds.length} lớp học phần trong 5 phút! Toàn bộ vị trí đã được khóa an toàn.`
+          text: succMsg
         })
+        toast.success(succMsg, 'Giữ chỗ combo thành công')
         if (onReservationSuccess) {
           onReservationSuccess(data.reservations || [])
         }
       } else {
+        const errorDetail = data?.details?.join(', ') || 'Đã hết chỗ hoặc lỗi hệ thống.'
         setReservingMessage({
           type: 'error',
-          text: `Không thể giữ chỗ: ${data?.details?.join(', ') || 'Đã hết chỗ hoặc lỗi hệ thống.'}`
+          text: `Không thể giữ chỗ: ${errorDetail}`
         })
+        toast.error(errorDetail, 'Giữ chỗ thất bại')
       }
     } catch (err) {
+      const errorMsg =
+        err.response?.data?.details?.message ||
+        err.response?.data?.message ||
+        err.message ||
+        'Lỗi khi giữ chỗ combo.'
       setReservingMessage({
         type: 'error',
-        text: 'Lỗi giữ chỗ gói: ' + (err.response?.data?.message || err.message)
+        text: 'Lỗi giữ chỗ gói: ' + errorMsg
       })
+      toast.error(errorMsg, 'Lỗi giữ chỗ combo')
     } finally {
       setBatchReserving(false)
     }
@@ -343,22 +382,17 @@ export const ScheduleOptimizerModal = ({
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[94vh] flex flex-col overflow-hidden">
         
         {/* Header */}
-        <div className="px-6 py-4 bg-linear-to-r from-red-700 via-rose-700 to-amber-700 text-white flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 bg-red-700 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-xs shadow-inner">
-              <Sparkles className="w-5 h-5 text-amber-200 animate-pulse" />
+            <div className="p-2 bg-white/10 rounded-xl">
+              <Sparkles className="w-5 h-5 text-amber-300" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white">
-                  AI Xếp Thời Khóa Biểu Tự Động (CSP Smart Scheduler)
-                </h2>
-                <span className="text-[10px] bg-amber-400 text-slate-950 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  DFS Backtracking + Collision Matrix
-                </span>
-              </div>
-              <p className="text-xs text-rose-100">
-                Thuật toán CSP loại trừ 100% trùng lịch, tối ưu Ca Sáng, tránh Thứ 7 & dồn ngày gọn nhất
+              <h2 className="text-base font-bold text-white">
+                AI Xếp Thời Khóa Biểu Tự Động
+              </h2>
+              <p className="text-xs text-rose-100 mt-0.5">
+                Hệ thống tự động đề xuất phương án xếp lịch học tối ưu, không trùng giờ và phù hợp với nguyện vọng cá nhân
               </p>
             </div>
           </div>
@@ -431,7 +465,7 @@ export const ScheduleOptimizerModal = ({
                     type="button"
                     onClick={handleSelectStandardPackage}
                     className="text-[11px] text-red-700 hover:underline font-semibold cursor-pointer"
-                    title="Chọn nhanh gói chuẩn 15-20 tín chỉ theo quy chế BR-01"
+                    title="Chọn nhanh gói chuẩn 15-20 tín chỉ"
                   >
                     Gói chuẩn (15-20 TC)
                   </button>
@@ -446,30 +480,30 @@ export const ScheduleOptimizerModal = ({
                 </div>
               </div>
 
-              {/* Thước đo hạn mức Tín chỉ BR-01: 12 - 24 TC */}
+              {/* Thước đo hạn mức Tín chỉ: 12 - 24 TC */}
               <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="font-semibold text-slate-700 flex items-center gap-1">
-                    <span>Tín chỉ chọn xếp lịch:</span>
-                    <strong className={`text-xs ${selectedCredits > 24 ? 'text-red-600' : 'text-slate-900'}`}>
-                      {selectedCredits} / 24 TC
+                    <span>Tổng tín chỉ kỳ này:</span>
+                    <strong className={`text-xs ${totalCombinedCredits > 24 ? 'text-red-600' : 'text-slate-900'}`}>
+                      {totalCombinedCredits} / 24 TC
                     </strong>
                   </span>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    selectedCredits === 0
+                    totalCombinedCredits === 0
                       ? 'bg-slate-100 text-slate-500'
-                      : selectedCredits < 12
+                      : totalCombinedCredits < 12
                       ? 'bg-amber-100 text-amber-800'
-                      : selectedCredits <= 24
+                      : totalCombinedCredits <= 24
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-red-100 text-red-800'
                   }`}>
-                    {selectedCredits === 0 
+                    {totalCombinedCredits === 0 
                       ? 'Chưa chọn môn' 
-                      : selectedCredits < 12 
+                      : totalCombinedCredits < 12 
                       ? 'Cần ≥ 12 TC' 
-                      : selectedCredits <= 24 
-                      ? 'Hợp lệ BR-01' 
+                      : totalCombinedCredits <= 24 
+                      ? 'Hợp lệ (12-24 TC)' 
                       : 'Vượt 24 TC'}
                   </span>
                 </div>
@@ -479,30 +513,47 @@ export const ScheduleOptimizerModal = ({
                   {enrolledCredits > 0 ? (
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-                      Đã có trong kỳ: <strong className="text-blue-800">{enrolledCredits} TC</strong>
+                      Đã có: <strong className="text-blue-800">{enrolledCredits} TC</strong>
                     </span>
                   ) : (
-                    <span className="text-slate-400">Chưa đăng ký môn nào</span>
+                    <span className="text-slate-400">Chưa có môn nào</span>
                   )}
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
                     Đang chọn AI: <strong className="text-emerald-800">{selectedCredits} TC</strong>
                   </span>
                   <span className="text-slate-500">
-                    Hạn mức còn: <strong>{Math.max(0, 24 - selectedCredits)} TC</strong>
+                    Còn có thể chọn: <strong className={maxAllowedCredits - selectedCredits <= 0 ? 'text-amber-700 font-bold' : ''}>{Math.max(0, maxAllowedCredits - selectedCredits)} TC</strong>
                   </span>
                 </div>
 
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex">
-                  <div
-                    className={`h-full transition-all duration-300 ${
-                      selectedCredits > 24 ? 'bg-red-600' : selectedCredits >= 12 ? 'bg-emerald-500' : 'bg-amber-500'
-                    }`}
-                    title={`Đang chọn AI: ${selectedCredits} TC`}
-                    style={{ width: `${Math.min(100, (selectedCredits / 24) * 100)}%` }}
-                  />
+                {/* Stacked Progress Bar */}
+                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
+                  {enrolledCredits > 0 && (
+                    <div
+                      className="h-full bg-blue-500 transition-all duration-300"
+                      title={`Đã có: ${enrolledCredits} TC`}
+                      style={{ width: `${Math.min(100, (enrolledCredits / 24) * 100)}%` }}
+                    />
+                  )}
+                  {selectedCredits > 0 && (
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        totalCombinedCredits > 24 ? 'bg-red-600' : 'bg-emerald-500'
+                      }`}
+                      title={`Đang chọn AI: ${selectedCredits} TC`}
+                      style={{ width: `${Math.min(100 - (enrolledCredits / 24) * 100, (selectedCredits / 24) * 100)}%` }}
+                    />
+                  )}
                 </div>
               </div>
+
+              {enrolledCredits >= 24 && (
+                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs flex items-center gap-2 font-medium">
+                  <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                  <span>Bạn đã đăng ký đủ 24/24 tín chỉ trong học kỳ này. Để AI xếp thời khóa biểu mới, vui lòng hủy bớt môn đã đăng ký trước.</span>
+                </div>
+              )}
 
               <div className="max-h-52 overflow-y-auto space-y-2 pr-1">
                 {uniqueCourses.length === 0 ? (
@@ -540,7 +591,7 @@ export const ScheduleOptimizerModal = ({
                     <div className="space-y-1.5">
                       {availableCourses.map(course => {
                         const isChecked = selectedCourseIds.includes(course.id)
-                        const willExceed = !isChecked && (selectedCredits + (course.credits || 3) > 24)
+                        const willExceed = !isChecked && (enrolledCredits + selectedCredits + (course.credits || 3) > 24)
                         return (
                           <div
                             key={course.id}
@@ -625,7 +676,7 @@ export const ScheduleOptimizerModal = ({
             <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3.5">
               <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Clock size={14} className="text-red-700" />
-                2. Ràng buộc & Tiêu chí Fitness:
+                2. Tiêu chí và nguyện vọng xếp lịch:
               </label>
 
               {/* Ca học ưu tiên */}
@@ -722,36 +773,41 @@ export const ScheduleOptimizerModal = ({
               <button
                 type="button"
                 onClick={handleSolve}
-                disabled={solving}
-                className="w-full py-2.5 bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-800 hover:to-rose-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
+                disabled={solving || selectedCourseIds.length === 0 || totalCombinedCredits > 24 || enrolledCredits >= 24}
+                className="w-full py-2.5 bg-red-700 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
               >
                 {solving ? (
                   <>
                     <Loader2 size={15} className="animate-spin" />
-                    <span>Đang chạy thuật toán AI CSP Backtracking...</span>
+                    <span>Đang phân tích và tối ưu hóa thời khóa biểu...</span>
                   </>
                 ) : (
                   <>
                     <Sparkles size={15} className="text-amber-300" />
-                    <span>AI Phân Tích & Đề Xuất Thời Khóa Biểu ({selectedCourseIds.length} môn - {selectedCredits} TC)</span>
+                    <span>Phân tích & đề xuất thời khóa biểu ({selectedCourseIds.length} môn - {selectedCredits} TC)</span>
                   </>
                 )}
               </button>
 
-              {selectedCourseIds.length === 0 ? (
+              {enrolledCredits >= 24 ? (
+                <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2 font-medium text-center flex items-center justify-center gap-1.5">
+                  <AlertTriangle size={14} className="shrink-0 text-amber-600" />
+                  <span>Học kỳ này bạn đã đạt đủ 24 tín chỉ tối đa. Không thể chọn thêm môn học mới.</span>
+                </p>
+              ) : selectedCourseIds.length === 0 ? (
                 <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 font-medium text-center flex items-center justify-center gap-1.5">
                   <AlertTriangle size={14} className="shrink-0 text-amber-600" />
-                  <span>Hãy chọn môn ở danh sách bên trái hoặc bấm &quot;Gói chuẩn (15-20 TC)&quot;.</span>
+                  <span>Hãy chọn môn ở danh sách bên trái hoặc bấm &quot;Gói gợi ý&quot;.</span>
                 </p>
-              ) : selectedCredits < 12 ? (
-                <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-1.5 text-center flex items-center justify-center gap-1.5 font-medium">
-                  <AlertTriangle size={13} className="shrink-0 text-amber-600" />
-                  <span>Đã chọn {selectedCredits} TC. Quy chế BR-01 khuyến nghị tối thiểu 12 TC trong học kỳ.</span>
-                </p>
-              ) : selectedCredits > 24 ? (
+              ) : totalCombinedCredits > 24 ? (
                 <p className="text-[11px] text-red-800 bg-red-50 border border-red-200 rounded-lg p-1.5 text-center flex items-center justify-center gap-1.5 font-bold">
                   <AlertTriangle size={13} className="shrink-0 text-red-600" />
-                  <span>Đã chọn {selectedCredits} TC, vượt quá hạn mức tối đa 24 TC theo quy chế BR-01.</span>
+                  <span>Tổng số tín chỉ ({enrolledCredits} TC đã có + {selectedCredits} TC chọn = {totalCombinedCredits} TC) vượt quá hạn mức tối đa 24 TC/kỳ.</span>
+                </p>
+              ) : totalCombinedCredits < 12 ? (
+                <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-1.5 text-center flex items-center justify-center gap-1.5 font-medium">
+                  <AlertTriangle size={13} className="shrink-0 text-amber-600" />
+                  <span>Tổng số tín chỉ đạt {totalCombinedCredits} TC. Khuyến nghị đăng ký tối thiểu 12 tín chỉ trong học kỳ.</span>
                 </p>
               ) : null}
             </div>
@@ -822,7 +878,7 @@ export const ScheduleOptimizerModal = ({
                 <div className="space-y-4 animate-in fade-in">
                   
                   {/* Summary Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-slate-50 via-emerald-50/40 to-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-xs sm:text-sm text-slate-900">{activePlan.title}</span>
@@ -866,12 +922,12 @@ export const ScheduleOptimizerModal = ({
                         </button>
                       </div>
 
-                      {/* 1-Click Batch Reserve Button */}
+                      {/* Batch Reserve Button */}
                       <button
                         type="button"
                         onClick={() => handleBatchReserve(activePlan)}
                         disabled={batchReserving}
-                        className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
                       >
                         {batchReserving ? (
                           <>
@@ -1053,11 +1109,7 @@ export const ScheduleOptimizerModal = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-          <span className="text-xs text-slate-500 flex items-center gap-1.5">
-            <HelpCircle size={14} className="text-red-700" />
-            Mẹo: Sử dụng tính năng Giữ chỗ 5 phút để khóa vị trí trước khi hoàn tất thủ tục đăng ký học phần.
-          </span>
+        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-end shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer"

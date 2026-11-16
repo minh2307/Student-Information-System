@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
+import * as XLSX from 'xlsx'
 import api from '../services/api'
-import { confirmDialog } from '../store/confirmStore'
+import { confirmDialog, alertDialog } from '../store/confirmStore'
 import {
   Check,
   X,
@@ -22,6 +23,10 @@ import {
   CalendarDays,
   ToggleLeft,
   ToggleRight,
+  Download,
+  Upload,
+  FileSpreadsheet,
+  FileUp,
 } from 'lucide-react'
 
 export const AdminSections = () => {
@@ -78,6 +83,12 @@ export const AdminSections = () => {
   const [pendingList, setPendingList] = useState([])
   const [pendingLoading, setPendingLoading] = useState(false)
   const [actionProcessingId, setActionProcessingId] = useState(null)
+
+  // Excel Import / Export States
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [parsedSections, setParsedSections] = useState([])
+  const [importingSections, setImportingSections] = useState(false)
+  const [sectionImportResult, setSectionImportResult] = useState(null)
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
@@ -469,6 +480,320 @@ export const AdminSections = () => {
     }
   }
 
+  // Auto search when keyword changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchSections()
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [searchKeyword])
+
+  // Chuẩn hóa thứ trong tuần
+  const normalizeDayOfWeek = (raw) => {
+    if (!raw) return 'MON'
+    const s = String(raw).trim().toUpperCase()
+    if (['MON', 'THỨ 2', 'THỨ HAI', 'T2', '2'].includes(s)) return 'MON'
+    if (['TUE', 'THỨ 3', 'THỨ BA', 'T3', '3'].includes(s)) return 'TUE'
+    if (['WED', 'THỨ 4', 'THỨ TƯ', 'T4', '4'].includes(s)) return 'WED'
+    if (['THU', 'THỨ 5', 'THỨ NĂM', 'T5', '5'].includes(s)) return 'THU'
+    if (['FRI', 'THỨ 6', 'THỨ SÁU', 'T6', '6'].includes(s)) return 'FRI'
+    if (['SAT', 'THỨ 7', 'THỨ BẢY', 'T7', '7'].includes(s)) return 'SAT'
+    if (['SUN', 'CHỦ NHẬT', 'CN', '8'].includes(s)) return 'SUN'
+    return s
+  }
+
+  // Chuẩn hóa giờ
+  const normalizeTime = (raw) => {
+    if (!raw) return ''
+    const s = String(raw).trim()
+    if (!isNaN(Number(s)) && Number(s) > 0 && Number(s) < 1) {
+      const totalSeconds = Math.round(Number(s) * 86400)
+      const hours = Math.floor(totalSeconds / 3600)
+      const minutes = Math.floor((totalSeconds % 3600) / 60)
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
+    }
+    const parts = s.split(':')
+    if (parts.length >= 2) {
+      const hh = String(parseInt(parts[0], 10)).padStart(2, '0')
+      const mm = String(parseInt(parts[1], 10)).padStart(2, '0')
+      return `${hh}:${mm}:00`
+    }
+    return s.length === 5 ? `${s}:00` : s
+  }
+
+  // Tải file mẫu Excel Lớp học phần
+  const downloadSectionTemplate = () => {
+    const c1 = coursesList[0]?.courseCode || 'CS101'
+    const c2 = coursesList[1]?.courseCode || 'CS201'
+    const g1 = lecturersList[0]?.lecturerCode || 'GV001'
+    const g2 = lecturersList[1]?.lecturerCode || 'GV002'
+    const sem = filterSemester || '2024-25_SEM2'
+
+    const sampleRows = [
+      {
+        'Mã lớp (*)': `${c1}-2025-01`,
+        'Mã môn học (*)': c1,
+        'Mã giảng viên (*)': g1,
+        'Học kỳ (*)': sem,
+        'Thứ học (*)': 'MON',
+        'Giờ bắt đầu (*)': '07:30',
+        'Giờ kết thúc (*)': '09:00',
+        'Phòng học (*)': 'Room A-204',
+        'Sĩ số tối đa (*)': 40,
+      },
+      {
+        'Mã lớp (*)': `${c2}-2025-01`,
+        'Mã môn học (*)': c2,
+        'Mã giảng viên (*)': g2,
+        'Học kỳ (*)': sem,
+        'Thứ học (*)': 'TUE',
+        'Giờ bắt đầu (*)': '09:00',
+        'Giờ kết thúc (*)': '10:30',
+        'Phòng học (*)': 'Room B-101',
+        'Sĩ số tối đa (*)': 40,
+      },
+    ]
+
+    const ws = XLSX.utils.json_to_sheet(sampleRows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Mau_Import_Lop_Hoc_Phan')
+    ws['!cols'] = [
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 16 },
+    ]
+    XLSX.writeFile(wb, 'Mau_Import_Lop_Hoc_Phan.xlsx')
+  }
+
+  // Xuất danh sách lớp học phần ra Excel
+  const exportSectionsToExcel = () => {
+    if (!sections || sections.length === 0) {
+      showToast('Không có dữ liệu lớp học phần để xuất Excel', 'error')
+      return
+    }
+
+    const rows = sections.map((s, idx) => ({
+      'STT': idx + 1,
+      'Mã lớp': s.sectionCode || '',
+      'Mã môn': s.courseCode || '',
+      'Tên môn học': s.courseName || '',
+      'Số tín chỉ': s.credits || 0,
+      'Mã giảng viên': s.lecturerCode || '',
+      'Giảng viên phụ trách': s.lecturerName || '',
+      'Khoa': s.lecturerDepartment || '',
+      'Học kỳ': s.semesterName || '',
+      'Thứ': s.dayOfWeek || '',
+      'Thời gian': s.timeDisplay || `${s.startTime || ''} - ${s.endTime || ''}`,
+      'Phòng học': s.roomName || '',
+      'Đã ĐK': s.currentEnrolled || 0,
+      'Sĩ số tối đa': s.maxCapacity || 40,
+      'Trạng thái': s.status || 'OPEN',
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Danh_Sach_Lop_Hoc_Phan')
+    ws['!cols'] = [
+      { wch: 6 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 30 },
+      { wch: 10 },
+      { wch: 14 },
+      { wch: 24 },
+      { wch: 22 },
+      { wch: 16 },
+      { wch: 10 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 10 },
+      { wch: 14 },
+      { wch: 14 },
+    ]
+    XLSX.writeFile(wb, `Danh_Sach_Lop_Hoc_Phan_${filterSemester}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    showToast('Xuất file Excel danh sách lớp học phần thành công!')
+  }
+
+  // Đọc file Excel khi Admin tải lên
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result)
+        const wb = XLSX.read(data, { type: 'array' })
+        const wsName = wb.SheetNames[0]
+        const ws = wb.Sheets[wsName]
+        const rawJson = XLSX.utils.sheet_to_json(ws)
+
+        if (!rawJson || rawJson.length === 0) {
+          alertDialog({
+            title: 'File Excel rỗng',
+            message: 'Tập tin vừa chọn không có dữ liệu hàng nào hợp lệ. Vui lòng kiểm tra lại.',
+            variant: 'warning',
+          })
+          return
+        }
+
+        const parsed = rawJson.map((row, idx) => {
+          const sectionCode = String(
+            row['Mã lớp (*)'] ||
+            row['Mã lớp học phần'] ||
+            row['Mã lớp'] ||
+            row['Section Code'] ||
+            row['sectionCode'] ||
+            ''
+          ).trim().toUpperCase()
+
+          const courseCode = String(
+            row['Mã môn học (*)'] ||
+            row['Mã môn học'] ||
+            row['Mã môn'] ||
+            row['Course Code'] ||
+            row['courseCode'] ||
+            ''
+          ).trim().toUpperCase()
+
+          const lecturerCode = String(
+            row['Mã giảng viên (*)'] ||
+            row['Mã giảng viên'] ||
+            row['Mã GV'] ||
+            row['Lecturer Code'] ||
+            row['lecturerCode'] ||
+            ''
+          ).trim().toUpperCase()
+
+          const semesterName = String(
+            row['Học kỳ (*)'] ||
+            row['Học kỳ'] ||
+            row['Semester'] ||
+            row['semesterName'] ||
+            filterSemester ||
+            ''
+          ).trim()
+
+          const rawDay = row['Thứ học (*)'] || row['Thứ học'] || row['Thứ'] || row['Day'] || row['dayOfWeek'] || 'MON'
+          const dayOfWeek = normalizeDayOfWeek(rawDay)
+
+          const rawStart = row['Giờ bắt đầu (*)'] || row['Giờ bắt đầu'] || row['Start Time'] || row['startTime'] || ''
+          const startTime = normalizeTime(rawStart)
+
+          const rawEnd = row['Giờ kết thúc (*)'] || row['Giờ kết thúc'] || row['End Time'] || row['endTime'] || ''
+          const endTime = normalizeTime(rawEnd)
+
+          const roomName = String(
+            row['Phòng học (*)'] ||
+            row['Phòng học'] ||
+            row['Phòng'] ||
+            row['Room'] ||
+            row['roomName'] ||
+            ''
+          ).trim()
+
+          const capVal = row['Sĩ số tối đa (*)'] || row['Sĩ số tối đa'] || row['Sĩ số'] || row['Capacity'] || row['maxCapacity']
+          const maxCapacity = capVal ? parseInt(capVal, 10) : 40
+
+          const errors = []
+          if (!sectionCode) errors.push('Thiếu mã lớp')
+          if (!courseCode) errors.push('Thiếu mã môn')
+          if (!lecturerCode) errors.push('Thiếu mã GV')
+          if (!semesterName) errors.push('Thiếu học kỳ')
+          if (!['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].includes(dayOfWeek)) {
+            errors.push('Thứ không hợp lệ')
+          }
+          if (!startTime) errors.push('Thiếu giờ bắt đầu')
+          if (!endTime) errors.push('Thiếu giờ kết thúc')
+          if (!roomName) errors.push('Thiếu phòng học')
+          if (isNaN(maxCapacity) || maxCapacity < 1) errors.push('Sĩ số không hợp lệ')
+
+          return {
+            rowIndex: idx + 2,
+            sectionCode,
+            courseCode,
+            lecturerCode,
+            semesterName,
+            dayOfWeek,
+            startTime,
+            endTime,
+            roomName,
+            maxCapacity: isNaN(maxCapacity) ? 40 : maxCapacity,
+            isValid: errors.length === 0,
+            errorMsg: errors.join(', '),
+          }
+        })
+
+        setParsedSections(parsed)
+      } catch (err) {
+        console.error('Error reading Excel file:', err)
+        alertDialog({
+          title: 'Lỗi đọc file',
+          message: 'Không thể đọc dữ liệu file Excel. Định dạng tập tin không được hỗ trợ hoặc bị lỗi.',
+          variant: 'danger',
+        })
+      }
+    }
+    reader.readAsArrayBuffer(file)
+    e.target.value = ''
+  }
+
+  // Thực hiện Import Lớp học phần vào Backend
+  const handleExecuteSectionImport = async () => {
+    const validRows = parsedSections.filter((r) => r.isValid)
+    if (validRows.length === 0) {
+      alertDialog({
+        title: 'Không có dữ liệu hợp lệ',
+        message: 'Không có dòng dữ liệu hợp lệ nào để import vào hệ thống. Vui lòng kiểm tra lại bảng danh sách bên dưới.',
+        variant: 'warning',
+      })
+      return
+    }
+
+    setImportingSections(true)
+    const payload = validRows.map((r) => ({
+      sectionCode: r.sectionCode,
+      courseCode: r.courseCode,
+      lecturerCode: r.lecturerCode,
+      semesterName: r.semesterName,
+      dayOfWeek: r.dayOfWeek,
+      startTime: r.startTime,
+      endTime: r.endTime,
+      roomName: r.roomName,
+      maxCapacity: r.maxCapacity,
+      status: 'OPEN',
+    }))
+
+    try {
+      const res = await api.post('/admin/class-sections/batch', payload)
+      const resultData = res.data?.data || {
+        total: payload.length,
+        successCount: payload.length,
+        failureCount: 0,
+        errors: [],
+      }
+      setSectionImportResult(resultData)
+      setShowImportModal(false)
+      fetchSections()
+      showToast(`Import lớp học phần hoàn tất: ${resultData.successCount}/${resultData.total} thành công!`)
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Có lỗi xảy ra khi thực hiện import theo lô'
+      alertDialog({
+        title: 'Import thất bại',
+        message: msg,
+        variant: 'danger',
+      })
+    } finally {
+      setImportingSections(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Toast Alert */}
@@ -492,19 +817,38 @@ export const AdminSections = () => {
           </p>
         </div>
         {activeTab === 'sections' && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={exportSectionsToExcel}
+              className="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              title="Xuất danh sách lớp học phần ra file Excel"
+            >
+              <Download size={16} className="text-emerald-700" />
+              <span>Xuất Excel</span>
+            </button>
+            <button
+              onClick={() => {
+                setParsedSections([])
+                setShowImportModal(true)
+              }}
+              className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              title="Nhập danh sách lớp học phần từ file Excel"
+            >
+              <Upload size={16} className="text-slate-600" />
+              <span>Nhập từ Excel</span>
+            </button>
             <button
               onClick={handleOpenSemesterModal}
-              className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold border border-slate-200 transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 shadow-xs transition-all cursor-pointer"
             >
-              <CalendarDays size={18} className="text-red-600" />
+              <CalendarDays size={16} className="text-red-600" />
               <span>Quản lý Học kỳ ({semestersList.length})</span>
             </button>
             <button
               onClick={handleOpenCreateSectionModal}
-              className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer"
             >
-              <Plus size={18} />
+              <Plus size={16} />
               <span>Mở lớp học phần mới</span>
             </button>
           </div>
@@ -587,18 +931,22 @@ export const AdminSections = () => {
                   placeholder="Tìm mã lớp, tên môn, giảng viên..."
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && fetchSections()}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500"
+                  className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-red-500"
                 />
+                {searchKeyword && (
+                  <button
+                    onClick={() => setSearchKeyword('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
               </div>
             </div>
 
-            <button
-              onClick={() => fetchSections()}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors"
-            >
-              Làm mới
-            </button>
+            <span className="text-xs text-slate-500 whitespace-nowrap">
+              Tổng số: <strong className="text-slate-800 font-semibold">{sections.length}</strong> lớp học phần
+            </span>
           </div>
 
           {/* Sections Table */}
@@ -1161,6 +1509,287 @@ export const AdminSections = () => {
                 type="button"
                 onClick={() => setIsSemesterModalOpen(false)}
                 className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg text-xs transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Import Excel Lớp học phần */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl">
+                  <FileSpreadsheet size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">
+                    Nhập Danh sách Lớp học phần từ Excel
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Hệ thống tự động đối soát xung đột phòng học và lịch dạy của giảng viên
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {/* Tải file mẫu */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800">Tải tệp mẫu Excel chuẩn</h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Mẫu đã có sẵn mã môn học và mã giảng viên mẫu từ hệ thống.
+                  </p>
+                </div>
+                <button
+                  onClick={downloadSectionTemplate}
+                  className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                >
+                  <Download size={14} className="text-slate-600" />
+                  <span>Tải mẫu Mau_Import_Lop_Hoc_Phan.xlsx</span>
+                </button>
+              </div>
+
+              {/* Upload Dropzone */}
+              <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/50 hover:bg-emerald-50/20 rounded-2xl p-6 text-center transition-colors">
+                <input
+                  type="file"
+                  id="excelSectionInput"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="excelSectionInput"
+                  className="cursor-pointer flex flex-col items-center justify-center gap-2"
+                >
+                  <div className="p-3 bg-white text-emerald-600 rounded-full shadow-xs border border-slate-200">
+                    <FileUp size={24} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-700 hover:text-emerald-700">
+                      Bấm để chọn file Excel
+                    </span>
+                    <span className="text-xs text-slate-500"> hoặc kéo thả file vào đây</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    Chấp nhận file định dạng .xlsx, .xls hoặc .csv
+                  </span>
+                </label>
+              </div>
+
+              {/* Preview Table */}
+              {parsedSections.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-800">
+                        Dữ liệu đọc từ file:
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {parsedSections.filter((r) => r.isValid).length} hợp lệ
+                      </span>
+                      {parsedSections.some((r) => !r.isValid) && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                          {parsedSections.filter((r) => !r.isValid).length} lỗi
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-slate-500">
+                      Tổng số {parsedSections.length} dòng
+                    </span>
+                  </div>
+
+                  <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-xl">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 text-slate-600 font-semibold sticky top-0 border-b border-slate-200">
+                        <tr>
+                          <th className="px-3 py-2">Dòng</th>
+                          <th className="px-3 py-2">Mã lớp</th>
+                          <th className="px-3 py-2">Mã môn</th>
+                          <th className="px-3 py-2">Mã GV</th>
+                          <th className="px-3 py-2">Học kỳ</th>
+                          <th className="px-3 py-2 text-center">Thứ</th>
+                          <th className="px-3 py-2">Giờ học</th>
+                          <th className="px-3 py-2">Phòng</th>
+                          <th className="px-3 py-2 text-center">Sĩ số</th>
+                          <th className="px-3 py-2">Trạng thái</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {parsedSections.map((row, idx) => (
+                          <tr
+                            key={idx}
+                            className={row.isValid ? 'hover:bg-slate-50' : 'bg-rose-50/50'}
+                          >
+                            <td className="px-3 py-2 font-mono text-slate-400">
+                              #{row.rowIndex}
+                            </td>
+                            <td className="px-3 py-2 font-mono font-bold text-slate-800">
+                              {row.sectionCode || <span className="text-rose-500 italic">Trống</span>}
+                            </td>
+                            <td className="px-3 py-2 font-mono font-semibold text-red-600">
+                              {row.courseCode || <span className="text-rose-500 italic">Trống</span>}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-slate-700">
+                              {row.lecturerCode || <span className="text-rose-500 italic">Trống</span>}
+                            </td>
+                            <td className="px-3 py-2 text-slate-600">
+                              {row.semesterName}
+                            </td>
+                            <td className="px-3 py-2 text-center font-semibold text-slate-800">
+                              {row.dayOfWeek}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">
+                              {row.startTime?.substring(0, 5)} - {row.endTime?.substring(0, 5)}
+                            </td>
+                            <td className="px-3 py-2 text-slate-700">
+                              {row.roomName}
+                            </td>
+                            <td className="px-3 py-2 text-center font-medium">
+                              {row.maxCapacity}
+                            </td>
+                            <td className="px-3 py-2">
+                              {row.isValid ? (
+                                <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-[11px]">
+                                  <CheckCircle2 size={13} /> Sẵn sàng
+                                </span>
+                              ) : (
+                                <span
+                                  className="inline-flex items-center gap-1 text-rose-600 font-semibold text-[11px]"
+                                  title={row.errorMsg}
+                                >
+                                  <AlertCircle size={13} /> {row.errorMsg}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={importingSections || parsedSections.filter((r) => r.isValid).length === 0}
+                onClick={handleExecuteSectionImport}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+              >
+                {importingSections ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>Đang nạp dữ liệu...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={14} />
+                    <span>
+                      Tiến hành Import ({parsedSections.filter((r) => r.isValid).length} lớp)
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Result Dialog Modal */}
+      {sectionImportResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+              <div
+                className={`p-2.5 rounded-xl ${
+                  sectionImportResult.failureCount === 0
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : 'bg-amber-50 text-amber-600'
+                }`}
+              >
+                {sectionImportResult.failureCount === 0 ? (
+                  <CheckCircle2 size={24} />
+                ) : (
+                  <AlertCircle size={24} />
+                )}
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800">
+                  Kết quả Import Lớp học phần
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Xử lý thành công {sectionImportResult.successCount} trên tổng số {sectionImportResult.total} lớp học phần
+                </p>
+              </div>
+            </div>
+
+            <div className="py-4 space-y-3">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-3 bg-slate-50 rounded-xl">
+                  <div className="text-xs text-slate-500">Tổng số</div>
+                  <div className="text-base font-bold text-slate-800">
+                    {sectionImportResult.total}
+                  </div>
+                </div>
+                <div className="p-3 bg-emerald-50 rounded-xl">
+                  <div className="text-xs text-emerald-600">Thành công</div>
+                  <div className="text-base font-bold text-emerald-700">
+                    {sectionImportResult.successCount}
+                  </div>
+                </div>
+                <div className="p-3 bg-rose-50 rounded-xl">
+                  <div className="text-xs text-rose-600">Thất bại</div>
+                  <div className="text-base font-bold text-rose-700">
+                    {sectionImportResult.failureCount}
+                  </div>
+                </div>
+              </div>
+
+              {sectionImportResult.errors && sectionImportResult.errors.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-rose-700">
+                    Chi tiết lỗi ({sectionImportResult.errors.length}):
+                  </span>
+                  <div className="max-h-48 overflow-y-auto p-2.5 bg-rose-50/70 border border-rose-200 rounded-xl text-[11px] text-rose-800 space-y-1.5">
+                    {sectionImportResult.errors.map((err, i) => (
+                      <div key={i} className="flex items-start gap-1.5 leading-relaxed">
+                        <span className="font-bold">•</span>
+                        <span>{typeof err === 'string' ? err : err.error || err.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setSectionImportResult(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition-colors"
               >
                 Đóng
               </button>

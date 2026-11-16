@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import api from '../services/api'
 import { toast } from '../store/toastStore'
+import { alertDialog } from '../store/confirmStore'
 import hybridBridge from '../services/hybridBridge'
 
 /**
@@ -459,7 +460,15 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
 
   const handleManualSubmit = (e) => {
     e.preventDefault()
-    submitAttendance(manualToken)
+    if (!manualToken?.trim()) {
+      alertDialog({
+        title: 'Thiếu mã điểm danh',
+        message: 'Vui lòng nhập hoặc dán mã Token điểm danh trước khi gửi.',
+        variant: 'warning'
+      })
+      return
+    }
+    submitAttendance(manualToken.trim())
   }
 
   const handleClose = () => {
@@ -846,7 +855,6 @@ export default function StudentQrScannerModal({ isOpen, onClose, onSuccess }) {
                   onChange={(e) => setManualToken(e.target.value)}
                   placeholder="Dán mã token QR hiển thị trên màn chiếu (VD: 1.12.119284712.ab3f890...)"
                   className="w-full text-xs font-mono p-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  required
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
                   Mã xoay vòng 15 giây/lần (dung sai 30 giây). Vui lòng gửi ngay khi lấy mã trên màn hình.

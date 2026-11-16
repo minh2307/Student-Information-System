@@ -52,6 +52,8 @@ public interface ClassSectionRepository extends JpaRepository<ClassSection, Long
         return findBySemester(semester);
     }
 
+    Optional<ClassSection> findBySectionCode(String sectionCode);
+
     /**
      * Pessimistic locking for registration concurrency (NFR-03: Race condition prevention).
      */
