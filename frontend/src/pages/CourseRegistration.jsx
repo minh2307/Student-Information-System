@@ -1138,7 +1138,7 @@ export const CourseRegistration = () => {
                     <span>ĐÃ NỘP HỌC PHÍ</span>
                   </span>
                   <Link
-                    to="/student/tuition"
+                    to={`/student/tuition?semester=${encodeURIComponent(semester)}`}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg shadow-2xs transition"
                   >
                     <span>Xem biên lai học phí</span>
@@ -1164,7 +1164,7 @@ export const CourseRegistration = () => {
                     </button>
                   )}
                   <Link
-                    to="/student/tuition"
+                    to={`/student/tuition?semester=${encodeURIComponent(semester)}`}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-red-700 hover:bg-red-800 text-white font-semibold rounded-lg shadow-2xs transition text-xs"
                   >
                     <span>Nộp học phí VietQR</span>
