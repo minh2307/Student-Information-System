@@ -53,11 +53,11 @@ export const StudentDashboard = () => {
     },
     upcomingClasses: [],
     semesterProgress: {
-      creditsEarned: 84,
-      totalRequiredCredits: 135,
-      attendanceRate: 97.5,
-      currentCgpa: 8.74,
-      previousCgpa: 8.62,
+      creditsEarned: 54,
+      totalRequiredCredits: 160,
+      attendanceRate: 98.0,
+      currentCgpa: 8.87,
+      previousCgpa: 8.80,
       academicStanding: 'Xuất sắc',
     },
   })
@@ -160,7 +160,7 @@ export const StudentDashboard = () => {
                   }}
                 />
                 <div>
-                  <h3 className="font-serif font-bold text-stone-900 text-xs tracking-tight uppercase leading-none">
+                  <h3 className="font-bold text-stone-900 text-xs tracking-tight uppercase leading-none">
                     HỌC VIỆN CÔNG NGHỆ RIKKEI
                   </h3>
                   <span className="text-[9px] font-mono font-medium text-red-700 tracking-wider">
@@ -686,7 +686,7 @@ export const StudentDashboard = () => {
               </Link>
 
               <Link
-                to="/student/tuition"
+                to="/student/tuition?semester=2024-25_SEM2"
                 className="p-3 rounded-xl border border-stone-200/80 hover:border-red-300 hover:bg-stone-50/70 transition flex items-center justify-between group"
               >
                 <div className="flex items-center gap-3">

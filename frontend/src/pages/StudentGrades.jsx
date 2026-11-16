@@ -99,23 +99,50 @@ export const StudentGrades = () => {
 
   // Thống kê tín chỉ và điểm trung bình
   const stats = useMemo(() => {
-    const graded = filteredGrades.filter(g => g.totalScore != null)
-    const passed = graded.filter(g => g.letterGrade && g.letterGrade !== 'F')
-    const totalCredits = passed.reduce((sum, g) => sum + (g.credits || 0), 0)
+    // 1. Tín chỉ và GPA tích lũy toàn khóa (luôn tính trên toàn bộ các môn đã có điểm)
+    const allGraded = grades.filter(g => g.totalScore != null)
+    const allPassed = allGraded.filter(g => g.letterGrade && g.letterGrade !== 'F')
+    const cumulativeCredits = allPassed.reduce((sum, g) => sum + (g.credits || 0), 0)
 
-    let totalPoints = 0
-    let totalCredsForGpa = 0
-    graded.forEach(g => {
+    let allTotalPoints = 0
+    let allTotalCredsForGpa = 0
+    allGraded.forEach(g => {
       const cred = g.credits || 0
       if (g.totalScore != null && cred > 0) {
-        totalPoints += Number(g.totalScore) * cred
-        totalCredsForGpa += cred
+        allTotalPoints += Number(g.totalScore) * cred
+        allTotalCredsForGpa += cred
       }
     })
-    const gpa = totalCredsForGpa > 0 ? (totalPoints / totalCredsForGpa).toFixed(2) : '0.00'
+    const cumulativeGpa = allTotalCredsForGpa > 0 ? (allTotalPoints / allTotalCredsForGpa).toFixed(2) : '0.00'
 
-    return { totalCredits, gpa, gradedCount: graded.length, totalCount: filteredGrades.length }
-  }, [filteredGrades])
+    // 2. Thống kê theo học kỳ hiện tại đang chọn
+    const currentGraded = filteredGrades.filter(g => g.totalScore != null)
+    const currentPassed = currentGraded.filter(g => g.letterGrade && g.letterGrade !== 'F')
+    const semesterCredits = currentPassed.reduce((sum, g) => sum + (g.credits || 0), 0)
+
+    let currentPoints = 0
+    let currentCredsForGpa = 0
+    currentGraded.forEach(g => {
+      const cred = g.credits || 0
+      if (g.totalScore != null && cred > 0) {
+        currentPoints += Number(g.totalScore) * cred
+        currentCredsForGpa += cred
+      }
+    })
+    const semesterGpa = currentCredsForGpa > 0 ? (currentPoints / currentCredsForGpa).toFixed(2) : '0.00'
+
+    const academicStanding = Number(cumulativeGpa) >= 9.0 ? 'Xuất sắc' : Number(cumulativeGpa) >= 8.0 ? 'Giỏi' : Number(cumulativeGpa) >= 7.0 ? 'Khá' : Number(cumulativeGpa) >= 5.0 ? 'Trung bình' : 'Yếu'
+
+    return {
+      cumulativeCredits,
+      cumulativeGpa,
+      semesterCredits,
+      semesterGpa,
+      academicStanding,
+      gradedCount: currentGraded.length,
+      totalCount: filteredGrades.length
+    }
+  }, [grades, filteredGrades])
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -191,38 +218,64 @@ export const StudentGrades = () => {
         </div>
       )}
 
-      {/* 2. Key Academic Indicators (Tabular, Anti-Slop) */}
+      {/* 2. Key Academic Indicators (Đồng bộ số liệu tích lũy và học kỳ) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-stone-200/90 shadow-2xs">
-          <span className="text-[10px] font-mono uppercase text-stone-600 block">Tín chỉ tích lũy (Đạt)</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase text-stone-600 block">
+              {selectedSemester === 'ALL' ? 'Tín chỉ tích lũy (Toàn khóa)' : 'Tín chỉ tích lũy toàn khóa'}
+            </span>
+            {selectedSemester !== 'ALL' && (
+              <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full font-mono">
+                +{stats.semesterCredits} TC kỳ này
+              </span>
+            )}
+          </div>
           <div className="flex items-baseline gap-1 mt-1">
-            <span className="font-mono text-2xl font-bold text-stone-900">{stats.totalCredits}</span>
-            <span className="text-xs font-mono text-stone-600">tín chỉ</span>
+            <span className="font-mono text-2xl font-bold text-stone-900">{stats.cumulativeCredits}</span>
+            <span className="text-xs font-mono text-stone-600">tín chỉ tích lũy</span>
           </div>
           <span className="text-[11px] text-stone-600 mt-1 block">
-            Các môn học có điểm chữ &ge; D
+            {selectedSemester === 'ALL'
+              ? 'Tổng số tín chỉ các môn học đã tích lũy (điểm chữ ≥ D)'
+              : `Trong kỳ này đạt ${stats.semesterCredits} TC • Toàn khóa đã tích lũy ${stats.cumulativeCredits} TC`}
           </span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-stone-200/90 shadow-2xs">
-          <span className="text-[10px] font-mono uppercase text-stone-600 block">Điểm trung bình (GPA)</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase text-stone-600 block">
+              {selectedSemester === 'ALL' ? 'Điểm tích lũy (CGPA Toàn khóa)' : 'Điểm trung bình học kỳ'}
+            </span>
+            {selectedSemester !== 'ALL' && (
+              <span className="text-[10px] font-bold text-stone-700 bg-stone-100 border border-stone-200 px-2 py-0.5 rounded-full font-mono">
+                CGPA: {stats.cumulativeGpa}
+              </span>
+            )}
+          </div>
           <div className="flex items-baseline gap-1 mt-1">
-            <span className="font-mono text-2xl font-bold text-red-800">{stats.gpa}</span>
+            <span className="font-mono text-2xl font-bold text-red-800">
+              {selectedSemester === 'ALL' ? stats.cumulativeGpa : stats.semesterGpa}
+            </span>
             <span className="text-xs font-mono text-stone-600">/ 10.0</span>
           </div>
           <span className="text-[11px] text-emerald-700 font-semibold mt-1 block">
-            Xếp loại học lực: Giỏi
+            {selectedSemester === 'ALL'
+              ? `Xếp loại học lực tích lũy: ${stats.academicStanding}`
+              : `GPA kỳ này: ${stats.semesterGpa} • Điểm tích lũy toàn khóa: ${stats.cumulativeGpa}`}
           </span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-stone-200/90 shadow-2xs">
-          <span className="text-[10px] font-mono uppercase text-stone-600 block">Tiến độ cập nhật điểm</span>
+          <span className="text-[10px] font-mono uppercase text-stone-600 block">
+            {selectedSemester === 'ALL' ? 'Tiến độ cập nhật điểm toàn khóa' : 'Tiến độ điểm học kỳ'}
+          </span>
           <div className="flex items-baseline gap-1 mt-1">
             <span className="font-mono text-2xl font-bold text-stone-900">{stats.gradedCount} / {stats.totalCount}</span>
             <span className="text-xs font-mono text-stone-600">học phần</span>
           </div>
           <span className="text-[11px] text-stone-600 mt-1 block">
-            {stats.gradedCount === stats.totalCount ? 'Đã hoàn tất toàn bộ điểm' : 'Giảng viên đang chấm thi'}
+            {stats.gradedCount === stats.totalCount ? 'Đã hoàn tất toàn bộ điểm' : 'Giảng viên đang chấm thi & cập nhật'}
           </span>
         </div>
       </div>

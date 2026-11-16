@@ -4,13 +4,17 @@
 
 @layer base {
   html {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     /* Ngăn horizontal bounce khó chịu trên mobile */
     overscroll-behavior-x: none;
     -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     /* Đảm bảo viewport mobile chuẩn UX, hỗ trợ notch */
     min-height: 100vh;
     min-height: 100dvh;

@@ -874,8 +874,8 @@ export const AdminExams = () => {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="overflow-x-auto touch-scroll">
+            <table className="w-full text-left border-collapse text-xs min-w-[760px]">
               <thead>
                 <tr className="bg-stone-50 border-b border-stone-200 text-stone-600 font-mono uppercase text-[11px] tracking-wider">
                   <th className="py-3 px-4">Môn học</th>

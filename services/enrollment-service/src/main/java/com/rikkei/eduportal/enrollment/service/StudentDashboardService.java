@@ -3,9 +3,11 @@ package com.rikkei.eduportal.enrollment.service;
 import com.rikkei.eduportal.enrollment.dto.*;
 import com.rikkei.eduportal.enrollment.entity.ClassSection;
 import com.rikkei.eduportal.enrollment.entity.Enrollment;
+import com.rikkei.eduportal.enrollment.entity.Grade;
 import com.rikkei.eduportal.enrollment.entity.StudentProfile;
 import com.rikkei.eduportal.enrollment.exception.ResourceNotFoundException;
 import com.rikkei.eduportal.enrollment.repository.EnrollmentRepository;
+import com.rikkei.eduportal.enrollment.repository.GradeRepository;
 import com.rikkei.eduportal.enrollment.repository.StudentProfileRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,11 +25,14 @@ public class StudentDashboardService {
 
     private final StudentProfileRepository studentProfileRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final GradeRepository gradeRepository;
 
     public StudentDashboardService(StudentProfileRepository studentProfileRepository,
-                                  EnrollmentRepository enrollmentRepository) {
+                                  EnrollmentRepository enrollmentRepository,
+                                  GradeRepository gradeRepository) {
         this.studentProfileRepository = studentProfileRepository;
         this.enrollmentRepository = enrollmentRepository;
+        this.gradeRepository = gradeRepository;
     }
 
     @Transactional(readOnly = true)
@@ -117,11 +122,43 @@ public class StudentDashboardService {
                     .doubleValue();
         }
 
+        int earnedCredits = student.getCreditsEarned() != null ? student.getCreditsEarned() : 0;
         BigDecimal currentCgpa = student.getCurrentCgpa() != null ? student.getCurrentCgpa() : BigDecimal.ZERO;
         BigDecimal previousCgpa = student.getPreviousCgpa() != null ? student.getPreviousCgpa() : BigDecimal.ZERO;
 
+        if (gradeRepository != null) {
+            List<Grade> studentGrades = gradeRepository.findByStudentId(student.getId());
+            if (studentGrades != null && !studentGrades.isEmpty()) {
+                int actualEarnedCredits = 0;
+                BigDecimal totalGradePoints = BigDecimal.ZERO;
+                int totalCreditsForGpa = 0;
+
+                for (Grade g : studentGrades) {
+                    String letter = g.getLetterGrade();
+                    if (letter != null && !"F".equalsIgnoreCase(letter)
+                            && g.getEnrollment() != null
+                            && g.getEnrollment().getClassSection() != null
+                            && g.getEnrollment().getClassSection().getCourse() != null) {
+                        Integer credits = g.getEnrollment().getClassSection().getCourse().getCredits();
+                        int cred = (credits != null ? credits : 0);
+                        actualEarnedCredits += cred;
+                        if (g.getTotalScore() != null && cred > 0) {
+                            totalGradePoints = totalGradePoints.add(g.getTotalScore().multiply(BigDecimal.valueOf(cred)));
+                            totalCreditsForGpa += cred;
+                        }
+                    }
+                }
+                if (actualEarnedCredits > 0) {
+                    earnedCredits = actualEarnedCredits;
+                }
+                if (totalCreditsForGpa > 0) {
+                    currentCgpa = totalGradePoints.divide(BigDecimal.valueOf(totalCreditsForGpa), 2, RoundingMode.HALF_UP);
+                }
+            }
+        }
+
         SemesterProgressDto progress = new SemesterProgressDto(
-                student.getCreditsEarned() != null ? student.getCreditsEarned() : 0,
+                earnedCredits,
                 student.getTotalRequiredCredits() != null ? student.getTotalRequiredCredits() : 160,
                 attendanceAvg,
                 currentCgpa,
