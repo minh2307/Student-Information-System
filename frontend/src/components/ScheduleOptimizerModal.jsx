@@ -123,7 +123,7 @@ export const ScheduleOptimizerModal = ({
         cId = codeToCourseMap.get(cCode).id
       }
       const creds = s.credits || s.course?.credits || (cCode && codeToCourseMap.get(cCode)?.credits) || 3
-      const isAlreadyEnrolled = Boolean(s.isEnrolled || s.isCompleted)
+      const isAlreadyEnrolled = Boolean(s.isEnrolled || s.isCompleted || s.isOtherSectionEnrolled || s.isCourseAlreadyPassed)
 
       if (cId && !map.has(cId)) {
         map.set(cId, {

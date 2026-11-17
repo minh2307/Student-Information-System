@@ -289,17 +289,31 @@ public class RealtimeSeatService {
             String sem = section.getSemesterName().trim();
             List<Enrollment> currentEnrs = enrollmentRepo.findActiveEnrollmentsByStudentAndSemester(student.getId(), sem);
             int currentCredits = currentEnrs.stream()
+                    .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus()) || "COMPLETED".equalsIgnoreCase(e.getStatus())))
                     .filter(e -> !section.getId().equals(e.getClassSection().getId()))
                     .mapToInt(e -> (e.getClassSection() != null && e.getClassSection().getCourse() != null && e.getClassSection().getCourse().getCredits() != null)
                             ? e.getClassSection().getCourse().getCredits() : 0)
                     .sum();
+
+            int heldCredits = 0;
+            if (reservationRepo != null) {
+                List<SlotReservation> myHolds = reservationRepo.findActiveByStudentId(student.getId(), now);
+                heldCredits = myHolds.stream()
+                        .filter(r -> r.getClassSection() != null
+                                && sem.equalsIgnoreCase(r.getClassSection().getSemesterName())
+                                && !section.getId().equals(r.getClassSection().getId()))
+                        .mapToInt(r -> (r.getClassSection().getCourse() != null && r.getClassSection().getCourse().getCredits() != null)
+                                ? r.getClassSection().getCourse().getCredits() : 3)
+                        .sum();
+            }
+
             int newCredits = (section.getCourse() != null && section.getCourse().getCredits() != null)
                     ? section.getCourse().getCredits() : 3;
 
-            if (currentCredits + newCredits > 24) {
+            if (currentCredits + heldCredits + newCredits > 24) {
                 throw new BusinessException(String.format(
-                        "Không thể giữ chỗ: Tổng số tín chỉ sẽ vượt quá hạn mức tối đa 24 tín chỉ trong học kỳ! (Hiện tại đã có: %d TC + Lớp này: %d TC = %d TC).",
-                        currentCredits, newCredits, (currentCredits + newCredits)
+                        "Không thể giữ chỗ: Tổng số tín chỉ sẽ vượt quá hạn mức tối đa 24 tín chỉ trong học kỳ! (Hiện tại đã có: %d TC + Giữ chỗ khác: %d TC + Lớp này: %d TC = %d TC).",
+                        currentCredits, heldCredits, newCredits, (currentCredits + heldCredits + newCredits)
                 ));
             }
         }

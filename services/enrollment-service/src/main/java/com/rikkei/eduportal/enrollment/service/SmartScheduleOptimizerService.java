@@ -234,7 +234,7 @@ public class SmartScheduleOptimizerService {
                 if (sp != null && sp.getId() != null) {
                     List<Enrollment> activeEnrs = enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(sp.getId(), semester);
                     int currentCredits = activeEnrs.stream()
-                            .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus())))
+                            .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus()) || "COMPLETED".equalsIgnoreCase(e.getStatus())))
                             .filter(e -> e.getClassSection() != null && e.getClassSection().getCourse() != null
                                     && !distinctCourseIds.contains(e.getClassSection().getCourse().getId()))
                             .mapToInt(e -> (e.getClassSection() != null && e.getClassSection().getCourse() != null && e.getClassSection().getCourse().getCredits() != null)
@@ -936,7 +936,7 @@ public class SmartScheduleOptimizerService {
             if (sem != null && !sem.isBlank()) {
                 List<Enrollment> currentEnrs = enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(student.getId(), sem.trim());
                 int currentCredits = currentEnrs.stream()
-                        .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus())))
+                        .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus()) || "COMPLETED".equalsIgnoreCase(e.getStatus())))
                         .filter(e -> !sectionIds.contains(e.getClassSection().getId()))
                         .mapToInt(e -> (e.getClassSection() != null && e.getClassSection().getCourse() != null && e.getClassSection().getCourse().getCredits() != null)
                                 ? e.getClassSection().getCourse().getCredits() : 0)
