@@ -196,12 +196,16 @@ SERVICES_READY=false
 
 for i in $(seq 1 100); do
   ALL_OK=true
+  FAILED_PORT=""
+  FAILED_CODE=""
 
   # Quét cổng 5 Java Microservices: 8081(auth), 8082(course), 8083(enrollment), 8084(ai), 8085(lecturer)
   for port in 8081 8082 8083 8084 8085; do
     CODE=$(curl -s -m 2 -o /dev/null -w "%{http_code}" "http://127.0.0.1:${port}/actuator/health" 2>/dev/null || echo "000")
     if [ "$CODE" != "200" ]; then
       ALL_OK=false
+      FAILED_PORT="${port}"
+      FAILED_CODE="${CODE}"
       break
     fi
   done
@@ -218,7 +222,11 @@ for i in $(seq 1 100); do
     break
   fi
 
-  echo "Đang đợi microservices khởi động hoàn tất... (lần ${i}/100, FE: ${FE_CODE})"
+  if [ -n "${FAILED_PORT}" ]; then
+    echo "Đang đợi microservices khởi động... (lần ${i}/100, Port ${FAILED_PORT}: ${FAILED_CODE}, FE: ${FE_CODE})"
+  else
+    echo "Đang đợi frontend khởi động... (lần ${i}/100, FE: ${FE_CODE})"
+  fi
   sleep 3
 done
 
@@ -240,7 +248,10 @@ if [ "$SERVICES_READY" != "true" ]; then
     echo "Khôi phục lại phiên bản trước đó: ${PREV_IMAGE_TAG}"
     echo "========================================================"
     cp .env.rollback .env
-    docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
+    if ! docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans; then
+      echo "⚠️ Kéo image cho phiên bản rollback từ registry gặp lỗi, chuyển sang khôi phục từ cache cục bộ (--pull never)..."
+      docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans --pull never 2>/dev/null || true
+    fi
     echo "Đang chờ 10s để container cũ hoạt động trở lại..."
     sleep 10
     docker compose -f "${COMPOSE_FILE}" ps
