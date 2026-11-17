@@ -199,21 +199,44 @@ for i in $(seq 1 100); do
   FAILED_PORT=""
   FAILED_CODE=""
 
-  # Quét cổng 5 Java Microservices: 8081(auth), 8082(course), 8083(enrollment), 8084(ai), 8085(lecturer)
-  for port in 8081 8082 8083 8084 8085; do
+  # Quét 5 Java Microservices: 8081(auth), 8082(course), 8083(enrollment), 8084(ai), 8085(lecturer)
+  for svc_item in "auth:8081" "course:8082" "enrollment:8083" "ai:8084" "lecturer:8085"; do
+    svc="${svc_item%%:*}"
+    port="${svc_item##*:}"
+
+    # 1. Thử curl trực tiếp từ host (actuator health)
     CODE=$(curl -s -m 2 -o /dev/null -w "%{http_code}" "http://127.0.0.1:${port}/actuator/health" 2>/dev/null || echo "000")
-    if [ "$CODE" != "200" ]; then
-      ALL_OK=false
-      FAILED_PORT="${port}"
-      FAILED_CODE="${CODE}"
-      break
+    if [ "$CODE" = "200" ]; then
+      continue
     fi
+
+    # 2. Fallback: Kiểm tra Docker HealthCheck status nội bộ của container (từ chỉ thị HEALTHCHECK trong Dockerfile)
+    CONTAINER_HEALTH=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "eduportal-${svc}-${ENV_NAME}" 2>/dev/null || echo "unknown")
+    if [ "$CONTAINER_HEALTH" = "healthy" ]; then
+      continue
+    fi
+
+    ALL_OK=false
+    FAILED_PORT="${svc}:${port}"
+    FAILED_CODE="HTTP:${CODE}|Docker:${CONTAINER_HEALTH}"
+    break
   done
 
-  # Quét cổng Frontend
+  # Quét cổng Frontend (HTTP 200 hoặc Docker health)
   FE_CODE=$(curl -s -m 2 -o /dev/null -w "%{http_code}" "http://127.0.0.1:${RESOLVED_FRONTEND_PORT}/" 2>/dev/null || echo "000")
   if [ "$FE_CODE" != "200" ]; then
+    FE_HEALTH=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "eduportal-frontend-${ENV_NAME}" 2>/dev/null || echo "unknown")
+    if [ "$FE_HEALTH" != "healthy" ]; then
+      ALL_OK=false
+    fi
+  fi
+
+  # Đảm bảo api-gateway đang running
+  GW_STATUS=$(docker inspect --format '{{.State.Status}}' "eduportal-gateway-${ENV_NAME}" 2>/dev/null || echo "unknown")
+  if [ "$GW_STATUS" != "running" ]; then
     ALL_OK=false
+    FAILED_PORT="gateway:8080"
+    FAILED_CODE="Docker:${GW_STATUS}"
   fi
 
   if [ "$ALL_OK" = "true" ]; then

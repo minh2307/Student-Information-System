@@ -32,8 +32,8 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/auth-service:${IMAGE_TAG:-prod}
     container_name: eduportal-auth-prod
     restart: always
-    expose:
-      - "8081"
+    ports:
+      - "127.0.0.1:8081:8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -55,8 +55,8 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/course-service:${IMAGE_TAG:-prod}
     container_name: eduportal-course-prod
     restart: always
-    expose:
-      - "8082"
+    ports:
+      - "127.0.0.1:8082:8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -76,8 +76,8 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/enrollment-service:${IMAGE_TAG:-prod}
     container_name: eduportal-enrollment-prod
     restart: always
-    expose:
-      - "8083"
+    ports:
+      - "127.0.0.1:8083:8083"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -103,8 +103,8 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/lecturer-service:${IMAGE_TAG:-prod}
     container_name: eduportal-lecturer-prod
     restart: always
-    expose:
-      - "8085"
+    ports:
+      - "127.0.0.1:8085:8085"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -125,8 +125,8 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/ai-service:${IMAGE_TAG:-prod}
     container_name: eduportal-ai-prod
     restart: always
-    expose:
-      - "8084"
+    ports:
+      - "127.0.0.1:8084:8084"
     environment:
       AI_API_KEY: ${AI_API_KEY:-demo-key}
       AI_BASE_URL: ${AI_BASE_URL:-https://openrouter.ai/api}
