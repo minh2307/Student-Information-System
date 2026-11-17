@@ -51,6 +51,38 @@ Chuyển đổi cổng đào tạo truyền thống thành **Hệ sinh thái Sma
 * **Bên thứ ba / Nhà tuyển dụng (PUBLIC VERIFIER)**: Truy cập cổng đối soát chứng chỉ số công khai `/verify/transcript` để xác thực bảng điểm thật/giả.
 
 ---
+
+### 1.4. Hướng dẫn Đọc & Định vị Tính năng (Customer vs. Developer Reading Guide)
+
+Tài liệu Đặc tả Yêu cầu Phần mềm (SRS) này được cấu trúc hóa nhằm phục vụ song song hai nhóm độc giả trọng tâm, giúp người đọc lập tức giải đáp trọn vẹn **3 Câu hỏi Cốt lõi** cho từng tính năng và nghiệp vụ:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                              3 CÂU HỎI TRỌNG TÂM CỦA MỖI TÍNH NĂNG                     │
+├─────────────────────────┬──────────────────────────────────────────────────────────────┤
+│ 1. ĐÓ LÀ TÍNH NĂNG GÌ?  │ • Khách hàng: Hiểu mục đích thực tế, lợi ích cho học vụ.    │
+│    (WHAT)               │ • Developer: Nắm rõ phạm vi kỹ thuật, module và phụ thuộc.   │
+├─────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ 2. TÌM THẤY Ở ĐÂU?      │ • Khách hàng: Menu điều hướng, Breadcrumb, URL Web, Tab App. │
+│    (WHERE)              │ • Developer: Mã nguồn UI, Controller, Service, API, Bảng DB. │
+├─────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ 3. CẦN LÀM GÌ?          │ • Khách hàng: Hướng dẫn thao tác người dùng từng bước.        │
+│    (ACTION / HOW)       │ • Developer: Logic kiểm tra (BR), Transaction, HTTP code, DB.│
+└─────────────────────────┴──────────────────────────────────────────────────────────────┘
+```
+
+- **Dành cho Khách hàng & Người dùng cuối (Sinh viên, Giảng viên, Ban Đào tạo, Khảo thí)**:
+  - Tra cứu nhanh tính năng thông qua **Vị trí Menu** và **Đường dẫn URL**.
+  - Đọc phần **"Cần làm gì?"** để nắm được quy trình thao tác chuẩn (User Journey), các điều kiện cần chuẩn bị trước và kết quả kỳ vọng nhận được.
+  - Hiểu các **Quy tắc Nghiệp vụ (Business Rules - BRs)** được diễn giải theo ngôn ngữ đời sống học đường (ví dụ: hạn mức 24 tín chỉ, cách tính điểm 10-40-50, chính sách nợ học phí không bị cấm đăng ký học phần).
+
+- **Dành cho Lập trình viên & Kỹ sư Đảm bảo Chất lượng (Dev, QA/QC, System Architect)**:
+  - Tra cứu nhanh vị trí mã nguồn: File Frontend React (`.jsx`), Màn hình Mobile React Native (`.tsx`), Backend Controller (`.java`), Service Class (`.java`), REST API Endpoint (`METHOD /path`), và các Bảng CSDL PostgreSQL liên quan.
+  - Nắm bắt quy trình xử lý kỹ thuật chuẩn: Các bước xác thực (Authentication), kiểm tra ràng buộc nghiệp vụ (Business Rule Validations), xử lý giao dịch cơ sở dữ liệu (Transaction & Isolation), xử lý ngoại lệ (Exception Handling & HTTP Status Codes), và lưu vết kiểm toán bất biến (`audit_logs`).
+  - Đối soát mã kiểm thử tự động (Unit Test / Integration Test) trong **Ma trận Đối soát Bằng chứng Triển khai (Mục 3.3)** để đảm bảo độ bao phủ kiểm thử 100%.
+
+---
+
 # 2. HỆ THỐNG LƯỢC ĐỒ KIẾN TRÚC & NGHIỆP VỤ (SYSTEM DIAGRAMS)
 
 ## 2.1. Lược đồ Kiến trúc Tổng thể Hệ thống (System Architecture Diagram)
@@ -431,34 +463,29 @@ sequenceDiagram
 
 ## 3.1. Danh mục Phân hệ Nghiệp vụ (Module Inventory)
 
-Toàn bộ hệ thống Rikkei EduPortal được phân rã thành **16 Phân hệ Nghiệp vụ Cốt lõi (Core Business Modules)** rõ ràng và **2 Kênh Phân phối Giao diện Khách (Client Presentation Channels)**:
+Toàn bộ hệ thống Rikkei EduPortal được phân rã thành **16 Phân hệ Nghiệp vụ Cốt lõi (Core Business Modules)** rõ ràng và **2 Kênh Phân phối Giao diện Khách (Client Presentation Channels)**. Bảng dưới đây định vị mục đích, vị trí và hành động chính cho từng phân hệ:
 
-### 3.1. Danh mục 16 Phân hệ Nghiệp vụ (Core Business Modules)
-
-| Mã Phân hệ | Tên Phân hệ Nghiệp vụ | Tiếng Anh (Module Name) | Phạm vi & Trách nhiệm Nghiệp vụ Cốt lõi |
-| :--- | :--- | :--- | :--- |
-| **MOD-AUTH** | Xác thực & Quản trị Danh tính | Authentication & IAM | Quản lý định danh người dùng, cấp phát/hủy token JWT, kiểm soát phân quyền RBAC, đổi mật khẩu và bảo vệ tài khoản quản trị. |
-| **MOD-USER** | Quản lý Người dùng & Hồ sơ | User & Profile Management | Quản lý thông tin hồ sơ sinh viên, hồ sơ giảng viên, quản trị viên; các thao tác CRUD người dùng, khóa/mở tài khoản và reset mật khẩu. |
-| **MOD-AUDIT** | Nhật ký Kiểm toán Học vụ | Academic Audit Trail | Tự động ghi vết bất biến cho mọi hành động nhạy cảm của hệ thống với giao dịch cô lập; giao diện tra cứu và đối soát cho Admin. |
-| **MOD-CAT** | Khung Chương trình & Môn học | Academic Catalog & Curriculum | Quản lý danh mục môn học, số tín chỉ, thiết lập tiên quyết/song hành, quản lý khung chương trình đào tạo theo từng chuyên ngành. |
-| **MOD-SEM** | Quản lý Học kỳ & Đợt Đăng ký | Semester & Term Operations | Quản lý danh mục học kỳ niên khóa, cấu hình khung thời gian mở/đóng cổng đăng ký tín chỉ và đợt đăng ký sớm/muộn. |
-| **MOD-SEC** | Quản lý Lớp học phần | Class Sections Operations | Mở lớp học phần, phân công giảng viên, xếp phòng học, kiểm soát ma trận xung đột phòng/lịch dạy, quản lý sĩ số tối đa. |
-| **MOD-ENROLL**| Đăng ký Tín chỉ & Ghi danh | Course Registration Engine | Tra cứu lớp mở, cập nhật chỗ khả dụng real-time, giữ chỗ 5 phút, xác nhận ghi danh chính thức, hủy môn, duyệt đăng ký ngoại lệ. |
-| **MOD-CAL** | Thời khóa biểu & Đồng bộ Lịch | Timetable & Calendar Sync | Hiển thị thời khóa biểu tuần/ngày cho sinh viên/giảng viên, xuất file `.ics`, cấp URL WebCal Live Subscription, và tra cứu ngoại tuyến. |
-| **MOD-ATT** | Điểm danh QR & Chuyên cần | QR Attendance & Check-in | Khởi tạo phiên điểm danh QR động xoay mã 15s (TOTP), quét mã camera đa nền tảng, điểm danh thủ công bổ sung, khóa phiên và báo cáo. |
-| **MOD-WARN** | Cảnh báo Sớm Nguy cơ Học vụ | Academic Early Warning System | Tự động phát hiện sinh viên vắng $\ge 20\%$ số buổi (nguy cơ cấm thi) hoặc điểm giữa kỳ $< 3.0/4.0$; phát thông báo cảnh báo sớm 1-chạm. |
-| **MOD-GRADE** | Quản lý Điểm & Sổ điểm | Gradebook & GPA Engine | Nhập/sửa điểm thành phần (10-40-50), tính điểm tổng kết và CGPA, chốt khóa sổ điểm bất biến, quy trình mở khóa phúc khảo điểm thi. |
-| **MOD-EXAM** | Quản lý Lịch thi & Tổ chức Thi | Examination Management | Quản lý lịch thi học phần (ngày thi, ca thi, phòng thi), thuật toán tự động sinh lịch thi chống trùng lặp, sinh viên tra cứu lịch thi. |
-| **MOD-FIN** | Tài chính Sinh viên & Học phí | Student Finance & Tuition | Lập hóa đơn học phí theo tín chỉ, thanh toán qua VietQR Napas247, tích hợp cổng PayOS, tự động đối soát gạch nợ, và cảnh báo nhắc nợ. |
-| **MOD-NOTIF** | Bản tin & Trung tâm Thông báo | Announcements & Notifications | Quản lý bản tin thông báo chung toàn trường; trung tâm thông báo cá nhân đa kênh (học vụ, điểm số, lịch thi, học phí); đánh dấu đã đọc. |
-| **MOD-AI** | Trí tuệ Nhân tạo & Cố vấn | AI Smart Campus Engine | Thuật toán CSP xếp TKB tối ưu tự động kèm 1-chạm batch reserve; Trợ lý ảo AI tư vấn quy chế đào tạo (RAG); AI sinh đề cương 15 tuần. |
-| **MOD-CRED** | Chứng chỉ Số & Bảng điểm Mã hóa | Digital Credentials & Verify | Xuất bảng điểm điện tử gắn mã serial và chữ ký số HMAC-SHA256; cổng tra cứu và đối soát bằng cấp/bảng điểm công khai chống giả mạo. |
-
-### 3.2. Kênh Phân phối & Giao diện Khách (Client Presentation & Delivery Channels)
-- **Web Portal (Responsive Web & PWA Shell)**: Ứng dụng ReactJS SPA (Vite + Tailwind CSS + Zustand) phục vụ quản trị viên, giảng viên và sinh viên trên máy tính bảng và trình duyệt desktop, hỗ trợ Progressive Web App.
-- **Mobile Native Application (React Native / Expo)**: Ứng dụng di động chuyên dụng cho Giảng viên và Sinh viên, cung cấp khả năng tích hợp phần cứng camera quét mã QR độ trễ thấp và lưu trữ bộ nhớ đệm ngoại tuyến (Offline Storage) hỗ trợ tra cứu lịch và điểm khi mất mạng.
+| Mã Phân hệ | Tên Phân hệ Nghiệp vụ | Tiếng Anh (Module) | Đó là phân hệ gì? (Mục đích Nghiệp vụ) | Tìm thấy ở đâu? (Menu & Code) | Ai dùng & Cần làm gì? (Tác vụ Chính) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **MOD-AUTH** | Xác thực & Quản trị Danh tính | Authentication & IAM | Cổng bảo mật đăng nhập, quản lý phiên làm việc, đổi mật khẩu và phân quyền người dùng theo vai trò RBAC. | Màn hình `/login`, Header > Đổi mật khẩu.<br>Code: `auth-service`, `AuthController.java` | **All Users**: Nhập tài khoản/email và mật khẩu để vào hệ thống; đổi mật khẩu định kỳ; đăng xuất an toàn. |
+| **MOD-USER** | Quản lý Người dùng & Hồ sơ | User & Profile Management | Quản lý thông tin hồ sơ sinh viên, hồ sơ giảng viên, quản trị viên; các thao tác tạo mới, sửa thông tin, khóa tài khoản và reset mật khẩu. | Menu Trái > Quản lý Người dùng (`/admin/users`), Trang cá nhân (`/profile`).<br>Code: `user-service`, `AdminUserController.java` | **Admin**: Tạo tài khoản, khóa/mở khóa (BR-04), reset mật khẩu.<br>**User**: Cập nhật số điện thoại, địa chỉ, email cá nhân. |
+| **MOD-AUDIT** | Nhật ký Kiểm toán Học vụ | Academic Audit Trail | Hộp đen lưu vết bất biến mọi hành động nhạy cảm của hệ thống (sửa điểm, khóa tài khoản, mở lớp, gạch nợ) phục vụ thanh tra. | Menu Trái > Nhật ký Kiểm toán (`/admin/audit-logs`).<br>Code: `audit-service`, `AuditLogController.java` | **Admin / Thanh tra**: Tra cứu, lọc theo ngày/người dùng/hành động, đối soát JSON Diff trước/sau thay đổi (BR-14). |
+| **MOD-CAT** | Khung Chương trình & Môn học | Academic Catalog & Curriculum | Quản lý danh mục môn học toàn trường, số tín chỉ, cấu hình môn tiên quyết/song hành và khung chương trình theo chuyên ngành. | Menu Trái > Quản lý Môn học (`/admin/courses`), Cây CTĐT (`/student/curriculum-progress`).<br>Code: `academic-service`, `AdminCourseController.java` | **Admin**: Thêm/sửa môn học, thiết lập tiên quyết chống chu trình (BR-02, BR-12).<br>**Sinh viên**: Xem cây tiến độ tích lũy tín chỉ. |
+| **MOD-SEM** | Quản lý Học kỳ & Đợt Đăng ký | Semester & Term Operations | Cấu hình năm học, học kỳ niên khóa và thiết lập khung thời gian mở/đóng cổng đăng ký tín chỉ trực tuyến. | Menu Trái > Quản lý Học kỳ (`/admin/semesters`).<br>Code: `academic-service`, `AdminSemesterController.java` | **Admin**: Thiết lập học kỳ hiện tại (`is_current`), cài đặt ngày giờ mở và đóng đợt đăng ký tín chỉ chính thức/bổ sung. |
+| **MOD-SEC** | Quản lý Lớp học phần | Class Sections Operations | Tổ chức mở các lớp môn học, phân công giảng viên giảng dạy, xếp phòng học và ca học trong tuần, chống trùng lịch. | Menu Trái > Quản lý Lớp học phần (`/admin/sections`).<br>Code: `enrollment-service`, `AdminSectionController.java` | **Admin**: Mở lớp học phần mới; hệ thống tự động kiểm tra và ngăn chặn trùng ca phòng học và trùng lịch giảng viên (BR-15). |
+| **MOD-ENROLL**| Đăng ký Tín chỉ & Ghi danh | Course Registration Engine | Trái tim của cổng đào tạo: cho phép sinh viên đăng ký các lớp học phần trong học kỳ theo kế hoạch học tập. | Menu Trái > Đăng ký Học phần (`/student/registration`), Mobile: Tab Đăng ký.<br>Code: `enrollment-service`, `CourseRegistrationController.java` | **Sinh viên**: Tìm kiếm lớp mở, xem chỗ trống SSE nhảy số tức thì, giữ chỗ 5 phút, xác nhận ghi danh (tối đa 24 TC), hủy môn. |
+| **MOD-CAL** | Thời khóa biểu & Đồng bộ Lịch | Timetable & Calendar Sync | Xem lịch học và lịch dạy theo ngày/tuần/tháng, đồng bộ tự động vào Google Calendar, Apple Calendar và hỗ trợ tra cứu ngoại tuyến. | Menu Trái > Thời khóa biểu (`/student/timetable`, `/lecturer/timetable`), Mobile: Tab Lịch.<br>Code: `enrollment-service`, `CalendarSyncController.java` | **Sinh viên / Giảng viên**: Xem TKB trực quan, tải file `.ics` (RFC 5545), đăng ký WebCal Live Feed cập nhật phòng/ca tự động. |
+| **MOD-ATT** | Điểm danh QR & Chuyên cần | QR Attendance & Check-in | Hệ thống điểm danh thông minh chống gian lận bằng mã QR động xoay mã 15 giây (TOTP) kết hợp kiểm tra định danh thiết bị. | Giảng viên: Lớp học > Điểm danh (`/lecturer/classes/{id}/attendance`).<br>Sinh viên: Quét QR (`/student/attendance` / App Mobile).<br>Code: `attendance-service`, `QrAttendanceController.java` | **Giảng viên**: Chiếu mã QR 15s (BR-08), xem danh sách check-in real-time, điểm danh bù thủ công.<br>**Sinh viên**: Dùng camera quét mã trong 15s. |
+| **MOD-WARN** | Cảnh báo Sớm Nguy cơ Học vụ | Academic Early Warning System | Hệ thống radar tự động quét phát hiện sinh viên vắng $\ge 20\%$ số buổi (nguy cơ cấm thi) hoặc điểm giữa kỳ $< 3.0/4.0$. | Giảng viên: `/lecturer/classes/{id}/early-warning`.<br>Sinh viên: Banner cảnh báo đỏ tại Dashboard (`/student/dashboard`).<br>Code: `academic-service`, `EarlyWarningController.java` | **Hệ thống**: Quét tự động định kỳ.<br>**Giảng viên**: Xem danh sách nguy cơ và bấm 1 nút gửi thông báo khẩn.<br>**Sinh viên**: Nhận cảnh báo sớm để chấn chỉnh. |
+| **MOD-GRADE** | Quản lý Điểm & Sổ điểm | Gradebook & GPA Engine | Sổ điểm điện tử tính điểm học phần theo tỷ lệ 10% Chuyên cần - 40% Giữa kỳ - 50% Cuối kỳ, tính điểm GPA/CGPA và khóa sổ điểm bất biến. | Giảng viên: Nhập điểm (`/lecturer/classes/{id}/grades`).<br>Sinh viên: Bảng điểm (`/student/grades`).<br>Code: `academic-service`, `LecturerGradeController.java` | **Giảng viên**: Nhập điểm thành phần, chốt khóa sổ điểm 100% sinh viên (BR-06, BR-13).<br>**Sinh viên**: Xem điểm học kỳ, CGPA tích lũy (42 TC). |
+| **MOD-EXAM** | Quản lý Lịch thi & Tổ chức Thi | Examination Management | Lập lịch thi kết thúc học phần, tự động xếp ca thi và phòng thi chống trùng lặp, cấp số báo danh cho sinh viên. | Admin: Lịch thi (`/admin/exams`).<br>Sinh viên: Tra cứu Lịch thi (`/student/exams`).<br>Code: `academic-service`, `ExamScheduleController.java` | **Admin**: Tạo đợt thi, chạy thuật toán auto-schedule xếp phòng/ca thi.<br>**Sinh viên**: Tra cứu ngày thi, ca thi, phòng thi và số báo danh. |
+| **MOD-FIN** | Tài chính Sinh viên & Học phí | Student Finance & Tuition | Lập hóa đơn học phí theo số tín chỉ đăng ký (450k/TC + 300k CSVC), thanh toán qua VietQR Napas247 hoặc PayOS, tự động gạch nợ. | Menu Trái > Học phí (`/student/tuition`) hoặc bấm Nộp học phí từ trang Đăng ký môn (nhận đúng kỳ).<br>Code: `payment-service`, `TuitionController.java` | **Sinh viên**: Xem chi tiết học phí theo kỳ, quét mã VietQR Napas247 hoặc thanh toán PayOS; Nợ học phí không bị chặn đăng ký môn (BR-07A). |
+| **MOD-NOTIF** | Bản tin & Trung tâm Thông báo | Announcements & Notifications | Kênh thông tin đào tạo toàn trường và hộp thư thông báo cá nhân đa kênh (điểm số, cảnh báo, thay đổi phòng học, học phí). | Trang chủ / Bản tin (`/announcements`), Biểu tượng Chuông thông báo trên Header.<br>Code: `academic-service`, `NotificationController.java` | **Admin**: Đăng tải thông báo đào tạo chung.<br>**User**: Nhận thông báo học vụ tức thì, đánh dấu đã đọc từng thông báo hoặc đọc tất cả. |
+| **MOD-AI** | Trí tuệ Nhân tạo & Cố vấn | AI Smart Campus Engine | Động cơ AI ứng dụng CSP xếp TKB tối ưu kèm 1-chạm batch reserve; Trợ lý AI RAG tư vấn quy chế đào tạo; AI sinh đề cương 15 tuần. | Tab Xếp lịch AI (`/student/registration`), Bong bóng Chat AI Cố vấn (`/student/ai-advisor`), Nút AI Đề cương (`/admin/courses`).<br>Code: `ai-service`, `ScheduleOptimizerController.java` | **Sinh viên**: Chọn môn để AI xếp TKB không trùng lịch; Chat hỏi đáp quy chế học vụ.<br>**Giảng viên / Admin**: Dùng AI tạo đề cương môn học tự động. |
+| **MOD-CRED** | Chứng chỉ Số & Bảng điểm Mã hóa | Digital Credentials & Verify | Xuất bảng điểm điện tử gắn mã serial và chữ ký số HMAC-SHA256 chống giả mạo; cổng xác thực công khai cho nhà tuyển dụng. | Sinh viên: Nút Xuất bảng điểm số (`/student/grades`).<br>Công khai: URL `/verify/transcript?serial=...&sig=...`.<br>Code: `academic-service`, `DigitalCredentialController.java` | **Sinh viên**: Tải bảng điểm số có mã QR chứng thực.<br>**Nhà tuyển dụng**: Quét QR kiểm tra trực tiếp tính nguyên bản không cần đăng nhập. |
 
 ---
+
 ## 3.2. Bảng Danh mục Chức năng Chuẩn hóa (Standardized Function Catalog - 58 Functions)
 > **Bộ Quy tắc Phân loại Mức độ Ưu tiên (MoSCoW)**:
 > - **Must have**: 35 chức năng | **Should have**: 20 chức năng | **Could have**: 3 chức năng | **Won't have**: 0  
@@ -598,37 +625,42 @@ Dưới đây là bảng đối soát chi tiết từng Function ID với mã ng
 | **F-CRED-002**<br>Xác thực tính hợp lệ của bảng điểm số công khai | `GET /api/v1/public/credentials/verify` | DigitalCredentialController.java (`academic-service`) | DigitalCredentialService.java | Cổng công khai (No Auth) | `TranscriptVerifyPage.jsx` | `DigitalCredentialControllerTest.java` | **VERIFIED** | Cổng đối soát công khai xác thực chữ ký số chống bằng giả mạo. |
 
 ---
+
 # 4. QUY TẮC NGHIỆP VỤ BẮT BUỘC (BUSINESS RULES CATALOG - BRs)
 
-> **Nguyên tắc Quản lý Quy tắc Nghiệp vụ**:
+> **Nguyên tắc Quản lý Quy tắc Nghiệp vụ (Core Governance Principles)**:
 > 1. **Tuân thủ tuyệt đối 4 Locked Business Rules đã chốt**:
 >    - **BR-01**: Hạn mức đăng ký kỳ chính chặn cứng tối đa 24 tín chỉ; cận dưới 12 tín chỉ chỉ mang tính cảnh báo khuyến nghị (Soft Warning).
 >    - **BR-03**: Xung đột thời khóa biểu áp dụng Cảnh báo mềm (Soft Warning) – cho phép sinh viên đăng ký thành công và gắn cờ `has_conflict = TRUE`.
->    - **BR-06**: Giảng viên bị khóa quyền chỉnh sửa sổ điểm vĩnh viễn sau khi chốt điểm. **Chỉ Quản trị viên Đào tạo (Admin) mới có thẩm quyền mở khóa để phục vụ quy trình phúc khảo**, và bắt buộc phải lưu vết kiểm toán bất biến (`Audit Trail`). *(Lưu ý: API mở khóa điểm phía backend đang chờ phát triển trong Sprint tiếp theo)*.
+>    - **BR-06**: Giảng viên bị khóa quyền chỉnh sửa sổ điểm vĩnh viễn sau khi chốt điểm. **Chỉ Quản trị viên Đào tạo (Admin) mới có thẩm quyền mở khóa để phục vụ quy trình phúc khảo**, và bắt buộc phải lưu vết kiểm toán bất biến (`Audit Trail`).
 >    - **BR-07A**: Nợ học phí kỳ trước hiển thị cảnh báo nhắc nợ trên Dashboard; tuyệt đối không chặn quyền đăng ký học phần.
 > 2. **Phân định rõ ràng trạng thái phê duyệt**: Tách biệt rõ ràng giữa quy tắc đã được Stakeholder phê duyệt (`STAKEHOLDER_APPROVED`) và các hằng số kỹ thuật cần chờ phê duyệt chính sách (`PENDING_CONFIRMATION` như công thức đơn giá học phí 450.000đ/TC tại `BR-07B`).
 
-Dưới đây là bảng đặc tả đầy đủ **15 Quy tắc Nghiệp vụ (15 Business Rules)** của hệ thống Rikkei EduPortal. Mỗi quy tắc đều được kiểm toán đa chiều theo đúng các tiêu chí: *Trạng thái Phê duyệt của Stakeholder*, *Trạng thái Kiểm chứng Triển khai*, *Nguồn Thẩm quyền*, *Bằng chứng Mã nguồn*, và *Vấn đề Mở cần xử lý*:
+---
 
-| Mã Quy tắc | Tên Quy tắc Nghiệp vụ | Trạng thái Stakeholder Phê duyệt | Trạng thái Triển khai Mã nguồn | Nguồn Thẩm quyền (Authority) | Bằng chứng Mã nguồn / CSDL | Vấn đề Mở / Ghi chú Kiểm toán |
-| :--- | :--- | :---: | :---: | :--- | :--- | :--- |
-| **BR-01** | **Hạn mức Tín chỉ Đăng ký Học kỳ** | **STAKEHOLDER_APPROVED** | **IMPLEMENTATION_VERIFIED** | Quyết định Stakeholder đã chốt | `CourseRegistrationService.java:26, 264`; `CourseRegistration.jsx` | **Đã chốt**: Trần 24 TC là hard block (HTTP 400); Cận dưới 12 TC là cảnh báo khuyến nghị (Soft warning banner). |
-| **BR-03** | **Xử lý Xung đột Thời khóa biểu** | **STAKEHOLDER_APPROVED** | **IMPLEMENTATION_VERIFIED** | Quyết định Stakeholder đã chốt | `CourseRegistrationService.java:294` (`setHasConflict(true)`) | **Đã chốt**: Áp dụng Soft Warning. Vẫn lưu bản ghi đăng ký thành công vào DB và gắn cờ `has_conflict = TRUE`. |
-| **BR-06** | **Khóa Bất biến Sổ Điểm & Mở Khóa Phúc khảo** | **STAKEHOLDER_APPROVED** | **PARTIALLY VERIFIED** | Quyết định Stakeholder đã chốt | `LecturerService.java:233, 257`; **Backend chưa có code Admin mở khóa** | **Đã chốt**: Giảng viên bị khóa vĩnh viễn sau khi chốt điểm. Chỉ Admin Đào tạo có quyền mở khóa để phúc khảo kèm Audit Trail. Backend cần dev bổ sung API. |
-| **BR-07A** | **Chính sách Nợ Học phí Không Chặn Đăng ký** | **STAKEHOLDER_APPROVED** | **IMPLEMENTATION_VERIFIED** | Quyết định Stakeholder đã chốt | `CourseRegistrationService.java`; `StudentDashboard.jsx` | **Đã chốt**: Nợ học phí kỳ trước chỉ hiển thị banner cảnh báo và gửi thông báo nhắc nợ; tuyệt đối không chặn quyền đăng ký môn. |
-| **BR-07B** | **Định mức Đơn giá Học phí & Phí CSVC** | **PENDING_CONFIRMATION** | **IMPLEMENTATION_ONLY** | Đang chờ Phòng Tài chính / Stakeholder phê duyệt | `TuitionService.java:133`: `(Credits * 450k) + 300k CSVC` | **Chưa phê duyệt**: Đơn giá 450.000đ/TC và Phí CSVC 300.000đ đang là hằng số code cứng trong backend, cần Stakeholder xác nhận mức giá chính thức. |
-| **BR-02** | **Ràng buộc Môn học Tiên quyết** | **PENDING_CONFIRMATION** | **IMPLEMENTATION_VERIFIED** | Quy chế đào tạo tín chỉ (Cần xác nhận) | `CourseRegistrationService.java:218`: Kiểm tra `status == 'COMPLETED'` | Cần xác nhận: Sinh viên đạt điểm D (Total $\ge 4.0$) có được xem là hoàn thành môn tiên quyết không? (Hiện tại code kiểm tra status COMPLETED). |
-| **BR-04** | **Bảo vệ Bất khả Xâm phạm Admin** | **STAKEHOLDER_APPROVED** | **IMPLEMENTATION_VERIFIED** | Chính sách An toàn Thông tin Hệ thống | `AdminUserService.java:149-156, 270-272` (Throw `BadRequestException`) | Cấm xóa, cấm khóa, cấm thay đổi vai trò tài khoản Quản trị viên tối cao dưới mọi hình thức. |
-| **BR-05** | **Thang điểm & Cơ cấu Trọng số Đào tạo** | **PENDING_CONFIRMATION** | **IMPLEMENTATION_ONLY** | Quy chế đào tạo tín chỉ (Cần xác nhận) | `GradeCalculator.java:17`: `Total = Att*0.1 + Mid*0.4 + Final*0.5` | Cần xác nhận: Tỷ lệ trọng số 10% - 40% - 50% có áp dụng cho toàn bộ các môn học hay có môn đặc thù (Đồ án, Thực hành)? |
-| **BR-08** | **Mã QR Điểm danh Động Chu kỳ 15 Giây** | **PENDING_CONFIRMATION** | **IMPLEMENTATION_ONLY** | Thiết kế Kỹ thuật Chống Gian lận | `QrAttendanceService.java:53, 54`: `STEP=15s`, `MAX_DRIFT=2` | Cần xác nhận: Thực tế code cho phép dung sai chênh lệch đồng hồ $\pm 30\text{s}$ (tổng thời gian token hợp lệ lên tới 45s để tránh rớt mạng 4G). |
-| **BR-09** | **Giới hạn Thời gian Giữ Chỗ Tạm Thời 300s** | **PENDING_CONFIRMATION** | **IMPLEMENTATION_ONLY** | Thiết kế Kỹ thuật Chống Nghẽn Chỗ | `RealtimeSeatService.java:49`: `RESERVATION_DURATION_SECONDS = 300` | Cần xác nhận: Thời gian giữ chỗ 300 giây (5 phút) có phù hợp với kỳ vọng của nhà trường trong các đợt cao điểm không? |
-| **BR-10** | **Ngưỡng Kích hoạt Cảnh báo Nguy cơ Học vụ** | **PENDING_CONFIRMATION** | **IMPLEMENTATION_ONLY** | Quy định Khảo thí & Đảm bảo Chất lượng | `EarlyWarningService.java:152`: Vắng $\ge 20\%$ cấm thi; Mid $< 3.0$ / $4.0$ | Cần xác nhận: Tiêu chí vắng $\ge 20\%$ tổng số buổi học bị cấm thi kết thúc môn có cần thông qua Hội đồng Đào tạo không? |
-| **BR-11** | **Toàn vẹn Mật mã Chữ ký Bảng điểm Số** | **PENDING_CONFIRMATION** | **PARTIALLY VERIFIED** | Thiết kế An toàn Dữ liệu Học vụ | `DigitalCredentialService.java:119-140` (HMAC-SHA256 Constant-time) | Cần xác nhận: Backend đang dùng fallback dữ liệu mẫu khi thiếu dữ liệu động; cần hoàn thiện truy vấn động 100% trước khi public. |
-| **BR-12** | **Ràng buộc Xóa Môn học Khung Chương trình**| **STAKEHOLDER_APPROVED** | **IMPLEMENTATION_VERIFIED** | Toàn vẹn Dữ liệu Đào tạo Lịch sử | `AdminCourseService.java`; Khóa ngoại DB `class_sections.course_id` | Chỉ cho phép xóa môn học khi chưa từng có bất kỳ lớp học phần nào được mở trong lịch sử CSDL. |
-| **BR-13** | **Điều kiện Hoàn tất Chốt Sổ Điểm Lớp** | **PENDING_CONFIRMATION** | **IMPLEMENTATION_ONLY** | Quy trình Quản lý Điểm thi | `LecturerService.java:252` (Throw `MissingGradesException`) | Giảng viên chỉ được khóa điểm khi 100% sinh viên trong danh sách lớp đã có đủ điểm thành phần (không còn ô trống). |
-| **BR-14** | **Tính Bất biến của Nhật ký Kiểm toán** | **STAKEHOLDER_APPROVED** | **IMPLEMENTATION_VERIFIED** | Chuẩn An toàn Thông tin & Pháp lý Học vụ | `AuditLogRepository.java`; Không có API UPDATE/DELETE | Bảng `audit_logs` chỉ hỗ trợ thao tác ghi thêm (Append-only) và đọc (Read-only); nghiêm cấm chỉnh sửa hoặc xóa log. |
+### Bảng Tổng hợp 15 Quy tắc Nghiệp vụ Toàn diện (BR-01 đến BR-15)
+
+| Mã Quy tắc | Tên Quy tắc Nghiệp vụ | Khách hàng cần biết gì? (Ý nghĩa & Trải nghiệm) | Developer cần làm gì & Chặn ở đâu? (Kỹ thuật & Code) | Phê duyệt | Triển khai | Thẩm quyền |
+| :--- | :--- | :--- | :--- | :---: | :---: | :--- |
+| **BR-01** | **Hạn mức Tín chỉ Đăng ký Học kỳ** | Sinh viên được đăng ký tối đa 24 tín chỉ/kỳ chính. Nếu chọn vượt 24 TC, hệ thống sẽ báo đỏ và chặn lại. Đăng ký dưới 12 TC chỉ hiện banner vàng nhắc nhở, không chặn. | **Frontend**: Tính `totalCredits + newCredits > 24` → Disable nút Đăng ký, hiển thị Toast cảnh báo.<br>**Backend**: `CourseRegistrationService.java:26, 264` kiểm tra hard ceiling $\le 24$. Ném `BadRequestException("Vượt quá giới hạn 24 tín chỉ")` (HTTP 400). Kiểm tra cả ở `confirm`, `batch-confirm`, `reserve` và AI solver. | **APPROVED** | **VERIFIED** | Ban Giám hiệu / PĐT |
+| **BR-02** | **Ràng buộc Môn học Tiên quyết** | Sinh viên bắt buộc phải tích lũy đạt môn tiên quyết (điểm tổng kết $\ge 4.0$ hoặc trạng thái `COMPLETED`) mới được phép đăng ký môn học sau. Môn chưa đạt sẽ bị mờ và có ghi chú lý do. | **Frontend**: Lọc danh sách môn thỏa mãn; hiển thị tooltip "Chưa hoàn thành môn tiên quyết [Mã môn]".<br>**Backend**: `CourseRegistrationService.java:218` truy vấn `enrollments` kiểm tra sinh viên có bản ghi của môn tiên quyết với `status == 'COMPLETED'`. Nếu chưa đạt → throw `PrerequisiteNotMetException` (HTTP 400). | **PENDING** | **VERIFIED** | Quy chế Đào tạo |
+| **BR-03** | **Xử lý Xung đột Thời khóa biểu** | Nếu lớp đăng ký mới trùng giờ với lớp đã có trong TKB, hệ thống KHÔNG chặn đăng ký mà hiển thị cảnh báo vàng (Soft Warning) để sinh viên chủ động sắp xếp thời gian hoặc tự xin giảng viên. | **Frontend**: Hiển thị Modal/Banner cảnh báo: "Lớp học phần này bị trùng lịch với môn [Tên môn]. Bạn có chắc chắn muốn đăng ký?".<br>**Backend**: `CourseRegistrationService.java:294` phát hiện trùng ca học (`dayOfWeek`, `startPeriod`, `endPeriod`), vẫn lưu đăng ký vào DB và set `hasConflict = true`. Trả về `200 OK` kèm cờ `hasConflict`. | **APPROVED** | **VERIFIED** | Quyết định Hội đồng |
+| **BR-04** | **Bảo vệ Bất khả Xâm phạm Admin** | Tài khoản Quản trị viên tối cao (Super Admin) được bảo vệ tuyệt đối: không ai có quyền xóa tài khoản, khóa trạng thái hoặc hạ quyền Admin thành Giảng viên/Sinh viên. | **Frontend**: Ẩn nút Xóa/Khóa/Sửa vai trò trên dòng tài khoản Admin.<br>**Backend**: `AdminUserService.java:149-156, 270-272` kiểm tra nếu `targetUser.getRole() == Role.ADMIN` trong thao tác delete, lock hoặc role change → throw `BadRequestException("Không được phép thay đổi tài khoản Quản trị viên tối cao")` (HTTP 400). | **APPROVED** | **VERIFIED** | An toàn Thông tin |
+| **BR-05** | **Thang điểm & Trọng số Đào tạo 10-40-50** | Điểm học phần tính theo thang 10 và quy đổi sang thang 4: Điểm Chuyên cần chiếm 10%, Điểm Giữa kỳ chiếm 40%, Điểm Cuối kỳ chiếm 50%. Công thức: $	ext{Total} = 	ext{Att}	imes 0.1 + 	ext{Mid}	imes 0.4 + 	ext{Final}	imes 0.5$. | **Frontend**: Hiển thị bảng điểm chi tiết 3 cột điểm thành phần và cột tổng kết tự động tính theo thời gian thực.<br>**Backend**: `GradeCalculator.java:17` áp dụng công thức làm tròn 2 chữ số thập phân. Quy đổi sang thang 4 (A: 4.0, B+: 3.5, B: 3.0, C+: 2.5, C: 2.0, D+: 1.5, D: 1.0, F: 0.0) và lưu vào bảng `grades`. | **PENDING** | **VERIFIED** | Quy chế Đào tạo |
+| **BR-06** | **Khóa Bất biến Sổ Điểm & Mở Khóa Phúc khảo** | Sau khi Giảng viên kiểm tra và bấm "Chốt khóa sổ điểm", bảng điểm bị khóa vĩnh viễn (giảng viên không thể sửa). Chỉ duy nhất Quản trị viên Đào tạo (Admin) mới có quyền mở khóa khi có đơn phúc khảo được duyệt. | **Frontend**: Sau khi khóa, nút Sửa điểm bị vô hiệu hóa; hiển thị huy hiệu "ĐÃ KHÓA SỔ ĐIỂM" màu xám.<br>**Backend**: `LecturerService.java:233, 257` kiểm tra nếu `isLocked == true` mà Giảng viên gọi API sửa điểm → throw `GradebookLockedException` (HTTP 403). Mở khóa yêu cầu quyền `ROLE_ADMIN` và bắt buộc lưu vết vào `audit_logs` (**BR-14**). | **APPROVED** | **PARTIALLY VERIFIED** | Ban Giám hiệu / PĐT |
+| **BR-07A** | **Chính sách Nợ Học phí Không Chặn Đăng ký** | Sinh viên chưa nộp học phí kỳ trước vẫn ĐƯỢC PHÉP đăng ký tín chỉ bình thường; hệ thống chỉ hiển thị banner cảnh báo nhắc nợ màu cam nổi bật trên Dashboard và gửi email nhắc nhở. | **Frontend**: Hiển thị Banner trên Dashboard: "Bạn còn hóa đơn học phí kỳ trước chưa thanh toán. Vui lòng thanh toán sớm để đảm bảo quyền lợi học vụ." Nút Đăng ký học phần vẫn sáng và hoạt động 100%.<br>**Backend**: `CourseRegistrationService.java` tuyệt đối không kiểm tra điều kiện `tuition.status == PAID` khi xử lý xác nhận đăng ký môn. | **APPROVED** | **VERIFIED** | Quyết định Nhà trường |
+| **BR-07B** | **Định mức Đơn giá Học phí & Phí CSVC** | Học phí tính theo công thức: $	ext{Học phí} = (	ext{Số tín chỉ} 	imes 450.000	ext{đ}) + 300.000	ext{đ (Phí CSVC & Dịch vụ đào tạo)}/kỳ$. | **Frontend**: Màn hình Học phí hiển thị rõ bảng phân tích: Đơn giá 450.000đ/TC $	imes$ số TC đã đăng ký + 300.000đ phí CSVC = Tổng tiền phải thanh toán.<br>**Backend**: `TuitionService.java:133` tính tổng số tín chỉ các môn có `status == ENROLLED`, áp dụng công thức, sinh bản ghi `tuition_fees` với số tiền chính xác. | **PENDING** | **VERIFIED** | Phòng Kế hoạch Tài chính |
+| **BR-08** | **Mã QR Điểm danh Động Chu kỳ 15 Giây** | Giảng viên chiếu mã QR trên lớp; mã QR tự động đổi hình sau mỗi 15 giây. Sinh viên phải quét trực tiếp trên màn hình chiếu; ảnh chụp màn hình gửi qua Zalo/Facebook sẽ hết hạn sau 15-45s, triệt tiêu điểm danh hộ. | **Frontend**: Giảng viên: Component hiển thị mã QR có thanh đếm ngược tròn 15 giây tự động reload SVG. Sinh viên: App Native bật camera quét và gửi ngay mã TOTP.<br>**Backend**: `QrAttendanceService.java:53, 54` sử dụng thuật toán RFC 6238 TOTP với `timeStep = 15s`, chấp nhận dung sai lệch đồng hồ tối đa $\pm 2$ bước ($30	ext{s}$) để đảm bảo không bị rớt mạng di động 4G. | **PENDING** | **VERIFIED** | Thiết kế Chống gian lận |
+| **BR-09** | **Giới hạn Thời gian Giữ Chỗ Tạm Thời 300s** | Khi sinh viên bấm "Giữ chỗ", hệ thống giữ nguyên 1 chỗ trong lớp trong đúng 5 phút (300 giây). Đồng hồ đếm ngược chạy lùi; nếu không bấm xác nhận trong 5 phút, chỗ tự động hoàn trả lại lớp. | **Frontend**: Hiển thị đếm ngược định dạng `05:00` $ightarrow$ `00:00` có đổi màu cảnh báo khi còn dưới 1 phút; hết giờ tự xóa khỏi giỏ giữ chỗ.<br>**Backend**: `RealtimeSeatService.java:49` ghi bản ghi vào bảng `slot_reservations` với `expiresAt = NOW() + 300s`, giảm `availableSeats` atomic. Background task hoặc trigger tự động hoàn chỗ khi hết hạn. | **PENDING** | **VERIFIED** | Chống Nghẽn Tín chỉ |
+| **BR-10** | **Ngưỡng Kích hoạt Cảnh báo Nguy cơ Học vụ** | Sinh viên bị đưa vào diện "Nguy cơ Học vụ" khi: (1) Vắng $\ge 20\%$ tổng số buổi học của môn (nguy cơ bị cấm thi kết thúc học phần), hoặc (2) Điểm thi giữa kỳ $< 3.0/4.0$ (dưới 5.0 hệ 10). | **Frontend**: Giảng viên: Danh sách lớp hiển thị cờ đỏ bên cạnh sinh viên vi phạm kèm nút "Bắn cảnh báo 1-chạm". Sinh viên: Dashboard hiện cảnh báo đỏ chi tiết môn và số buổi đã vắng.<br>**Backend**: `EarlyWarningService.java:152` chạy thuật toán quét tự động, đếm `absentSessions / totalSessions >= 0.20` hoặc `midtermScore < 5.0` (hệ 10), sinh cảnh báo `early_warnings`. | **PENDING** | **VERIFIED** | Khảo thí & Đảm bảo CL |
+| **BR-11** | **Toàn vẹn Mật mã Chữ ký Bảng điểm Số** | Bảng điểm điện tử sinh ra mã xác thực duy nhất bằng chữ ký mật mã HMAC-SHA256 kết hợp mã serial. Mọi sự thay đổi dù chỉ 0.01 điểm đều khiến mã chữ ký bị sai lệch, chống triệt để làm giả bảng điểm. | **Frontend**: Sinh viên bấm "Xuất bảng điểm số" nhận mã QR và chuỗi Signature. Trang tra cứu công khai quét mã QR hiển thị tích xanh chứng thực.<br>**Backend**: `DigitalCredentialService.java:119-140` gom chuỗi dữ liệu gốc (Canonical String: `SERIAL|STUDENT_CODE|FULL_NAME|CGPA|CREDITS`), ký bằng Secret Key qua HMAC-SHA256, so sánh thời gian hằng số (`MessageDigest.isEqual`) chống Side-channel Attack. | **PENDING** | **PARTIALLY VERIFIED** | Pháp lý Bằng cấp & An toàn |
+| **BR-12** | **Ràng buộc Xóa Môn học Khung Chương trình** | Quản trị viên chỉ được phép xóa môn học trong danh mục đào tạo nếu môn học đó CHƯA TỪNG được mở bất kỳ lớp học phần nào trong lịch sử cơ sở dữ liệu. | **Frontend**: Nếu môn đã từng mở lớp, nút Xóa bị vô hiệu hóa kèm tooltip giải thích.<br>**Backend**: `AdminCourseService.java` kiểm tra `classSectionRepository.countByCourseId(courseId) > 0`. Nếu có lớp tồn tại → throw `DataIntegrityViolationException("Không thể xóa môn học đã từng phát sinh lớp học phần")` (HTTP 409). | **APPROVED** | **VERIFIED** | Toàn vẹn Lịch sử Đào tạo |
+| **BR-13** | **Điều kiện Hoàn tất Chốt Sổ Điểm Lớp** | Giảng viên chỉ được phép bấm nút "Chốt khóa sổ điểm" khi 100% sinh viên trong danh sách lớp đã có đầy đủ điểm thành phần (không còn bất kỳ ô điểm nào bị bỏ trống). | **Frontend**: Nút "Chốt khóa sổ điểm" bị disabled nếu còn sinh viên thiếu điểm; hiển thị cảnh báo: "Còn X sinh viên chưa có đủ điểm thành phần".<br>**Backend**: `LecturerService.java:252` kiểm tra toàn bộ danh sách `enrollments` của lớp. Nếu phát hiện bất kỳ bản ghi nào có điểm chuyên cần, giữa kỳ hoặc cuối kỳ bị null → throw `MissingGradesException("Không thể khóa sổ điểm khi còn sinh viên chưa nhập điểm")` (HTTP 400). | **PENDING** | **VERIFIED** | Quy trình Quản lý Điểm |
+| **BR-14** | **Tính Bất biến của Nhật ký Kiểm toán (Audit Log)** | Toàn bộ các thao tác nhạy cảm (Sửa điểm, Reset mật khẩu, Khóa tài khoản, Mở lớp, Hủy môn, Gạch nợ học phí) đều được ghi tự động vào bảng `audit_logs` với giao dịch cô lập độc lập; nghiêm cấm sửa hoặc xóa log. | **Frontend**: Giao diện Audit Log chỉ hỗ trợ Xem và Lọc, tuyệt đối không có nút Sửa hoặc Xóa.<br>**Backend**: `AuditLogService.java` dùng `@Transactional(propagation = Propagation.REQUIRES_NEW)`. Repository chỉ hỗ trợ `save()` và `findAll()`, không có method `update` hoặc `delete`. CSDL không cấp quyền `UPDATE`/`DELETE` trên bảng `audit_logs`. | **APPROVED** | **VERIFIED** | Chuẩn Pháp lý Học vụ |
+| **BR-15** | **Kiểm soát Xung đột Phòng học & Lịch Giảng dạy** | Trong cùng một khung thời gian (cùng Học kỳ, Thứ trong tuần, và khoảng Tiết học bắt đầu - kết thúc): (1) Một phòng học không thể xếp cho 2 lớp khác nhau; (2) Một giảng viên không thể dạy 2 lớp khác nhau. | **Frontend**: Màn hình mở lớp học phần tự động gọi API validate khi Admin chọn phòng và giảng viên; hiển thị viền đỏ và thông báo xung đột tức thì.<br>**Backend**: `AdminSectionService.java` truy vấn bảng `class_sections` kiểm tra giao thoa khoảng tiết: `dayOfWeek == :day AND (startPeriod <= :newEnd AND endPeriod >= :newStart)`. Nếu trùng phòng hoặc trùng giảng viên → throw `ScheduleConflictException` (HTTP 409). | **APPROVED** | **VERIFIED** | Tổ chức Đào tạo |
 
 ---
+
 # 5. TỪ ĐIỂN DỮ LIỆU & RÀNG BUỘC CƠ SỞ DỮ LIỆU (DATA DICTIONARY)
 
 ### Bảng: `audit_logs` (Nhật ký kiểm toán học vụ bất biến)
@@ -756,6 +788,8 @@ Dưới đây là bảng đặc tả đầy đủ **15 Quy tắc Nghiệp vụ (
 
 ## 8.2. Danh sách Đặc tả Chi tiết 21 Use Case (Chuẩn 13 Phần IEEE)
 
+---
+
 ## UC-01: Đăng nhập & Xác thực JWT
 
 | Trường | Nội dung |
@@ -768,6 +802,15 @@ Dưới đây là bảng đặc tả đầy đủ **15 Quy tắc Nghiệp vụ (
 | **Business Rules** | `BR-04` (Bảo vệ Admin), `BR-14` (Audit Trail bất biến) |
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `AuthController.java`, `AuthService.java`, `auth-service` |
+
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Cổng đăng nhập tập trung và cấp quyền truy cập hệ thống bảo mật bằng tài khoản (Username/Email) và mật khẩu BCrypt. Hệ thống cấp cặp mã định danh an toàn JWT (Access Token 24 giờ + Refresh Token) để người dùng truy cập đúng chức năng theo vai trò (Sinh viên, Giảng viên, Quản trị viên).
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Trình duyệt truy cập URL `/login`; trên thiết bị di động mở ứng dụng Rikkei EduPortal hiển thị màn hình Đăng nhập.
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/Login.jsx` | Mobile: `mobile/src/features/auth/services/authApi.ts` & `login.tsx` | Backend Controller: `AuthController.java` (`auth-service`) | Service: `AuthService.java` | REST API: `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout` | Bảng CSDL: `users`, `refresh_tokens`, `audit_logs`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Nhập Tên đăng nhập (hoặc Email trường cấp). 2. Nhập Mật khẩu cá nhân. 3. Nhấn nút **Đăng nhập**. 4. Hệ thống xác thực và tự động đưa vào Dashboard đúng quyền (Sinh viên, Giảng viên hoặc Quản trị viên).
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận request `POST /api/v1/auth/login`. 2. Truy vấn bảng `users` theo username/email. 3. So khớp mật khẩu qua BCrypt `passwordEncoder.matches()`. 4. Kiểm tra cờ `status == 'ACTIVE'` (nếu LOCKED ném 403 Forbidden). 5. Sinh cặp JWT Access Token (hạn 24h, HMAC-SHA512) và Refresh Token lưu DB. 6. Trả về `200 OK` UserDTO & Token; Axios Interceptor tự động gắn Bearer Token cho các lời gọi tiếp theo.
 
 ### 1. Mô tả Ngắn gọn
 Use Case mô tả luồng người dùng (Sinh viên, Giảng viên hoặc Quản trị viên) xác thực danh tính với hệ thống, nhận cặp token JWT (Access Token hạn 24 giờ + Refresh Token) và duy trì phiên làm việc an toàn trên cổng web hoặc ứng dụng di động.
@@ -852,6 +895,15 @@ Use Case mô tả luồng người dùng (Sinh viên, Giảng viên hoặc Quả
 | **Mức Ưu tiên** | **Should have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `OfflineContext.tsx`, `ConnectedOfflineBanner.tsx` |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Khả năng cài đặt cổng đào tạo thành ứng dụng độc lập trên máy tính hoặc điện thoại (Progressive Web App - PWA) và lưu trữ bộ nhớ đệm ngoại tuyến (Offline Storage), giúp người dùng xem được Thời khóa biểu và Bảng điểm ngay cả khi mất mạng Internet hoặc 4G chập chờn.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Trên trình duyệt xuất hiện nút 'Cài đặt EduPortal' ở thanh địa chỉ hoặc banner chân trang; sau khi cài đặt xuất hiện icon ứng dụng trên màn hình chính (Home Screen) của máy tính/điện thoại.
+>   - **Dành cho Lập trình viên**: Frontend PWA: `public/sw.js` (Service Worker), `public/manifest.json`, `index.html` | Mobile: `mobile/src/services/offlineStorage.ts` (AsyncStorage / SQLite) | Backend: Cung cấp API có gắn HTTP Cache Headers (`Cache-Control: public, max-age=3600`) | Bảng CSDL cục bộ: `offline_cache`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Khi truy cập web trên Chrome/Safari/Edge, bấm nút **Cài đặt ứng dụng** (Install PWA) hoặc 'Thêm vào màn hình chính'. 2. Mở ứng dụng từ icon trên màn hình. 3. Khi mất kết nối mạng, ứng dụng tự động hiển thị thanh thông báo màu vàng 'Đang ở chế độ ngoại tuyến' và vẫn hiển thị đầy đủ Thời khóa biểu và Điểm số gần nhất.
+>   - **Developer xử lý kỹ thuật**: 1. Đăng ký Service Worker trong `main.jsx` lắng nghe sự kiện `install`, `activate`, `fetch`. 2. Sử dụng chiến lược Cache-First cho tài nguyên tĩnh (JS, CSS, Icons) và Stale-While-Revalidate cho API Thời khóa biểu (`/timetable`) và Bảng điểm (`/grades`). 3. Lắng nghe sự kiện `navigator.onLine` để hiển thị Offline Banner khi mất mạng. 4. Trên Mobile App: Tự động lưu bản ghi TKB và Điểm vào AsyncStorage sau mỗi lần fetch thành công.
+
 ### 1. Mô tả Ngắn gọn
 Người dùng (đặc biệt là sinh viên trên thiết bị di động) có thể cài đặt ứng dụng qua PWA và tra cứu thời khóa biểu, bảng điểm ngay cả khi mất kết nối Internet nhờ cơ chế bộ nhớ đệm tự động đồng bộ khi online.
 
@@ -926,6 +978,15 @@ Người dùng (đặc biệt là sinh viên trên thiết bị di động) có 
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `StudentDashboard.jsx`, `dashboard.tsx` |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Bảng điều khiển trung tâm học vụ (Dashboard) của sinh viên: tổng hợp tức thì số tín chỉ tích lũy chuẩn xác (42 tín chỉ, điểm trung bình tích lũy CGPA 8.84), 3 thanh tiến độ hoàn thành các khối kiến thức (Đại cương 15/30 TC, Cơ sở ngành 21/45 TC, Chuyên ngành 6/60 TC $\rightarrow 15+21+6=42\text{ TC}$), lịch học trong ngày và các thông báo cảnh báo học vụ quan trọng.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Dashboard** (hoặc truy cập URL `/student/dashboard`); trên Mobile là Tab đầu tiên 'Tổng quan'.
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/StudentDashboard.jsx` | Mobile: `mobile/src/screens/DashboardScreen.tsx` & `dashboard.tsx` | Backend Controller: `StudentDashboardController.java` (`academic-service`) | Service: `StudentDashboardService.java` | REST API: `GET /api/v1/student/dashboard`, `GET /api/v1/student/curriculum-progress` | Bảng CSDL: `student_profiles`, `grades`, `courses`, `enrollments`, `tuition_fees`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Đăng nhập với tài khoản sinh viên. 2. Ngay tại trang chủ, theo dõi thẻ Tín chỉ tích lũy (42 TC) và CGPA (8.84). 3. Kéo xuống phần 'Tiến độ Chương trình đào tạo' để xem tỷ lệ hoàn thành 3 khối kiến thức. 4. Theo dõi danh sách ca học hôm nay và các cảnh báo học vụ (nếu có vi phạm chuyên cần hoặc nợ học phí kỳ trước).
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận request `GET /api/v1/student/dashboard`. 2. Truy vấn bảng `student_profiles` lấy mã sinh viên. 3. Tính toán các môn đã hoàn thành (`status == COMPLETED` hoặc tổng kết $\ge 4.0$): tổng đúng 42 tín chỉ, CGPA = 8.84. 4. Gom nhóm môn học theo khối kiến thức: Đại cương (15/30), Cơ sở ngành (21/45), Chuyên ngành (6/60) $ightarrow$ tổng 42 TC. 5. Kiểm tra hóa đơn học phí chưa thanh toán (nếu có, gắn cờ `hasUnpaidTuition = true` theo **BR-07A**, không chặn học vụ). 6. Trả về `200 OK` JSON tổng hợp.
+
 ### 1. Mô tả Ngắn gọn
 Sinh viên đăng nhập vào hệ thống và xem Dashboard tổng quan gồm: thông tin cá nhân, tiến độ tích lũy tín chỉ, lịch học hôm nay, các cảnh báo học vụ khẩn cấp (nguy cơ cấm thi, điểm kém) và cảnh báo nhắc nợ học phí nếu có.
 
@@ -997,6 +1058,15 @@ Sinh viên đăng nhập vào hệ thống và xem Dashboard tổng quan gồm: 
 | **Business Rules** | Tuân thủ chuẩn mở quốc tế RFC 5545 iCalendar |
 | **Mức Ưu tiên** | **Should have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `CalendarSyncController.java`, `CalendarSyncService.java` |
+
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Tính năng đồng bộ lịch học tự động: cho phép sinh viên xuất toàn bộ lịch học của học kỳ thành tệp tin chuẩn quốc tế `.ics` hoặc sao chép liên kết WebCal Live Subscription để tích hợp trực tiếp vào ứng dụng Google Calendar, Apple Calendar hoặc Microsoft Outlook trên điện thoại và máy tính.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Thời khóa biểu** (`/student/timetable`), nhìn lên góc trên bên phải màn hình có 2 nút: **Xuất file lịch (.ics)** và **Đồng bộ WebCal**.
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/StudentTimetable.jsx` | Backend Controller: `CalendarSyncController.java` (`enrollment-service`) | Service: `CalendarSyncService.java` | REST API: `GET /api/v1/student/calendar/export.ics`, `GET /api/v1/calendar/feed/{studentCode}` | Chuẩn kỹ thuật: RFC 5545 iCalendar (`text/calendar`).
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Truy cập màn hình Thời khóa biểu. 2. Để tải file: Nhấn nút **Xuất lịch (.ics)** $ightarrow$ Mở file tải về để nhập vào ứng dụng lịch. 3. Để đồng bộ tự động: Nhấn nút **Đồng bộ WebCal** $ightarrow$ Sao chép đường dẫn `webcal://...` dán vào Google Calendar (Mục Thêm lịch bằng URL) $ightarrow$ Khi nhà trường đổi phòng học hoặc đổi ca, lịch trên điện thoại tự cập nhật theo.
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận request `GET /api/v1/student/calendar/export.ics?semesterId=...`. 2. Lấy danh sách các lớp học phần sinh viên đang ghi danh (`status == ENROLLED`). 3. Duyệt từng lớp, tính toán ngày học đầu tiên dựa trên ngày bắt đầu học kỳ và `dayOfWeek`. 4. Sinh khối dữ liệu RFC 5545: `BEGIN:VCALENDAR`, `BEGIN:VEVENT`, `SUMMARY`, `LOCATION` (Phòng học), `RRULE:FREQ=WEEKLY;UNTIL=...` (Lặp lại hàng tuần đến hết kỳ), `END:VEVENT`, `END:VCALENDAR`. 5. Trả về HTTP 200 kèm `Content-Type: text/calendar` và Header `Content-Disposition: attachment; filename=timetable.ics`.
 
 ### 1. Mô tả Ngắn gọn
 Sinh viên xuất toàn bộ lịch học và lịch thi thành tệp tin `.ics` chuẩn quốc tế RFC 5545 để nạp thủ công vào ứng dụng lịch cá nhân, hoặc đăng ký nhận URL WebCal Live Subscription Feed có gắn chữ ký HMAC để điện thoại tự động đồng bộ khi có đổi phòng học hay đổi lịch thi.
@@ -1071,6 +1141,15 @@ Sinh viên xuất toàn bộ lịch học và lịch thi thành tệp tin `.ics`
 | **Mức Ưu tiên** | **Should have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `RealtimeSeatService.java`, `StudentPortalController.java` |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Cơ chế theo dõi số chỗ trống khả dụng của các lớp học phần theo thời gian thực (Server-Sent Events - SSE) và cơ chế Giữ chỗ tạm thời 5 phút (300 giây): giúp sinh viên kịp thời nhìn thấy số chỗ nhảy số khi có bạn khác đăng ký, và an tâm giữ chỗ lớp mong muốn trong khi tiếp tục chọn các môn học khác mà không sợ bị người khác cướp mất.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Đăng ký học phần** (`/student/registration`), quan sát cột 'Số chỗ còn lại' hiển thị số lượng và thanh tỷ lệ đầy lớp; mỗi lớp có nút **Giữ chỗ (5 phút)**.
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/CourseRegistration.jsx` (lắng nghe `EventSource`) | Backend Controller: `RealtimeSeatController.java` (`enrollment-service`) | Service: `RealtimeSeatService.java` | REST API: `GET /api/v1/student/sections/stream` (SSE), `POST /api/v1/student/enrollments/reserve`, `DELETE /api/v1/student/enrollments/reserve/{id}` | Bảng CSDL: `slot_reservations`, `class_sections`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Vào trang Đăng ký học phần. 2. Quan sát số chỗ trống nhảy số tức thì mà không cần bấm F5 tải lại trang. 3. Khi tìm thấy lớp học phần phù hợp, nhấn nút **Giữ chỗ (5 phút)**. 4. Lớp học phần được đưa vào 'Danh sách giữ chỗ' với đồng hồ đếm ngược `05:00` $ightarrow$ `00:00`. 5. Sinh viên có 5 phút để gom thêm các môn khác trước khi bấm xác nhận đăng ký.
+>   - **Developer xử lý kỹ thuật**: 1. Client thiết lập kết nối HTTP SSE qua `GET /api/v1/student/sections/stream?semesterId=...`. 2. Server đăng ký `SseEmitter` vào danh sách lắng nghe của học kỳ. 3. Khi sinh viên gọi `POST /reserve`, Service thực hiện giao dịch Atomic: kiểm tra chỗ trống $> 0$, trừ 1 chỗ khả dụng, ghi bản ghi vào `slot_reservations` với `expiresAt = NOW() + 300s` (**BR-09**). 4. Bắn sự kiện SSE `SEAT_UPDATE` thông báo số chỗ mới cho tất cả các client đang kết nối. 5. Background Scheduler quét định kỳ: nếu bản ghi giữ chỗ hết hạn mà chưa xác nhận thì tự động hoàn lại chỗ và broadcast SSE.
+
 ### 1. Mô tả Ngắn gọn
 Sinh viên theo dõi số chỗ khả dụng của các lớp học phần được cập nhật tức thời theo thời gian thực (qua Server-Sent Events - SSE) và có thể bấm nút "Giữ chỗ 5 phút" để khóa tạm thời 1 slot mong muốn trong 300 giây, bảo vệ vị trí trước khi hoàn tất đăng ký chính thức.
 
@@ -1144,6 +1223,15 @@ Sinh viên theo dõi số chỗ khả dụng của các lớp học phần đư�
 | **Business Rules** | `BR-01` (Trần 24 TC), `BR-09` (Giữ chỗ 300s) |
 | **Mức Ưu tiên** | **Should have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `SmartScheduleOptimizerService.java`, `ScheduleOptimizerController.java` |
+
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Công cụ Trí tuệ Nhân tạo (AI CSP Optimizer) xếp thời khóa biểu thông minh: sinh viên chỉ cần chọn danh sách các môn học muốn học trong kỳ, chọn ngày muốn nghỉ (ví dụ: nghỉ Thứ 7, Chủ nhật) và ca học mong muốn (ưu tiên học Sáng hoặc Chiều); Thuật toán AI sẽ tự động tính toán hàng nghìn tổ hợp lớp, loại bỏ mọi xung đột trùng giờ, và đề xuất Top 3 phương án thời khóa biểu tối ưu nhất kèm nút 1-chạm giữ chỗ toàn bộ môn.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Đăng ký học phần** (`/student/registration`) > Chọn tab **Xếp lịch AI (CSP Optimizer)** ở thanh tab phía trên.
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/CourseRegistration.jsx` (Tab AI Schedule) | Backend Controller: `ScheduleOptimizerController.java` (`academic-service`) | Service: `SmartScheduleOptimizerService.java` (Thuật toán CSP DFS Backtracking + Pruning) | REST API: `POST /api/v1/student/schedule-optimizer/solve`, `POST /api/v1/student/schedule-optimizer/batch-reserve` | Bảng CSDL: `class_sections`, `slot_reservations`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Mở tab **Xếp lịch AI**. 2. Tích chọn các môn học muốn học trong kỳ (ví dụ: Giải tích, Lập trình Java, Cơ sở dữ liệu). 3. Tích chọn ngày muốn nghỉ (ví dụ: Thứ 7, Chủ nhật) và ca học ưa thích (Ưu tiên Sáng). 4. Nhấn nút **Tạo phương án TKB tối ưu**. 5. Xem 3 phương án được xếp hạng điểm tối ưu từ cao xuống thấp (Phương án 1, 2, 3) hiển thị trên lưới TKB trực quan. 6. Ưng ý phương án nào, nhấn nút **Giữ chỗ phương án này** để 1-chạm giữ toàn bộ các lớp trong phương án.
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận request `POST /api/v1/student/schedule-optimizer/solve` với payload `{ courseIds, preferredDaysOff, preferredShifts }`. 2. Lấy danh sách các lớp mở còn chỗ cho từng mã môn. 3. Khởi tạo thuật toán CSP Backtracking: Biến (Variables) là các Môn học, Miền giá trị (Domain) là các Lớp học phần mở, Ràng buộc cứng (Hard Constraints) là không được trùng thứ và khoảng tiết học, kiểm tra trần tối đa 24 tín chỉ (**BR-01**). 4. Tính điểm tối ưu (Soft Constraints Score) dựa trên tiêu chí ngày nghỉ và ca học ưa thích. 5. Lấy Top 3 phương án có điểm cao nhất trả về JSON `solutions`. 6. Khi người dùng gọi `POST /batch-reserve`, Service thực hiện Atomic Batch Reservation giữ chỗ cho tất cả các `sectionId` trong phương án.
 
 ### 1. Mô tả Ngắn gọn
 Sinh viên chọn danh sách các môn học mong muốn học trong kỳ kèm theo các sở thích cá nhân (ngày muốn tránh, ca học ưu tiên sáng/chiều, mục tiêu dồn lịch gọn ngày hay phân bổ đều). Thuật toán AI CSP Backtracking tự động tính toán và đề xuất Top 3 phương án thời khóa biểu tối ưu không trùng lặp thời gian, kèm tính năng "1-Chạm Giữ chỗ Cả Phương án" trong 5 phút.
@@ -1220,6 +1308,15 @@ Sinh viên chọn danh sách các môn học mong muốn học trong kỳ kèm t
 | **Business Rules** | `BR-01` (Trần 24 TC, cảnh báo 12 TC), `BR-02` (Tiên quyết), `BR-03` (Soft Warning trùng lịch), `BR-07A` (Nợ học phí không chặn) |
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `CourseRegistrationService.java`, `StudentPortalController.java` |
+
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Quy trình Đăng ký & Hủy học phần cốt lõi của sinh viên: tìm kiếm lớp theo môn/khoa/giảng viên, kiểm tra điều kiện tiên quyết, kiểm tra trần tối đa 24 tín chỉ, phòng chống chọn trùng lớp (hiển thị 'Đã chọn lớp khác' hoặc 'Đã tích lũy' và vô hiệu hóa nút), cảnh báo mềm khi trùng lịch, và hủy môn học trong thời hạn quy định.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Đăng ký học phần** (`/student/registration`); trên Mobile: Tab 'Đăng ký' ở thanh điều hướng dưới cùng.
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/CourseRegistration.jsx` | Mobile: `mobile/src/screens/RegistrationScreen.tsx` | Backend Controller: `CourseRegistrationController.java` (`enrollment-service`) | Service: `CourseRegistrationService.java` | REST API: `POST /api/v1/student/enrollments/confirm`, `POST /api/v1/student/enrollments/batch-confirm`, `DELETE /api/v1/student/enrollments/{id}` | Bảng CSDL: `enrollments`, `class_sections`, `courses`, `prerequisites`, `audit_logs`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Chọn học kỳ cần đăng ký tại danh sách chọn học kỳ. 2. Nhập mã môn hoặc tên môn để tìm lớp học phần. 3. Quan sát trạng thái từng lớp: nếu môn đã tích lũy trong quá khứ hiển thị nhãn 'Đã tích lũy' (không cho chọn); nếu đã đăng ký 1 lớp của môn này thì các lớp còn lại hiển thị 'Đã chọn lớp khác' (không cho chọn trùng). 4. Nhấn nút **Đăng ký** trên lớp mong muốn. 5. Hệ thống kiểm tra: nếu vượt 24 tín chỉ sẽ báo lỗi; nếu trùng lịch hiển thị cảnh báo mềm hỏi xác nhận. 6. Kiểm tra lại danh sách các môn đã đăng ký thành công ở bảng bên dưới. 7. Nếu muốn rút môn, nhấn nút **Hủy môn** (thùng rác màu đỏ).
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận `POST /api/v1/student/enrollments/confirm` với `{ sectionId }`. 2. Kiểm tra môn tiên quyết (**BR-02**): sinh viên phải có bản ghi `status == COMPLETED` của môn tiên quyết. 3. Kiểm tra trần tín chỉ (**BR-01**): tính tổng số tín chỉ đã đăng ký trong kỳ + số tín chỉ môn mới; nếu $> 24$ tín chỉ $ightarrow$ ném `BadRequestException('Vượt quá giới hạn 24 tín chỉ')` (HTTP 400). 4. Kiểm tra xung đột lịch học (**BR-03**): nếu trùng giờ, set cờ `hasConflict = true` (không chặn, trả về Soft Warning). 5. Lưu bản ghi `enrollments` với `status = 'ENROLLED'`. 6. Tăng `currentEnrolled` của lớp lên 1, xóa bản ghi giữ chỗ nếu có, broadcast SSE cập nhật số chỗ. 7. Khi gọi `DELETE /{id}`, kiểm tra khung thời gian cho phép rút môn, cập nhật trạng thái `DROPPED` và giảm sĩ số.
 
 ### 1. Mô tả Ngắn gọn
 Sinh viên thực hiện ghi danh chính thức vào các lớp học phần trong học kỳ, hệ thống kiểm tra các ràng buộc học vụ cốt lõi (hạn mức tín chỉ, học phần tiên quyết, cảnh báo trùng lịch) và lưu bản ghi đăng ký chính thức, hoặc cho phép sinh viên hủy môn học (drop course) trong thời gian cổng đăng ký còn mở.
@@ -1305,6 +1402,15 @@ Sinh viên thực hiện ghi danh chính thức vào các lớp học phần tro
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `QrAttendanceController.java`, `StudentQrScannerModal.jsx` |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Tính năng Quét mã QR Động Điểm danh trên lớp học: sinh viên sử dụng camera trên ứng dụng di động EduPortal hoặc trình duyệt để quét mã QR trình chiếu trên màn hình của giảng viên trong vòng 15 giây. Hệ thống kiểm tra mã một lần TOTP và định danh thiết bị để xác nhận sinh viên có mặt thực tế trên lớp, loại bỏ hoàn toàn hành vi điểm danh hộ.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Trên ứng dụng di động: Bấm Tab **Điểm danh QR** ở thanh điều hướng dưới; trên Web: Menu bên trái > Bấm **Điểm danh học phần** (`/student/attendance`).
+>   - **Dành cho Lập trình viên**: Mobile App: `mobile/src/screens/QrCheckinScreen.tsx` | Frontend: `frontend/src/pages/StudentAttendance.jsx` | Backend Controller: `QrAttendanceController.java` (`attendance-service`) | Service: `QrAttendanceService.java` | REST API: `POST /api/v1/attendance/check-in` | Bảng CSDL: `attendance_records`, `attendance_sessions`, `enrollments`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Mở ứng dụng EduPortal trên điện thoại, chọn mục **Quét QR Điểm danh**. 2. Hướng camera về phía màn hình máy chiếu của giảng viên trên bục giảng. 3. Quét mã QR đang hiển thị (trong khoảng đếm ngược 15 giây). 4. Ứng dụng hiển thị thông báo tích xanh: 'Điểm danh thành công! Thời gian: [Giờ:Phút:Giây]'. 5. Xem lịch sử các buổi đã có mặt trong phần Thống kê chuyên cần của môn học.
+>   - **Developer xử lý kỹ thuật**: 1. Mobile quét được chuỗi payload chứa `{ sessionId, totpToken }`. 2. Gửi request `POST /api/v1/attendance/check-in` đính kèm `{ qrToken, deviceId, latitude, longitude }`. 3. `QrAttendanceService` lấy secret key của phiên từ bảng `attendance_sessions`, giải mã thuật toán TOTP với bước thời gian 15 giây (**BR-08**), cho phép dung sai lệch đồng hồ tối đa $\pm 2$ bước ($30	ext{s}$). 4. Kiểm tra chống trùng thiết bị (**BR-09**): kiểm tra trong phiên này `deviceId` đã được dùng bởi sinh viên khác chưa (nếu trùng $ightarrow$ ném 400 'Thiết bị này đã được sử dụng để điểm danh cho tài khoản khác'). 5. Kiểm tra sinh viên có trong danh sách ghi danh lớp. 6. Ghi bản ghi vào bảng `attendance_records` và cập nhật tỷ lệ chuyên cần.
+
 ### 1. Mô tả Ngắn gọn
 Sinh viên có mặt tại phòng học sử dụng camera điện thoại hoặc webcam máy tính trên Web/App EduPortal để quét mã QR động đang trình chiếu trên bảng; hệ thống kiểm tra cửa sổ thời gian TOTP và ghi nhận điểm danh chuyên cần hợp lệ, ngăn chặn chụp ảnh màn hình gửi từ xa.
 
@@ -1383,6 +1489,15 @@ Sinh viên có mặt tại phòng học sử dụng camera điện thoại hoặ
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **PARTIALLY VERIFIED** – `DigitalCredentialController.java` (Backend đang dùng fallback data) |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Xem Bảng điểm chi tiết và Xuất Bảng điểm Số có chứng thực mật mã: sinh viên xem kết quả học tập từng học kỳ với đầy đủ điểm thành phần (chuyên cần 10%, giữa kỳ 40%, cuối kỳ 50%), điểm thang 10, thang 4, điểm chữ; theo dõi điểm trung bình tích lũy toàn khóa CGPA (8.84) và tổng tín chỉ tích lũy (42 tín chỉ) đồng nhất 100% với Dashboard; đồng thời có thể bấm nút Xuất bảng điểm điện tử có chữ ký số HMAC-SHA256 và mã QR chứng thực để nộp cho nhà tuyển dụng.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Bảng điểm** (`/student/grades`); trên Mobile: Tab 'Bảng điểm' ở thanh điều hướng.
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/StudentGrades.jsx` | Mobile: `mobile/src/screens/GradesScreen.tsx` & `grades.tsx` | Backend Controller: `StudentGradeController.java` & `DigitalCredentialController.java` (`academic-service`) | Service: `GradeService.java`, `DigitalCredentialService.java` | REST API: `GET /api/v1/student/grades`, `GET /api/v1/student/credentials/transcript` | Bảng CSDL: `grades`, `enrollments`, `courses`, `student_profiles`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Vào menu **Bảng điểm**. 2. Chọn học kỳ muốn xem hoặc chọn 'Tất cả các kỳ'. 3. Xem danh sách môn học kèm điểm chi tiết 3 cột: Chuyên cần (10%), Giữa kỳ (40%), Cuối kỳ (50%) và Điểm tổng kết hệ 10 / hệ 4. 4. Kiểm tra hộp thông số tổng kết phía trên: Tổng tín chỉ tích lũy (42 TC) và Điểm CGPA (8.84). 5. Nhấn nút **Xuất bảng điểm số** để nhận mã QR và bản điện tử có chữ ký số bảo mật dùng cho việc xin việc hoặc học bổng.
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận request `GET /api/v1/student/grades`. 2. Truy vấn toàn bộ bản ghi `grades` liên kết với `enrollments` của sinh viên. 3. Tính điểm GPA học kỳ và CGPA toàn khóa theo công thức bình quân gia quyền tín chỉ (**BR-05**): đảm bảo kết quả CGPA = 8.84 và tổng tích lũy = 42 TC đồng nhất với Dashboard. 4. Khi sinh viên gọi `GET /api/v1/student/credentials/transcript`, `DigitalCredentialService` sinh mã Serial duy nhất, gom chuỗi Canonical Data, tính chữ ký mật mã HMAC-SHA256 bằng khóa bí mật (**BR-11**), trả về JSON kèm URL mã QR đối soát công khai.
+
 ### 1. Mô tả Ngắn gọn
 Sinh viên tra cứu kết quả học tập chi tiết từng học kỳ (điểm chuyên cần, giữa kỳ, cuối kỳ, điểm tổng kết môn, điểm chữ, GPA/CGPA) và xuất bảng điểm điện tử có chữ ký số mật mã HMAC-SHA256 kèm mã Serial duy nhất và QR Code đối soát công khai chống giả mạo bằng cấp.
 
@@ -1459,6 +1574,15 @@ Sinh viên tra cứu kết quả học tập chi tiết từng học kỳ (đi�
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `TuitionController.java`, `PayOSWebhookController.java` |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Thanh toán Học phí trực tuyến thông minh: sinh viên xem hóa đơn học phí chi tiết theo đúng học kỳ được chọn (tự động nhận diện kỳ khi bấm 'Nộp học phí' từ trang Đăng ký học phần, ví dụ: `?semester=2024-25_SEM2`), hiển thị rõ ràng cách tính học phí theo tín chỉ (450.000đ/TC + 300.000đ phí CSVC), quét mã thanh toán chuẩn VietQR Napas247 hoặc chuyển hướng thanh toán trực tuyến qua cổng PayOS an toàn; hệ thống tự động gạch nợ tức thì.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Học phí** (`/student/tuition`), hoặc nhấn nút **Nộp học phí** trực tiếp từ màn hình Đăng ký học phần của bất kỳ học kỳ nào.
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/StudentTuition.jsx` | Backend Controller: `TuitionController.java` (`payment-service`), `PaymentWebhookController.java` | Service: `TuitionService.java`, `PayOsPaymentService.java` | REST API: `GET /api/v1/student/tuition`, `GET /api/v1/student/tuition/{invoiceId}/vietqr`, `POST /api/v1/student/tuition/{invoiceId}/payos-checkout`, `POST /api/v1/tuition/webhook/payos` | Bảng CSDL: `tuition_fees`, `audit_logs`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Khi bấm **Nộp học phí** từ trang Đăng ký môn hoặc vào menu **Học phí**, hệ thống tự động tải đúng hóa đơn của học kỳ đó. 2. Xem chi tiết số tín chỉ đã đăng ký $	imes 450.000\text{đ} + 300.000\text{đ}$ CSVC. 3. Lựa chọn 1 trong 2 hình thức: (a) Quét mã **VietQR Napas247**: Mở app ngân hàng quét mã QR hiển thị trên màn hình (đã điền sẵn số tiền và nội dung chuyển khoản); hoặc (b) Bấm **Thanh toán trực tuyến PayOS**: Chuyển sang cổng thanh toán quét QR hoặc dùng thẻ ATM. 4. Sau khi thanh toán xong, hệ thống nhận thông báo ngân hàng và cập nhật trạng thái 'ĐÃ THANH TOÁN' (PAID) sau 3 giây.
+>   - **Developer xử lý kỹ thuật**: 1. `StudentTuition.jsx` đọc query param `?semester=...` từ URL; nếu có thì tự động chọn đúng tab học kỳ đó thay vì kỳ mặc định. 2. Backend tính tổng tiền theo công thức **BR-07B**: `(credits * 450000) + 300000`. 3. Khi sinh viên chọn VietQR, sinh chuỗi payload EMVCo Napas247. 4. Khi sinh viên chọn PayOS, gọi PayOS API khởi tạo checkout link bảo mật và trả về `checkoutUrl`. 5. Cổng PayOS gửi Webhook về `POST /api/v1/tuition/webhook/payos` kèm chữ ký HMAC; Backend xác thực chữ ký webhook, kiểm tra mã hóa đơn, cập nhật hóa đơn sang `PAID`, ghi nhận log kiểm toán bất biến (**BR-14**).
+
 ### 1. Mô tả Ngắn gọn
 Sinh viên tra cứu học phí của học kỳ hiện tại (tính tự động theo số tín chỉ ghi danh), thanh toán chuyển khoản nhanh bằng mã VietQR Napas247 điền sẵn cú pháp hoặc thanh toán trực tuyến qua cổng PayOS; hệ thống tự động tiếp nhận webhook đối soát và gạch nợ tức thì thời gian thực.
 
@@ -1534,6 +1658,15 @@ Sinh viên tra cứu học phí của học kỳ hiện tại (tính tự độn
 | **Mức Ưu tiên** | **Could have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `AiAdvisorController.java`, `AiAdvisorService.java` (`ai-service`) |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Trợ lý AI Cố vấn Quy chế Đào tạo (AI Academic Advisor RAG Chatbot): sinh viên có thể trò chuyện trực tiếp với trợ lý ảo AI để hỏi đáp mọi thắc mắc về quy chế đào tạo tín chỉ, điều kiện tốt nghiệp, chính sách học bổng, xử lý cảnh báo học vụ, hạn mức đăng ký tín chỉ; AI sử dụng công nghệ RAG truy xuất chính xác các điều khoản trong văn bản quy chế chính thức của nhà trường để trả lời tự nhiên và dẫn nguồn minh bạch.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Nhấn vào **Biểu tượng bong bóng Chat AI** màu xanh nổi ở góc dưới bên phải màn hình trên mọi trang, hoặc vào Menu bên trái > Bấm **Cố vấn AI** (`/student/ai-advisor`).
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/components/AiAdvisorModal.jsx`, `AiAdvisor.jsx` | Backend Controller: `AiAdvisorController.java` (`ai-service`) | Service: `AiAdvisorService.java` (tích hợp Google Gemini LLM & Vector Store Quy chế) | REST API: `POST /api/v1/ai/academic-advisor` | Dữ liệu tri thức: Tập văn bản quy chế đào tạo đại học tín chỉ định dạng Markdown/PDF.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Nhấn vào biểu tượng Chatbot AI ở góc dưới bên phải màn hình. 2. Nhập câu hỏi thắc mắc học vụ (ví dụ: 'Điều kiện cảnh báo học vụ là gì?', 'Một kỳ được đăng ký tối đa bao nhiêu tín chỉ?', 'Làm thế nào để được xét học bổng khuyến khích học tập?'). 3. Nhấn nút Gửi (hoặc Enter). 4. Trợ lý AI phân tích và đưa ra câu trả lời giải thích cặn kẽ, kèm trích dẫn cụ thể Điều khoản và Quyết định quy chế ban hành của nhà trường.
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận request `POST /api/v1/ai/academic-advisor` với `{ question, contextHistory }`. 2. Thực hiện kỹ thuật RAG (Retrieval-Augmented Generation): Tìm kiếm các đoạn trích quy chế liên quan nhất bằng độ đo tương đồng ngữ nghĩa. 3. Ghép ngữ cảnh trích dẫn vào System Prompt: 'Bạn là Cố vấn học tập AI của Rikkei EduPortal. Hãy giải đáp dựa trên các điều khoản quy chế sau...'. 4. Gọi Google Gemini API sinh câu trả lời tự nhiên. 5. Trả về JSON `{ answer, referenceArticles: [...] }`.
+
 ### 1. Mô tả Ngắn gọn
 Sinh viên trò chuyện với Trợ lý ảo AI thông minh tích hợp Google Gemini API và kỹ thuật Retrieval-Augmented Generation (RAG) để tra cứu quy chế đào tạo, điều kiện tốt nghiệp, quy định phúc khảo điểm, cảnh báo học vụ và nhận tư vấn lộ trình học tập được cá nhân hóa.
 
@@ -1603,6 +1736,15 @@ Sinh viên trò chuyện với Trợ lý ảo AI thông minh tích hợp Google 
 | **Business Rules** | `BR-05` (Thang điểm 10-40-50), `BR-10` (Ngưỡng cảnh báo 20%) |
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `LecturerController.java`, `LecturerService.java` |
+
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Phân hệ Quản lý Lớp học phần dành cho Giảng viên: giảng viên tra cứu danh sách các lớp học phần được phân công giảng dạy trong học kỳ, xem thông tin phòng học, ca học, sĩ số lớp, và bấm vào từng lớp để xem danh sách toàn bộ sinh viên kèm thông tin liên lạc, tiến độ chuyên cần và bảng điểm chi tiết.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Lớp giảng dạy** (hoặc truy cập URL `/lecturer/classes`); trên Mobile: Tab 'Lớp học'.
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/LecturerClasses.jsx` | Mobile: `mobile/src/screens/LecturerClassesScreen.tsx` | Backend Controller: `LecturerClassController.java` (`academic-service`) | Service: `LecturerService.java` | REST API: `GET /api/v1/lecturer/classes`, `GET /api/v1/lecturer/classes/{id}/students` | Bảng CSDL: `class_sections`, `enrollments`, `student_profiles`, `users`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Giảng viên đăng nhập tài khoản giảng viên. 2. Vào menu **Lớp giảng dạy**. 3. Xem danh sách các thẻ lớp học phần: hiển thị Mã môn, Tên môn, Thứ, Tiết học, Phòng học, Sĩ số hiện tại / Sĩ số tối đa. 4. Nhấn nút **Xem danh sách sinh viên** trên thẻ lớp để xem bảng chi tiết từng sinh viên (Mã SV, Họ tên, Email, Tỷ lệ chuyên cần). 5. Xuất danh sách lớp ra file Excel khi cần in danh sách danh sách thi/học.
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận `GET /api/v1/lecturer/classes` lấy `lecturerId` từ Security Context token. 2. Truy vấn bảng `class_sections` lọc theo `lecturer_id` và học kỳ hiện tại. 3. Đếm số lượng sinh viên đang ghi danh (`status == ENROLLED`) cho từng lớp. 4. Khi gọi `GET /{id}/students`, kiểm tra quyền sở hữu lớp (giảng viên chỉ được xem lớp mình dạy), join với `enrollments`, `student_profiles`, `grades` và trả về danh sách DTO.
 
 ### 1. Mô tả Ngắn gọn
 Giảng viên tra cứu danh sách các lớp học phần được phân công giảng dạy trong học kỳ hiện tại, xem danh sách sinh viên từng lớp, theo dõi tỷ lệ chuyên cần thời gian thực và quản lý các đầu điểm thành phần của sinh viên.
@@ -1674,6 +1816,15 @@ Giảng viên tra cứu danh sách các lớp học phần được phân công 
 | **Business Rules** | `BR-08` (Mã QR xoay 15s TOTP) |
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `QrAttendanceController.java`, `QrAttendanceService.java` |
+
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Tính năng Khởi tạo Phiên Điểm danh QR Động 15 giây dành cho Giảng viên: tại phòng học, giảng viên chỉ cần bấm 1 nút để mở phiên điểm danh chuyên cần trên máy chiếu. Màn hình hiển thị mã QR cỡ lớn tự động đổi mã sau mỗi 15 giây (TOTP); giảng viên theo dõi số lượng sinh viên check-in nhảy số trực tiếp, có thể điểm danh bổ sung thủ công cho sinh viên hết pin điện thoại, và bấm nút Đóng phiên để khóa kết quả.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Từ trang chi tiết lớp học (`/lecturer/classes/{id}`), bấm nút **Điểm danh QR** (URL: `/lecturer/classes/{id}/attendance`).
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/LecturerAttendance.jsx` | Backend Controller: `QrAttendanceController.java` (`attendance-service`) | Service: `QrAttendanceService.java` | REST API: `POST /api/v1/attendance/session`, `GET /api/v1/attendance/qr-code`, `POST /api/v1/attendance/manual-record`, `POST /api/v1/attendance/close-session` | Bảng CSDL: `attendance_sessions`, `attendance_records`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Giảng viên kết nối máy tính với máy chiếu của lớp học. 2. Bấm nút **Mở phiên điểm danh QR**. 3. Mã QR kích thước lớn xuất hiện trên màn hình cùng đồng hồ đếm ngược tròn 15 giây tự động xoay mã. 4. Sinh viên giơ điện thoại quét mã; giảng viên nhìn thấy danh sách sinh viên có mặt cập nhật ngay lập tức. 5. Nếu có sinh viên gặp sự cố thiết bị, giảng viên tích chọn thủ công 'Có mặt'. 6. Khi hết giờ điểm danh, bấm nút **Đóng phiên điểm danh** để lưu lại kết quả.
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận `POST /api/v1/attendance/session` với `sectionId`. 2. Tạo bản ghi `attendance_sessions` với `status = 'OPEN'`, sinh chuỗi bí mật ngẫu nhiên `secret_seed`. 3. Client gọi `GET /qr-code` định kỳ hoặc lắng nghe WebSocket; Service áp dụng thuật toán TOTP RFC 6238 với `step = 15s` (**BR-08**) để sinh mã token hợp lệ trong 15s. 4. Hỗ trợ API `POST /manual-record` cho giảng viên cập nhật thủ công. 5. Khi bấm Đóng phiên, gọi `POST /close-session`, cập nhật `ended_at = NOW()` và `status = 'CLOSED'`.
 
 ### 1. Mô tả Ngắn gọn
 Giảng viên mở phiên điểm danh cho buổi học trên lớp; hệ thống tự động sinh và hiển thị mã QR động trên màn hình máy chiếu, tự động xoay mã sau mỗi 15 giây dựa trên thuật toán mật mã TOTP. Giảng viên theo dõi sĩ số check-in thời gian thực, có thể điểm danh bù thủ công và đóng phiên điểm danh khi kết thúc.
@@ -1751,6 +1902,15 @@ Giảng viên mở phiên điểm danh cho buổi học trên lớp; hệ thốn
 | **Mức Ưu tiên** | **Should have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `EarlyWarningController.java`, `EarlyWarningService.java` |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Báo cáo Cảnh báo Sớm Học vụ & Bắn Nhắc nhở 1-Chạm dành cho Giảng viên: hệ thống tự động lọc và làm nổi bật các sinh viên có nguy cơ bị cấm thi (vắng $\ge 20\%$ tổng số buổi học) hoặc có kết quả học tập kém (điểm giữa kỳ $< 3.0/4.0$). Giảng viên có thể xem danh sách phân loại chi tiết và bấm một nút duy nhất 'Bắn cảnh báo khẩn cấp' để gửi thông báo tức thì tới ứng dụng và email của các sinh viên này.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Từ trang chi tiết lớp học (`/lecturer/classes/{id}`), bấm tab **Cảnh báo sớm học vụ** (URL: `/lecturer/classes/{id}/early-warning`).
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/EarlyWarningPage.jsx` | Backend Controller: `EarlyWarningController.java` (`academic-service`) | Service: `EarlyWarningService.java` | REST API: `GET /api/v1/lecturer/classes/{id}/early-warnings`, `POST /api/v1/lecturer/early-warnings/dispatch` | Bảng CSDL: `attendance_records`, `grades`, `notifications`, `audit_logs`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Giảng viên truy cập vào mục **Cảnh báo sớm** của lớp học phần. 2. Hệ thống hiển thị bảng các sinh viên rơi vào diện nguy cơ có gắn nhãn màu đỏ: 'Nguy cơ cấm thi (Vắng 4/15 buổi)' hoặc 'Cảnh báo điểm kém (Giữa kỳ: 2.5)'. 3. Giảng viên kiểm tra danh sách, tích chọn các sinh viên cần nhắc nhở. 4. Bấm nút **Gửi cảnh báo khẩn cấp (1-Chạm)**. 5. Hệ thống gửi thông báo đẩy (Push Notification) đến điện thoại của sinh viên và gửi email cảnh báo tự động.
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận `GET /api/v1/lecturer/classes/{id}/early-warnings`. 2. `EarlyWarningService` tính toán tỷ lệ vắng: `absentCount / totalSessionsHeld`; nếu $\ge 0.20$ (20%) $ightarrow$ gắn cờ cấm thi (**BR-10**). 3. Kiểm tra điểm giữa kỳ trong `grades`: nếu $< 5.0/10$ (hoặc $< 3.0/4.0$) $ightarrow$ gắn cờ học lực yếu. 4. Khi giảng viên gọi `POST /dispatch` với danh sách `studentIds`, Service tạo các bản ghi trong `notifications` và gửi message qua Notification Broker tới ứng dụng di động.
+
 ### 1. Mô tả Ngắn gọn
 Giảng viên xem báo cáo phân tích tự động về các sinh viên có nguy cơ học vụ trong lớp (vắng $\ge 20\%$ bị cấm thi, vắng 15-20% cận kề cấm thi, hoặc điểm thi giữa kỳ kém $< 3.0/4.0$) và sử dụng tính năng "1-Chạm Bắn Cảnh Báo" để phát thông báo khẩn cấp tới toàn bộ sinh viên trong diện nguy cơ nhằm can thiệp sư phạm kịp thời.
 
@@ -1825,6 +1985,15 @@ Giảng viên xem báo cáo phân tích tự động về các sinh viên có ng
 | **Business Rules** | `BR-05` (Trọng số 10-40-50), `BR-06` (Khóa bất biến & Admin mở khóa), `BR-13` (Nhập đủ 100% điểm) |
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **PARTIALLY VERIFIED** – `LecturerController.java` (`F-GRADE-003` chưa có API backend) |
+
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Phân hệ Nhập Điểm & Chốt Khóa Sổ Điểm dành cho Giảng viên: giảng viên nhập điểm các thành phần Chuyên cần (10%), Giữa kỳ (40%), Cuối kỳ (50%) cho từng sinh viên, hệ thống tự động tính điểm tổng kết hệ 10, hệ 4 và điểm chữ theo thời gian thực; khi nhập đủ 100% sinh viên, giảng viên thực hiện 'Chốt khóa sổ điểm' $\rightarrow$ toàn bộ bảng điểm bị khóa vĩnh viễn (giảng viên không thể sửa đổi trái phép; nếu có khiếu nại thì chỉ Quản trị viên Đào tạo mới có quyền mở khóa phục vụ phúc khảo kèm lưu vết kiểm toán bất biến).
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Từ trang chi tiết lớp học (`/lecturer/classes/{id}`), bấm nút **Nhập điểm & Sổ điểm** (URL: `/lecturer/classes/{id}/grades`).
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/LecturerGradebook.jsx` | Backend Controller: `LecturerGradeController.java` (`academic-service`) | Service: `LecturerService.java`, `GradeCalculator.java` | REST API: `PUT /api/v1/lecturer/grades/{enrollmentId}`, `POST /api/v1/lecturer/classes/{id}/lock-grades` | Bảng CSDL: `grades`, `class_sections`, `audit_logs`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Giảng viên mở màn hình Sổ điểm của lớp học. 2. Nhập điểm vào các ô: Chuyên cần (10%), Giữa kỳ (40%), Cuối kỳ (50%) cho từng sinh viên. 3. Hệ thống tự động tính điểm tổng kết ngay khi gõ. 4. Có thể nhấn nút **Lưu tạm** nhiều lần trong kỳ. 5. Khi đã nhập đủ điểm cho 100% sinh viên trong lớp, nhấn nút **Chốt khóa sổ điểm**. 6. Hộp thoại cảnh báo xuất hiện: 'Sau khi khóa, bạn sẽ không thể chỉnh sửa điểm. Bạn có chắc chắn muốn chốt?'. Giảng viên bấm Xác nhận $ightarrow$ Sổ điểm chuyển sang trạng thái ĐÃ KHÓA vĩnh viễn.
+>   - **Developer xử lý kỹ thuật**: 1. Khi nhận `PUT /grades/{enrollmentId}`, kiểm tra sổ điểm đã khóa chưa (`class_sections.is_locked == true`); nếu đã khóa $ightarrow$ ném `GradebookLockedException` (HTTP 403) (**BR-06**). 2. Kiểm tra điểm nhập trong khoảng $[0.0, 10.0]$, áp dụng công thức **BR-05**: $	ext{Total} = 	ext{Att}	imes 0.1 + 	ext{Mid}	imes 0.4 + 	ext{Final}	imes 0.5$. 3. Khi nhận `POST /{id}/lock-grades`, kiểm tra điều kiện hoàn tất (**BR-13**): tất cả sinh viên phải có đủ điểm; nếu còn ô trống $ightarrow$ ném `MissingGradesException` (HTTP 400). 4. Cập nhật `class_sections.is_locked = TRUE`, ghi log kiểm toán bất biến (**BR-14**).
 
 ### 1. Mô tả Ngắn gọn
 Giảng viên nhập các đầu điểm thành phần (Chuyên cần 10%, Giữa kỳ 40%, Cuối kỳ 50%) cho sinh viên trong lớp học phần, hệ thống tự động tính điểm tổng kết và xếp loại chữ. Sau khi nhập đủ 100% điểm, Giảng viên thực hiện "Chốt Khóa Sổ Điểm"; sau thao tác này, bảng điểm chuyển sang chế độ chỉ đọc vĩnh viễn với giảng viên; chỉ Quản trị viên Đào tạo (Admin) mới có quyền mở khóa để xử lý phúc khảo điểm thi.
@@ -1910,6 +2079,15 @@ Giảng viên nhập các đầu điểm thành phần (Chuyên cần 10%, Giữ
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `AdminUserController.java`, `AdminUserService.java` |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Phân hệ Quản lý Người dùng & Đặt lại Mật khẩu dành cho Quản trị viên (Admin): tra cứu, lọc và phân trang danh sách tài khoản (Sinh viên, Giảng viên, Admin); tạo mới tài khoản và khởi tạo hồ sơ liên kết; cập nhật thông tin hồ sơ; khóa hoặc mở khóa tài khoản; đặt lại mật khẩu mặc định khi người dùng gặp sự cố; tuân thủ nghiêm ngặt quy tắc bảo vệ bất khả xâm phạm tài khoản Admin tối cao.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Quản lý người dùng** (URL: `/admin/users`).
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/AdminUsers.jsx` | Backend Controller: `AdminUserController.java` (`user-service`) | Service: `AdminUserService.java` | REST API: `GET /api/v1/admin/users`, `POST /api/v1/admin/users`, `PATCH /api/v1/admin/users/{id}/status`, `POST /api/v1/admin/users/{id}/reset-password` | Bảng CSDL: `users`, `student_profiles`, `lecturer_profiles`, `audit_logs`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Admin truy cập màn hình Quản lý người dùng. 2. Nhập tên, email hoặc mã để tìm kiếm; lọc theo vai trò (Sinh viên / Giảng viên / Admin) và trạng thái (Hoạt động / Bị khóa). 3. Để tạo mới: Nhấn nút **Thêm người dùng**, điền thông tin và chọn vai trò. 4. Để khóa/mở khóa: Bấm vào nút chuyển đổi trạng thái ở cột Thao tác (hệ thống sẽ chặn nếu cố tình khóa tài khoản Admin tối cao). 5. Để đặt lại mật khẩu: Bấm nút **Reset mật khẩu**, mật khẩu mặc định sẽ được cấp lại và thông báo cho người dùng.
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận `GET /api/v1/admin/users` với phân trang `page`, `size`, `search`, `role`, `status`. 2. Khi tạo user `POST /api/v1/admin/users`, mã hóa mật khẩu mặc định bằng BCrypt, tạo bản ghi `users` và bản ghi profile tương ứng (`student_profiles` hoặc `lecturer_profiles`). 3. Khi thay đổi trạng thái hoặc quyền: Kiểm tra nghiêm ngặt quy tắc **BR-04**: nếu tài khoản tác động có vai trò `ADMIN` $ightarrow$ ném `BadRequestException('Không được phép khóa hoặc thay đổi quyền của tài khoản Quản trị viên')` (HTTP 400). 4. Mọi thao tác đều được ghi vết tự động vào bảng `audit_logs` (**BR-14**).
+
 ### 1. Mô tả Ngắn gọn
 Quản trị viên Đào tạo (Admin) quản lý toàn bộ danh sách tài khoản người dùng trong hệ thống (Sinh viên, Giảng viên, Admin), thực hiện tạo mới người dùng, cập nhật thông tin hồ sơ, khóa hoặc mở khóa tài khoản, và đặt lại mật khẩu mặc định khi người dùng gặp sự cố quên mật khẩu; mọi thao tác đều được kiểm soát bởi quy tắc bảo vệ Admin tối cao và lưu vết kiểm toán bất biến.
 
@@ -1987,6 +2165,15 @@ Quản trị viên Đào tạo (Admin) quản lý toàn bộ danh sách tài kho
 | **Mức Ưu tiên** | **Should have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `AdminAuditLogController.java`, `AuditLogService.java` |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Phân hệ Tra cứu Nhật ký Kiểm toán (Audit Trail) dành cho Quản trị viên và Thanh tra Đào tạo: tra cứu và đối soát toàn bộ lịch sử các tác vụ nhạy cảm trên toàn hệ thống (sửa điểm, khóa tài khoản, reset mật khẩu, mở lớp, gạch nợ học phí) kèm đầy đủ dấu vết: ai thực hiện, lúc mấy giờ, địa chỉ IP nào, và chi tiết nội dung thay đổi (JSON Diff dữ liệu cũ vs dữ liệu mới) với tính bất biến tuyệt đối không thể xóa sửa.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Nhật ký kiểm toán** (URL: `/admin/audit-logs`).
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/AdminAuditLogs.jsx` | Backend Controller: `AuditLogController.java` (`audit-service`) | Service: `AuditLogService.java` | REST API: `GET /api/v1/admin/audit-logs` | Bảng CSDL: `audit_logs` (Append-only).
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Admin truy cập màn hình Nhật ký kiểm toán. 2. Lọc danh sách log theo: Loại hành động (Sửa điểm, Khóa tài khoản, Mở lớp, Hủy môn), Người thực hiện, hoặc Khung ngày giờ cần thanh tra. 3. Xem danh sách các bản ghi sắp xếp theo thời gian mới nhất. 4. Bấm vào nút **Xem chi tiết (JSON Diff)** trên từng dòng để xem dữ liệu cũ trước khi sửa và dữ liệu mới sau khi sửa. 5. Xuất báo cáo kiểm toán phục vụ đoàn thanh tra.
+>   - **Developer xử lý kỹ thuật**: 1. Toàn bộ các service nghiệp vụ nhạy cảm gọi `AuditLogService.logAction()` chạy với giao dịch cô lập `@Transactional(propagation = Propagation.REQUIRES_NEW)` (**BR-14**) để đảm bảo log luôn được ghi bất kể luồng chính thành công hay thất bại. 2. Bảng `audit_logs` không cung cấp API sửa (`PUT`) hoặc xóa (`DELETE`), cơ sở dữ liệu khóa quyền `UPDATE`/`DELETE`. 3. `AuditLogController` cung cấp API `GET /api/v1/admin/audit-logs` hỗ trợ truy vấn phân trang và lọc đa tiêu chí, trả về JSON delta chi tiết.
+
 ### 1. Mô tả Ngắn gọn
 Quản trị viên Đào tạo (Admin) tra cứu, lọc và đối soát toàn bộ nhật ký các hành động nhạy cảm trong hệ thống (Tạo tài khoản, Khóa/Mở tài khoản, Reset mật khẩu, Khóa sổ điểm, Cập nhật trạng thái) với chi tiết JSON delta, địa chỉ IP của client và thời gian thực hiện chính xác đến từng mili-giây.
 
@@ -2055,6 +2242,15 @@ Quản trị viên Đào tạo (Admin) tra cứu, lọc và đối soát toàn b
 | **Business Rules** | `BR-02` (Học phần tiên quyết), `BR-12` (Ràng buộc xóa môn học) |
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `AdminCourseController.java`, `AdminCourseService.java` |
+
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Phân hệ Quản lý Khung Chương trình Đào tạo & Môn học Tiên quyết dành cho Quản trị viên: quản lý danh mục toàn bộ môn học trong học viện, số tín chỉ, khoa quản lý; thiết lập ràng buộc môn học tiên quyết (Prerequisite) và môn song hành (Corequisite); ứng dụng thuật toán phát hiện chu trình đồ thị (Cycle Detection) để ngăn chặn hoàn toàn lỗi tạo vòng lặp môn học; và chặn xóa môn học đã từng phát sinh lớp học phần trong lịch sử.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Quản lý môn học** (URL: `/admin/courses`).
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/AdminCourses.jsx` | Backend Controller: `AdminCourseController.java` (`academic-service`) | Service: `AdminCourseService.java` | REST API: `GET/POST /api/v1/admin/courses`, `POST /api/v1/admin/courses/{id}/prerequisites`, `DELETE /api/v1/admin/courses/{id}` | Bảng CSDL: `courses`, `prerequisites`, `class_sections`, `audit_logs`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Admin truy cập màn hình Quản lý môn học. 2. Xem danh sách môn học, tìm kiếm theo mã môn hoặc tên môn. 3. Để thêm môn mới: Bấm **Thêm môn học**, điền Mã môn (duy nhất), Tên môn, Số tín chỉ, Khoa phụ trách. 4. Để gán môn tiên quyết: Bấm **Cấu hình tiên quyết** trên môn học, chọn môn điều kiện bắt buộc; nếu vô tình tạo vòng lặp (ví dụ: Môn A đòi Môn B, Môn B lại đòi Môn A) hệ thống sẽ báo đỏ và chặn lại. 5. Để xóa môn học: Hệ thống chỉ cho phép xóa nếu môn đó chưa từng được mở lớp nào trong lịch sử.
+>   - **Developer xử lý kỹ thuật**: 1. Khi nhận `POST /courses/{id}/prerequisites`, `AdminCourseService` thực hiện thuật toán kiểm tra chu trình có hướng (Directed Cycle Detection - DFS/Tarjan) trên đồ thị môn học: nếu phát hiện đường đi ngược lại $ightarrow$ ném `CyclicPrerequisiteException('Phát hiện chu trình môn học tiên quyết không hợp lệ')` (HTTP 400) (**BR-02**). 2. Khi nhận `DELETE /courses/{id}`, kiểm tra ràng buộc toàn vẹn (**BR-12**): đếm số lớp học phần liên kết trong `class_sections`; nếu $> 0 ightarrow$ ném `DataIntegrityViolationException` (HTTP 409). 3. Ghi log kiểm toán thao tác vào `audit_logs` (**BR-14**).
 
 ### 1. Mô tả Ngắn gọn
 Quản trị viên Đào tạo (Admin) quản lý danh mục toàn bộ môn học trong học viện (Mã môn, Tên môn, Số tín chỉ từ 1 đến 6, Số giờ lý thuyết/thực hành, Đề cương chi tiết), thiết lập các ràng buộc học phần tiên quyết có kiểm tra chống tham chiếu vòng, và quản lý việc xóa môn học với ràng buộc bảo toàn dữ liệu lịch sử.
@@ -2132,6 +2328,15 @@ Quản trị viên Đào tạo (Admin) quản lý danh mục toàn bộ môn h�
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `AdminClassSectionController.java`, `AdminClassSectionService.java` |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Phân hệ Mở Lớp Học phần & Kiểm soát Xung đột Phòng/Lịch dành cho Quản trị viên: tổ chức mở các lớp học phần mới trong học kỳ, phân công giảng viên giảng dạy, chọn phòng học, thứ trong tuần, ca học (tiết bắt đầu - tiết kết thúc) và sĩ số tối đa; hệ thống tích hợp thuật toán kiểm tra ma trận xung đột phòng và lịch dạy theo thời gian thực để ngăn chặn tuyệt đối tình trạng 2 lớp xếp trùng một phòng hoặc 1 giảng viên bị xếp trùng 2 ca dạy cùng một lúc.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Menu bên trái > Bấm **Quản lý lớp học phần** (URL: `/admin/sections`).
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/AdminSections.jsx` | Backend Controller: `AdminSectionController.java` (`enrollment-service`) | Service: `AdminSectionService.java` | REST API: `POST /api/v1/admin/sections`, `POST /api/v1/admin/sections/validate-schedule`, `DELETE /api/v1/admin/sections/{id}` | Bảng CSDL: `class_sections`, `courses`, `users`, `audit_logs`.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Admin vào màn hình Quản lý lớp học phần. 2. Bấm nút **Mở lớp học phần mới**. 3. Chọn Môn học, Học kỳ, Giảng viên giảng dạy, Phòng học, Thứ trong tuần, Tiết bắt đầu và Tiết kết thúc, Sĩ số tối đa. 4. Khi chọn xong phòng và ca học, hệ thống tự động kiểm tra ngay: nếu phòng đó hoặc giảng viên đó đã có lớp trùng giờ, màn hình sẽ hiển thị cảnh báo đỏ và ngăn không cho tạo lớp. 5. Nhấn **Xác nhận mở lớp** để lưu vào hệ thống.
+>   - **Developer xử lý kỹ thuật**: 1. Client gọi `POST /api/v1/admin/sections/validate-schedule` trước khi submit form. 2. Service thực hiện truy vấn kiểm tra giao thoa thời gian (**BR-15**): `SELECT COUNT(*) FROM class_sections WHERE semester_id = :semId AND day_of_week = :day AND (room = :room OR lecturer_id = :lecId) AND (start_period <= :endP AND end_period >= :startP)`. 3. Nếu phát hiện trùng phòng $ightarrow$ ném `ScheduleConflictException('Phòng học đã được xếp cho lớp khác trong khung giờ này')` (HTTP 409). 4. Nếu trùng lịch giảng viên $ightarrow$ ném `ScheduleConflictException('Giảng viên đã có lịch dạy lớp khác trong khung giờ này')` (HTTP 409). 5. Nếu không trùng, tạo bản ghi `class_sections` với `status = 'OPEN'`, `currentEnrolled = 0`.
+
 ### 1. Mô tả Ngắn gọn
 Quản trị viên Đào tạo (Admin) mở các lớp học phần mới cho một môn học trong học kỳ (chọn môn học, thứ trong tuần, tiết bắt đầu, tiết kết thúc, phòng học, phân công giảng viên và sĩ số tối đa). Hệ thống tự động kích hoạt Ma trận Kiểm soát Xung đột (Conflict Matrix) phát hiện và ngăn chặn việc trùng phòng học hoặc trùng lịch giảng dạy của Giảng viên.
 
@@ -2207,6 +2412,15 @@ Quản trị viên Đào tạo (Admin) mở các lớp học phần mới cho m�
 | **Mức Ưu tiên** | **Could have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `AiSyllabusController.java`, `AiSyllabusService.java` (`ai-service`) |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Công cụ AI Tạo Đề cương Môn học Tự động (AI 15-Week Syllabus Generator) dành cho Quản trị viên và Giảng viên: ứng dụng mô hình trí tuệ nhân tạo tạo sinh Google Gemini để tự động tạo khung đề cương chi tiết môn học 15 tuần theo chuẩn kiểm định chất lượng đào tạo (nội dung lý thuyết, bài tập thực hành, phương pháp đánh giá, tài liệu học tập định dạng Markdown); người dùng có thể chỉnh sửa trực tiếp và lưu vào hồ sơ môn học.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Tại trang Quản lý môn học (`/admin/courses`), nhấn vào chi tiết môn học và bấm nút **AI Tạo đề cương 15 tuần**.
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/AdminCourses.jsx` (Modal AI Syllabus) | Backend Controller: `AiSyllabusController.java` (`ai-service`) | Service: `AiSyllabusService.java` (Google Gemini 1.5 Pro/Flash SDK) | REST API: `POST /api/v1/ai/generate-syllabus` | Bảng CSDL: Cột `courses.syllabus` (TEXT/Markdown).
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Mở màn hình Quản lý môn học, chọn môn học cần xây dựng đề cương. 2. Nhấn nút **AI Tạo đề cương 15 tuần**. 3. Nhập mục tiêu môn học, đối tượng đào tạo và số tín chỉ (nếu muốn bổ sung chỉ dẫn). 4. Nhấn nút **Bắt đầu sinh đề cương qua AI**. 5. Chờ AI xử lý trong vài giây; màn hình hiển thị toàn bộ khung đề cương 15 tuần định dạng Markdown chuyên nghiệp. 6. Giảng viên/Admin có thể chỉnh sửa lại câu từ trực tiếp trên khung soạn thảo và nhấn **Lưu đề cương**.
+>   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận request `POST /api/v1/ai/generate-syllabus` với `{ courseId, courseName, credits, targetAudience }`. 2. Xây dựng Prompt kỹ thuật theo chuẩn kiểm định CDIO/ABET: yêu cầu phân bổ 15 tuần học, mục tiêu chuẩn đầu ra, tài liệu tham khảo và thang đánh giá. 3. Gọi Google Gemini 1.5 API sinh văn bản Markdown. 4. Trả về JSON `{ syllabusMarkdown: '...' }`. 5. Khi người dùng bấm lưu, gọi `PUT /api/v1/admin/courses/{id}` cập nhật nội dung vào cột `syllabus` của bảng `courses`.
+
 ### 1. Mô tả Ngắn gọn
 Quản trị viên hoặc Giảng viên nhập tên môn học, số tín chỉ và mục tiêu đào tạo tổng quát; dịch vụ AI tích hợp Google Gemini 1.5 Flash tự động phân tích và sinh ra khung Đề cương chi tiết môn học hoàn chỉnh chuẩn 15 tuần (chuẩn đầu ra CLO, nội dung từng tuần, bài tập thực hành, tài liệu tham khảo và hình thức đánh giá).
 
@@ -2280,6 +2494,15 @@ Quản trị viên hoặc Giảng viên nhập tên môn học, số tín chỉ 
 | **Mức Ưu tiên** | **Must have** |
 | **Trạng thái Triển khai** | **VERIFIED** – `DigitalCredentialController.java`, `TranscriptVerifyPage.jsx` |
 
+> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
+> - **📌 Đó là tính năng gì? (WHAT)**: Cổng Đối soát & Xác thực Tính Hợp lệ Bảng điểm Số Công khai: bất kỳ nhà tuyển dụng, cơ quan ngoài trường hoặc sinh viên nào đều có thể quét mã QR trên bảng điểm điện tử hoặc truy cập đường dẫn liên kết công khai (không cần tài khoản đăng nhập) để kiểm tra tính nguyên bản của bảng điểm; hệ thống đối soát chữ ký số mật mã HMAC-SHA256 với cơ sở dữ liệu gốc và hiển thị dấu tích xanh chứng thực chính hãng hoặc cảnh báo đỏ nếu phát hiện bảng điểm giả mạo/chỉnh sửa điểm trái phép.
+> - **📍 Tìm thấy ở đâu? (WHERE)**:
+>   - **Dành cho Khách hàng**: Nhà tuyển dụng quét mã QR in trên bảng điểm điện tử của sinh viên, hoặc truy cập URL trình duyệt: `/verify/transcript?serial={serial}&sig={signature}` (truy cập công khai, không cần đăng nhập).
+>   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/TranscriptVerifyPage.jsx` | Backend Controller: `DigitalCredentialController.java` (`academic-service`) | Service: `DigitalCredentialService.java` | REST API: `GET /api/v1/public/credentials/verify` (Public, No Auth) | Bảng CSDL: `student_profiles`, `grades`, Master Signing Secret Key.
+> - **📝 Cần làm gì? (ACTION / HOW)**:
+>   - **Khách hàng thao tác**: 1. Nhà tuyển dụng nhận hồ sơ xin việc của ứng viên có đính kèm Bảng điểm điện tử EduPortal. 2. Dùng camera điện thoại quét mã QR in trên bảng điểm (hoặc nhấp vào link chứng thực). 3. Trình duyệt tự động mở Cổng xác thực văn bằng công khai của nhà trường. 4. Nếu bảng điểm thật: Màn hình hiển thị Huy hiệu tích xanh 'CHỨNG CHỰC CHÍNH HÃNG - BẢNG ĐIỂM HỢP LỆ', kèm Họ tên sinh viên, Mã sinh viên, Điểm tích lũy CGPA và ngày cấp bằng. 5. Nếu bảng điểm giả (bị sửa điểm từ 6.5 thành 8.5): Màn hình lập tức báo động đỏ 'CẢNH BÁO: CHỮ KÝ SỐ KHÔNG HỢP LỆ - DỮ LIỆU ĐÃ BỊ THAY ĐỔI TRÁI PHÉP'.
+>   - **Developer xử lý kỹ thuật**: 1. API `GET /api/v1/public/credentials/verify?serial=...&sig=...` được cấu hình mở công khai trong `SecurityConfig.java` (không yêu cầu Bearer Token). 2. `DigitalCredentialService` tra cứu hồ sơ sinh viên theo mã `serial`. 3. Tái tạo Canonical String từ dữ liệu gốc trong CSDL: `SERIAL|STUDENT_CODE|FULL_NAME|CGPA|CREDITS`. 4. Tính toán mã băm HMAC-SHA256 kỳ vọng bằng Khóa ký chủ (Master Signing Secret Key) (**BR-11**). 5. So sánh chữ ký gửi lên (`sig`) với chữ ký kỳ vọng bằng thuật toán so sánh thời gian hằng số `MessageDigest.isEqual()` để triệt tiêu tấn công kênh kề (Side-channel Timing Attacks). 6. Nếu khớp 100%, trả về `{ isValid: true, studentInfo, verifiedAt }`; nếu không khớp, trả về `{ isValid: false, reason: 'TAMPERED_DATA' }`.
+
 ### 1. Mô tả Ngắn gọn
 Bên thứ ba (Nhà tuyển dụng, cơ quan tuyển dụng hoặc phụ huynh) truy cập cổng đối soát công khai không cần đăng nhập (`/verify/transcript`) hoặc dùng camera điện thoại quét mã QR in trên bảng điểm của sinh viên để xác thực tính hợp pháp và toàn vẹn của kết quả học tập; hệ thống tự động kiểm tra chữ ký số mật mã HMAC-SHA256 và đưa ra kết luận Bảng điểm Thật (chính hãng) hay Giả mạo.
 
@@ -2340,4 +2563,8 @@ Bên thứ ba (Nhà tuyển dụng, cơ quan tuyển dụng hoặc phụ huynh) 
 - [ ] Áp dụng so sánh an toàn constant-time chống Timing Attack.
 
 ---
+*Tài liệu Đặc tả Yêu cầu Phần mềm (SRS) phiên bản 3.0 này là tài sản kỹ thuật chính thức của Dự án Rikkei EduPortal - SIS. Mọi sự thay đổi phải tuân thủ quy trình kiểm soát thay đổi (Change Management Process) của Ban Kiến trúc Hệ thống.*
+
+---
+
 *Tài liệu Đặc tả Yêu cầu Phần mềm (SRS) phiên bản 3.0 này là tài sản kỹ thuật chính thức của Dự án Rikkei EduPortal - SIS. Mọi sự thay đổi phải tuân thủ quy trình kiểm soát thay đổi (Change Management Process) của Ban Kiến trúc Hệ thống.*
