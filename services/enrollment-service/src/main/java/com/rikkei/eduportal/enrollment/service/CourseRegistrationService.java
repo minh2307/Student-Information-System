@@ -200,13 +200,17 @@ public class CourseRegistrationService {
                 }
                 dto.setHasConflict(Boolean.TRUE.equals(enrolled.getHasConflict()));
             } else if (isCourseCompleted) {
-                dto.setIsCompleted(true);
-                dto.setIsEnrolled(false);
-                dto.setEnrollmentStatus("COMPLETED");
-            } else if (isCourseEnrolledInSemester) {
+                // Môn học này sinh viên đã hoàn thành trong chương trình (ở kỳ khác)
                 dto.setIsCompleted(false);
-                dto.setIsEnrolled(true);
-                dto.setEnrollmentStatus("REGISTERED");
+                dto.setIsEnrolled(false);
+                dto.setIsCourseAlreadyPassed(true);
+                dto.setEnrollmentStatus("COURSE_COMPLETED");
+            } else if (isCourseEnrolledInSemester) {
+                // Sinh viên đã đăng ký một lớp học phần khác của cùng môn này trong kỳ
+                dto.setIsCompleted(false);
+                dto.setIsEnrolled(false);
+                dto.setIsOtherSectionEnrolled(true);
+                dto.setEnrollmentStatus("OTHER_SECTION_ENROLLED");
             } else {
                 dto.setIsEnrolled(false);
                 dto.setIsCompleted(false);
@@ -368,7 +372,7 @@ public class CourseRegistrationService {
         }
 
         int currentCredits = currentSemesterEnrollments.stream()
-                .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus())))
+                .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus()) || "COMPLETED".equalsIgnoreCase(e.getStatus())))
                 .filter(e -> !Objects.equals(e.getClassSection().getId(), section.getId()))
                 .mapToInt(e -> (e.getClassSection() != null && e.getClassSection().getCourse() != null)
                         ? e.getClassSection().getCourse().getCredits() : 0)
@@ -445,7 +449,7 @@ public class CourseRegistrationService {
             int heldCreds = entry.getValue();
             List<Enrollment> currentEnrs = enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(student.getId(), sem);
             int currentCreds = currentEnrs.stream()
-                    .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus())))
+                    .filter(e -> ("REGISTERED".equalsIgnoreCase(e.getStatus()) || "PENDING".equalsIgnoreCase(e.getStatus()) || "COMPLETED".equalsIgnoreCase(e.getStatus())))
                     .mapToInt(e -> (e.getClassSection() != null && e.getClassSection().getCourse() != null && e.getClassSection().getCourse().getCredits() != null)
                             ? e.getClassSection().getCourse().getCredits() : 0)
                     .sum();
