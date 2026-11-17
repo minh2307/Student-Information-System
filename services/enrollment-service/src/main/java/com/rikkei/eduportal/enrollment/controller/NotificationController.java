@@ -3,6 +3,7 @@ package com.rikkei.eduportal.enrollment.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rikkei.eduportal.common.ApiResponse;
+import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
 import com.rikkei.eduportal.enrollment.dto.NotificationDto;
 import com.rikkei.eduportal.enrollment.service.AnnouncementAndNotificationService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -63,6 +64,6 @@ public class NotificationController {
                 } catch (Exception ignored) {}
             }
         }
-        return "sv2024001";
+        throw new UnauthorizedException("Yêu cầu xác thực: Vui lòng đăng nhập để truy cập thông báo.");
     }
 }

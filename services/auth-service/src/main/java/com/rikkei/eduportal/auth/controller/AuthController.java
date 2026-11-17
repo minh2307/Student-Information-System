@@ -1,6 +1,7 @@
 package com.rikkei.eduportal.auth.controller;
 
 import com.rikkei.eduportal.auth.dto.AuthResponse;
+import com.rikkei.eduportal.auth.dto.ChallengeResponse;
 import com.rikkei.eduportal.auth.dto.LoginRequest;
 import com.rikkei.eduportal.auth.dto.RefreshTokenRequest;
 import com.rikkei.eduportal.auth.service.AuthService;
@@ -29,13 +30,22 @@ public class AuthController {
         this(authService, null);
     }
 
+    @GetMapping("/challenge")
+    public ResponseEntity<ApiResponse<ChallengeResponse>> getChallenge(HttpServletRequest httpRequest) {
+        String clientIp = extractClientIp(httpRequest);
+        ChallengeResponse challenge = turnstileService != null
+                ? turnstileService.generateChallenge(clientIp)
+                : new ChallengeResponse("mock-dev-challenge", "mock-nonce", 0, System.currentTimeMillis() + 60_000L);
+        return ResponseEntity.ok(ApiResponse.success("Tạo challenge thành công", challenge));
+    }
+
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest) {
         if (turnstileService != null) {
             String clientIp = extractClientIp(httpRequest);
-            turnstileService.verify(request.getTurnstileToken(), clientIp, "login");
+            turnstileService.verifyLoginProtection(request, clientIp);
         }
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("Đăng nhập thành công", response));

@@ -5,6 +5,8 @@ import com.rikkei.eduportal.enrollment.dto.NotificationDto;
 import com.rikkei.eduportal.enrollment.entity.Announcement;
 import com.rikkei.eduportal.enrollment.entity.Notification;
 import com.rikkei.eduportal.enrollment.entity.User;
+import com.rikkei.eduportal.enrollment.exception.ResourceNotFoundException;
+import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
 import com.rikkei.eduportal.enrollment.repository.AnnouncementRepository;
 import com.rikkei.eduportal.enrollment.repository.NotificationRepository;
 import com.rikkei.eduportal.enrollment.repository.UserRepository;
@@ -99,11 +101,10 @@ public class AnnouncementAndNotificationService {
     }
 
     private User resolveUser(String username) {
-        if (username != null && !username.trim().isEmpty()) {
-            var opt = userRepository.findByUsername(username.trim());
-            if (opt.isPresent()) return opt.get();
+        if (username == null || username.trim().isEmpty()) {
+            throw new UnauthorizedException("Yêu cầu xác thực: Định danh người dùng không được để trống");
         }
-        return userRepository.findByUsername("sv2024001")
-                .orElseGet(() -> userRepository.findAll().stream().findFirst().orElseThrow());
+        return userRepository.findByUsername(username.trim())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng: " + username.trim()));
     }
 }

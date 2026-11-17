@@ -43,8 +43,9 @@ function httpsRequest(
       {
         method,
         headers: reqHeaders,
+        family: 4,
         rejectUnauthorized: false,
-        timeout: 10000,
+        timeout: 15000,
       },
       (res: any) => {
         let rawText = '';

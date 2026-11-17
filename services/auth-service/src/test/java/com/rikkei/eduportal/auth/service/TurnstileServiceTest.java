@@ -1,7 +1,10 @@
 package com.rikkei.eduportal.auth.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rikkei.eduportal.auth.dto.ChallengeResponse;
+import com.rikkei.eduportal.auth.dto.LoginRequest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -11,6 +14,9 @@ import org.springframework.security.access.AccessDeniedException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -43,6 +49,26 @@ class TurnstileServiceTest {
                 objectMapper,
                 httpClient
         );
+    }
+
+    private String solvePoW(String nonce, int difficulty) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        String prefix = "0".repeat(difficulty);
+        long counter = 0;
+        while (true) {
+            String candidate = String.valueOf(counter);
+            byte[] hash = md.digest((nonce + ":" + candidate).getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) sb.append('0');
+                sb.append(hex);
+            }
+            if (sb.toString().startsWith(prefix)) {
+                return candidate;
+            }
+            counter++;
+        }
     }
 
     @Test
@@ -140,7 +166,6 @@ class TurnstileServiceTest {
             assertTrue(ex.getMessage().contains("ngắt"));
             assertTrue(Thread.currentThread().isInterrupted(), "Thread interrupt flag must be restored when InterruptedException occurs");
         } finally {
-            // Clear interrupt status so subsequent tests are unaffected
             Thread.interrupted();
         }
     }
@@ -153,5 +178,97 @@ class TurnstileServiceTest {
                 turnstileService.verify("valid-turnstile-token", "127.0.0.1", "login"));
         assertTrue(ex.getMessage().contains("Lỗi xác thực bảo mật Turnstile"));
         assertFalse(Thread.currentThread().isInterrupted(), "Thread should not be interrupted on standard IOException");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // P0-01: Native Mobile Cryptographic Challenge & Anti-Bot Tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("P0-01: generateChallenge trả về challenge hợp lệ với cấu trúc token, nonce và difficulty")
+    void testGenerateChallenge_ReturnsValidChallenge() {
+        ChallengeResponse challenge = turnstileService.generateChallenge("192.168.1.100");
+
+        assertNotNull(challenge);
+        assertNotNull(challenge.getChallengeToken());
+        assertNotNull(challenge.getNonce());
+        assertTrue(challenge.getDifficulty() >= 1);
+        assertTrue(challenge.getExpiresAt() > System.currentTimeMillis());
+    }
+
+    @Test
+    @DisplayName("P0-01: verifyNativeChallenge với lời giải PoW hợp lệ thành công")
+    void testVerifyNativeChallenge_ValidPoW_Succeeds() throws Exception {
+        ChallengeResponse challenge = turnstileService.generateChallenge("192.168.1.100");
+        String solution = solvePoW(challenge.getNonce(), challenge.getDifficulty());
+
+        assertDoesNotThrow(() ->
+                turnstileService.verifyNativeChallenge(challenge.getChallengeToken(), solution, "192.168.1.100"));
+    }
+
+    @Test
+    @DisplayName("P0-01: verifyNativeChallenge chặn Replay Attack (không cho dùng lại challenge token)")
+    void testVerifyNativeChallenge_ReplayAttack_ThrowsAccessDeniedException() throws Exception {
+        ChallengeResponse challenge = turnstileService.generateChallenge("192.168.1.100");
+        String solution = solvePoW(challenge.getNonce(), challenge.getDifficulty());
+
+        // Lần đầu thành công
+        assertDoesNotThrow(() ->
+                turnstileService.verifyNativeChallenge(challenge.getChallengeToken(), solution, "192.168.1.100"));
+
+        // Lần thứ hai bị chặn do replay
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class, () ->
+                turnstileService.verifyNativeChallenge(challenge.getChallengeToken(), solution, "192.168.1.100"));
+        assertTrue(ex.getMessage().contains("Replay Attack"));
+    }
+
+    @Test
+    @DisplayName("P0-01: verifyNativeChallenge chặn lời giải PoW sai")
+    void testVerifyNativeChallenge_WrongSolution_ThrowsAccessDeniedException() {
+        ChallengeResponse challenge = turnstileService.generateChallenge("192.168.1.100");
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class, () ->
+                turnstileService.verifyNativeChallenge(challenge.getChallengeToken(), "incorrect_salt_99999", "192.168.1.100"));
+        assertTrue(ex.getMessage().contains("Proof-of-Work không chính xác"));
+    }
+
+    @Test
+    @DisplayName("P0-01: verifyNativeChallenge chặn token bị giả mạo chữ ký (Tampering)")
+    void testVerifyNativeChallenge_TamperedToken_ThrowsAccessDeniedException() {
+        ChallengeResponse challenge = turnstileService.generateChallenge("192.168.1.100");
+        String decoded = new String(Base64.getUrlDecoder().decode(challenge.getChallengeToken()), StandardCharsets.UTF_8);
+        // Thay đổi payload (đổi difficulty từ 3 thành 0 để gian lận)
+        String tampered = decoded.replace(":3.", ":0.");
+        String tamperedToken = Base64.getUrlEncoder().withoutPadding().encodeToString(tampered.getBytes(StandardCharsets.UTF_8));
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class, () ->
+                turnstileService.verifyNativeChallenge(tamperedToken, "0", "192.168.1.100"));
+        assertTrue(ex.getMessage().contains("Chữ ký Challenge token không hợp lệ"));
+    }
+
+    @Test
+    @DisplayName("P0-01: verifyLoginProtection từ chối request giả mạo clientType mobile mà không có challenge proof")
+    void testVerifyLoginProtection_FakeClientTypeWithoutProof_ThrowsAccessDeniedException() {
+        LoginRequest fakeRequest = new LoginRequest("student", "pass");
+        fakeRequest.setClientType("MOBILE_NATIVE");
+
+        AccessDeniedException ex = assertThrows(AccessDeniedException.class, () ->
+                turnstileService.verifyLoginProtection(fakeRequest, "192.168.1.100"));
+        assertTrue(ex.getMessage().contains("Yêu cầu mã xác thực Turnstile"));
+    }
+
+    @Test
+    @DisplayName("P0-01: verifyLoginProtection thành công cho Native Mobile khi có challenge proof hợp lệ")
+    void testVerifyLoginProtection_ValidNativeChallenge_Succeeds() throws Exception {
+        ChallengeResponse challenge = turnstileService.generateChallenge("192.168.1.100");
+        String solution = solvePoW(challenge.getNonce(), challenge.getDifficulty());
+
+        LoginRequest nativeRequest = new LoginRequest("student", "pass");
+        nativeRequest.setChallengeToken(challenge.getChallengeToken());
+        nativeRequest.setChallengeSolution(solution);
+        nativeRequest.setClientType("MOBILE_NATIVE");
+
+        assertDoesNotThrow(() ->
+                turnstileService.verifyLoginProtection(nativeRequest, "192.168.1.100"));
     }
 }

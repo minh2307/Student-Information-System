@@ -16,6 +16,12 @@ public class LoginRequest {
 
     private String turnstileToken;
 
+    private String challengeToken;
+
+    private String challengeSolution;
+
+    private String clientType;
+
     public LoginRequest() {}
 
     public LoginRequest(String username, String password) {
@@ -27,6 +33,14 @@ public class LoginRequest {
         this.username = username;
         this.password = password;
         this.turnstileToken = turnstileToken;
+    }
+
+    public LoginRequest(String username, String password, String challengeToken, String challengeSolution, String clientType) {
+        this.username = username;
+        this.password = password;
+        this.challengeToken = challengeToken;
+        this.challengeSolution = challengeSolution;
+        this.clientType = clientType;
     }
 
     public String getUsername() { return username; }
@@ -49,4 +63,13 @@ public class LoginRequest {
     }
 
     public void setTurnstileToken(String turnstileToken) { this.turnstileToken = turnstileToken; }
+
+    public String getChallengeToken() { return challengeToken; }
+    public void setChallengeToken(String challengeToken) { this.challengeToken = challengeToken; }
+
+    public String getChallengeSolution() { return challengeSolution; }
+    public void setChallengeSolution(String challengeSolution) { this.challengeSolution = challengeSolution; }
+
+    public String getClientType() { return clientType; }
+    public void setClientType(String clientType) { this.clientType = clientType; }
 }

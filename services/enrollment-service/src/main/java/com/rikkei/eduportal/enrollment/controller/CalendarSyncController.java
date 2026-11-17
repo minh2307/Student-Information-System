@@ -3,6 +3,7 @@ package com.rikkei.eduportal.enrollment.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rikkei.eduportal.common.ApiResponse;
+import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
 import com.rikkei.eduportal.enrollment.entity.StudentProfile;
 import com.rikkei.eduportal.enrollment.service.CalendarSyncService;
 import com.rikkei.eduportal.enrollment.service.StudentDashboardService;
@@ -155,6 +156,6 @@ public class CalendarSyncController {
                 }
             }
         }
-        return "sv2024001";
+        throw new UnauthorizedException("Yêu cầu xác thực: Vui lòng đăng nhập để đồng bộ lịch.");
     }
 }

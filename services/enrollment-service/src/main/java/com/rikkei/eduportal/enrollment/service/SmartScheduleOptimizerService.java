@@ -10,6 +10,7 @@ import com.rikkei.eduportal.enrollment.entity.StudentProfile;
 import com.rikkei.eduportal.enrollment.exception.BatchReservationException;
 import com.rikkei.eduportal.enrollment.exception.BusinessException;
 import com.rikkei.eduportal.enrollment.exception.ResourceNotFoundException;
+import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
 import com.rikkei.eduportal.enrollment.repository.ClassSectionRepository;
 import com.rikkei.eduportal.enrollment.repository.EnrollmentRepository;
 import com.rikkei.eduportal.enrollment.repository.SlotReservationRepository;
@@ -851,9 +852,12 @@ public class SmartScheduleOptimizerService {
                 throw new ResourceNotFoundException("Không tìm thấy thông tin sinh viên với mã: " + studentCode);
             }
         } else {
+            if (studentCode == null || studentCode.trim().isEmpty()) {
+                throw new UnauthorizedException("Yêu cầu xác thực: Định danh sinh viên không được để trống");
+            }
             student = new StudentProfile();
             student.setId(1L);
-            student.setStudentCode(studentCode != null ? studentCode : "sv2024001");
+            student.setStudentCode(studentCode.trim());
         }
 
         // 5. Concurrency Control: Sắp xếp ID theo thứ tự tăng dần để khóa (Deterministic Locking Order -> Anti-Deadlock)

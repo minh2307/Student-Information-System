@@ -6,6 +6,7 @@
 export const ENDPOINTS = {
   AUTH: {
     LOGIN: '/api/v1/auth/login',
+    CHALLENGE: '/api/v1/auth/challenge',
     REFRESH: '/api/v1/auth/refresh',
     LOGOUT: '/api/v1/auth/logout',
   },

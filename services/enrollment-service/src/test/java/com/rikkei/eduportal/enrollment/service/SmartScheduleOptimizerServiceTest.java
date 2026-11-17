@@ -1862,10 +1862,9 @@ class SmartScheduleOptimizerServiceTest {
             assertNotNull(resp1);
             assertEquals(1, resp1.getSuccessCount());
 
-            // With studentCode == null -> fallback to "sv2024001"
-            BatchReserveResponse resp2 = bareService.batchReserveSlots(null, req);
-            assertNotNull(resp2);
-            assertEquals(1, resp2.getSuccessCount());
+            // With studentCode == null -> Fail-closed security: throw UnauthorizedException (P0-03)
+            assertThrows(com.rikkei.eduportal.enrollment.exception.UnauthorizedException.class,
+                    () -> bareService.batchReserveSlots(null, req));
         }
 
         @Test

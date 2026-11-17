@@ -47,6 +47,7 @@ function httpsRequest(
       {
         method,
         headers: reqHeaders,
+        family: 4,
         rejectUnauthorized: false,
         timeout: 15000,
       },

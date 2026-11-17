@@ -134,8 +134,8 @@ class BatchReservationAtomicPostgresIntegrationTest {
         Course c = new Course();
         c.setCourseCode(code);
         c.setName(name);
-        c.setCredits(3);
-        c.setWeeklyHours(3);
+        c.setCredits(2);
+        c.setWeeklyHours(2);
         Course saved = courseRepository.save(c);
         createdCourseIds.add(saved.getId());
         return saved;

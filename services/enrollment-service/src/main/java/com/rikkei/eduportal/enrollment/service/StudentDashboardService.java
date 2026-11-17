@@ -6,6 +6,7 @@ import com.rikkei.eduportal.enrollment.entity.Enrollment;
 import com.rikkei.eduportal.enrollment.entity.Grade;
 import com.rikkei.eduportal.enrollment.entity.StudentProfile;
 import com.rikkei.eduportal.enrollment.exception.ResourceNotFoundException;
+import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
 import com.rikkei.eduportal.enrollment.repository.EnrollmentRepository;
 import com.rikkei.eduportal.enrollment.repository.GradeRepository;
 import com.rikkei.eduportal.enrollment.repository.StudentProfileRepository;
@@ -222,13 +223,11 @@ public class StudentDashboardService {
     }
 
     public StudentProfile resolveStudent(String identifier) {
-        if (identifier != null && !identifier.trim().isEmpty()) {
-            Optional<StudentProfile> opt = studentProfileRepository.findByUsernameOrStudentCode(identifier.trim());
-            if (opt.isPresent()) return opt.get();
+        if (identifier == null || identifier.trim().isEmpty()) {
+            throw new UnauthorizedException("Yêu cầu xác thực: Định danh sinh viên không được để trống");
         }
-        // Fallback to first available student profile in system (e.g. sv2024001)
-        return studentProfileRepository.findAll().stream().findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ sinh viên hợp lệ trong hệ thống"));
+        return studentProfileRepository.findByUsernameOrStudentCode(identifier.trim())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ sinh viên với mã: " + identifier.trim()));
     }
 
     private String calculateAcademicStanding(BigDecimal cgpa) {

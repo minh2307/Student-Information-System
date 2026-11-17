@@ -3,6 +3,7 @@ package com.rikkei.eduportal.enrollment.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rikkei.eduportal.common.ApiResponse;
+import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
 import com.rikkei.eduportal.enrollment.dto.*;
 import com.rikkei.eduportal.enrollment.service.SmartScheduleOptimizerService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -98,11 +99,11 @@ public class ScheduleOptimizerController {
                         return claims.get("username").asText();
                     }
                 } catch (Exception ex) {
-                    log.debug("Could not decode JWT payload, using fallback: {}", ex.getMessage());
+                    log.debug("Could not decode JWT payload: {}", ex.getMessage());
                 }
             }
         }
 
-        return "sv2024001";
+        throw new UnauthorizedException("Yêu cầu xác thực: Vui lòng đăng nhập để tối ưu hóa thời khóa biểu.");
     }
 }

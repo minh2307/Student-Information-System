@@ -7,8 +7,8 @@ services:
       POSTGRES_DB: academic_db
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d:ro
@@ -32,8 +32,8 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/auth-service:${IMAGE_TAG:-prod}
     container_name: eduportal-auth-prod
     restart: always
-    ports:
-      - "8081:8081"
+    expose:
+      - "8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -55,8 +55,8 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/course-service:${IMAGE_TAG:-prod}
     container_name: eduportal-course-prod
     restart: always
-    ports:
-      - "8082:8082"
+    expose:
+      - "8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -76,8 +76,8 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/enrollment-service:${IMAGE_TAG:-prod}
     container_name: eduportal-enrollment-prod
     restart: always
-    ports:
-      - "8083:8083"
+    expose:
+      - "8083"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -103,8 +103,8 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/lecturer-service:${IMAGE_TAG:-prod}
     container_name: eduportal-lecturer-prod
     restart: always
-    ports:
-      - "8085:8085"
+    expose:
+      - "8085"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/academic_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
@@ -125,8 +125,8 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/ai-service:${IMAGE_TAG:-prod}
     container_name: eduportal-ai-prod
     restart: always
-    ports:
-      - "${AI_PORT:-8084}:8084"
+    expose:
+      - "8084"
     environment:
       AI_API_KEY: ${AI_API_KEY:-demo-key}
       AI_BASE_URL: ${AI_BASE_URL:-https://openrouter.ai/api}
@@ -144,6 +144,33 @@ services:
           cpus: '0.8'
           memory: 220M
 
+  api-gateway:
+    image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/api-gateway:${IMAGE_TAG:-prod}
+    container_name: eduportal-gateway-prod
+    restart: always
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8081
+      COURSE_SERVICE_URL: http://course-service:8082
+      ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
+      LECTURER_SERVICE_URL: http://lecturer-service:8085
+      AI_SERVICE_URL: http://ai-service:8084
+      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      SPRING_PROFILES_ACTIVE: prod
+      JAVA_OPTS: "-Xmx120m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
+    depends_on:
+      - auth-service
+      - course-service
+      - enrollment-service
+      - lecturer-service
+      - ai-service
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 220M
+
   frontend:
     image: ${IMAGE_PREFIX:-ghcr.io/minh2307}/frontend:${IMAGE_TAG:-prod}
     container_name: eduportal-frontend-prod
@@ -151,6 +178,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:80"
     depends_on:
+      - api-gateway
       - auth-service
       - lecturer-service
       - enrollment-service

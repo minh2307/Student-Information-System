@@ -46,6 +46,16 @@ export interface LoginRequest {
   username: string;
   password: string;
   turnstileToken?: string | null;
+  challengeToken?: string | null;
+  challengeSolution?: string | null;
+  clientType?: string | null;
+}
+
+export interface ChallengeResponse {
+  challengeToken: string;
+  nonce: string;
+  difficulty: number;
+  expiresAt: number;
 }
 
 export interface RefreshTokenRequest {
