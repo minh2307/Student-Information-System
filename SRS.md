@@ -106,7 +106,7 @@ flowchart TB
         SVC_COURSE["Course Service (Port 8082)\nCatalog, Prerequisites, Departments"]
         SVC_ENROLL["Enrollment Service (Port 8083)\n- Live Seat Counter (SSE)\n- 5-Min Slot Reservation Engine\n- AI Smart Schedule Optimizer (CSP)\n- RFC 5545 Calendar Feed Engine\n- Digital Credential Issuer (HMAC-SHA256)"]
         SVC_LEC["Lecturer Service (Port 8085)\n- Dynamic QR Attendance (TOTP 15s)\n- Academic Early Warning System\n- Gradebook & Multi-weight GPA Engine"]
-        SVC_AI["AI Service (Port 8084)\nGemini 1.5 Flash Syllabus Generator\nRAG Academic Regulations Advisor"]
+        SVC_AI["AI Service (Port 8084)\nRAG Academic Regulations Advisor"]
     end
 
     subgraph PersistenceLayer ["Persistence & Storage Layer"]
@@ -177,10 +177,9 @@ graph LR
         UC_AUDIT_LOGS["UC-17: Tra cứu Nhật ký Kiểm toán (Audit Trail)"]
         UC_ADMIN_COURSES["UC-18: Quản lý Khung CTĐT & Tiên quyết"]
         UC_ADMIN_SECTIONS["UC-19: Mở lớp học phần & Kiểm soát trùng phòng"]
-        UC_GEN_SYLLABUS["UC-20: AI Sinh Đề cương môn học"]
 
         %% Public Use Case
-        UC_VERIFY_CREDENTIAL["UC-21: Đối soát Tính Hợp lệ Bảng điểm Số"]
+        UC_VERIFY_CREDENTIAL["UC-20: Đối soát Tính Hợp lệ Bảng điểm Số"]
     end
 
     %% Connections
@@ -208,7 +207,6 @@ graph LR
     actor_adm --> UC_AUDIT_LOGS
     actor_adm --> UC_ADMIN_COURSES
     actor_adm --> UC_ADMIN_SECTIONS
-    actor_adm --> UC_GEN_SYLLABUS
 
     actor_pub --> UC_VERIFY_CREDENTIAL
 ```
@@ -481,7 +479,7 @@ Toàn bộ hệ thống Rikkei EduPortal được phân rã thành **16 Phân h�
 | **MOD-EXAM** | Quản lý Lịch thi & Tổ chức Thi | Examination Management | Lập lịch thi kết thúc học phần, tự động xếp ca thi và phòng thi chống trùng lặp, cấp số báo danh cho sinh viên. | Admin: Lịch thi (`/admin/exams`).<br>Sinh viên: Tra cứu Lịch thi (`/student/exams`).<br>Code: `academic-service`, `ExamScheduleController.java` | **Admin**: Tạo đợt thi, chạy thuật toán auto-schedule xếp phòng/ca thi.<br>**Sinh viên**: Tra cứu ngày thi, ca thi, phòng thi và số báo danh. |
 | **MOD-FIN** | Tài chính Sinh viên & Học phí | Student Finance & Tuition | Lập hóa đơn học phí theo số tín chỉ đăng ký (450k/TC + 300k CSVC), thanh toán qua VietQR Napas247 hoặc PayOS, tự động gạch nợ. | Menu Trái > Học phí (`/student/tuition`) hoặc bấm Nộp học phí từ trang Đăng ký môn (nhận đúng kỳ).<br>Code: `payment-service`, `TuitionController.java` | **Sinh viên**: Xem chi tiết học phí theo kỳ, quét mã VietQR Napas247 hoặc thanh toán PayOS; Nợ học phí không bị chặn đăng ký môn (BR-07A). |
 | **MOD-NOTIF** | Bản tin & Trung tâm Thông báo | Announcements & Notifications | Kênh thông tin đào tạo toàn trường và hộp thư thông báo cá nhân đa kênh (điểm số, cảnh báo, thay đổi phòng học, học phí). | Trang chủ / Bản tin (`/announcements`), Biểu tượng Chuông thông báo trên Header.<br>Code: `academic-service`, `NotificationController.java` | **Admin**: Đăng tải thông báo đào tạo chung.<br>**User**: Nhận thông báo học vụ tức thì, đánh dấu đã đọc từng thông báo hoặc đọc tất cả. |
-| **MOD-AI** | Trí tuệ Nhân tạo & Cố vấn | AI Smart Campus Engine | Động cơ AI ứng dụng CSP xếp TKB tối ưu kèm 1-chạm batch reserve; Trợ lý AI RAG tư vấn quy chế đào tạo; AI sinh đề cương 15 tuần. | Tab Xếp lịch AI (`/student/registration`), Bong bóng Chat AI Cố vấn (`/student/ai-advisor`), Nút AI Đề cương (`/admin/courses`).<br>Code: `ai-service`, `ScheduleOptimizerController.java` | **Sinh viên**: Chọn môn để AI xếp TKB không trùng lịch; Chat hỏi đáp quy chế học vụ.<br>**Giảng viên / Admin**: Dùng AI tạo đề cương môn học tự động. |
+| **MOD-AI** | Trí tuệ Nhân tạo & Cố vấn | AI Smart Campus Engine | Động cơ AI ứng dụng CSP xếp TKB tối ưu kèm 1-chạm batch reserve; Trợ lý AI RAG tư vấn quy chế đào tạo. | Tab Xếp lịch AI (`/student/registration`), Bong bóng Chat AI Cố vấn (`/student/ai-advisor`).<br>Code: `ai-service`, `ScheduleOptimizerController.java` | **Sinh viên**: Chọn môn để AI xếp TKB không trùng lịch; Chat hỏi đáp quy chế học vụ. |
 | **MOD-CRED** | Chứng chỉ Số & Bảng điểm Mã hóa | Digital Credentials & Verify | Xuất bảng điểm điện tử gắn mã serial và chữ ký số HMAC-SHA256 chống giả mạo; cổng xác thực công khai cho nhà tuyển dụng. | Sinh viên: Nút Xuất bảng điểm số (`/student/grades`).<br>Công khai: URL `/verify/transcript?serial=...&sig=...`.<br>Code: `academic-service`, `DigitalCredentialController.java` | **Sinh viên**: Tải bảng điểm số có mã QR chứng thực.<br>**Nhà tuyển dụng**: Quét QR kiểm tra trực tiếp tính nguyên bản không cần đăng nhập. |
 
 ---
@@ -554,9 +552,8 @@ Toàn bộ hệ thống Rikkei EduPortal được phân rã thành **16 Phân h�
 | **F-AI-001** | **Xếp lịch tối ưu thời khóa biểu bằng thuật toán AI CSP**<br>*(AI CSP Timetable Optimizer)* | `POST /api/v1/student/schedule-optimizer/solve` | STUDENT | **In**: `{ courseIds: [Long], preferredDaysOff: [...], preferredShifts: [...] }`.<br>**Logic**: Động cơ AI CSP Backtracking tìm kiếm không gian nghiệm, loại trừ xung đột giờ học, xếp hạng điểm tối ưu Top 3 phương án.<br>**Out**: `200 OK` `{ solutions: [ScheduleSolutionDTO] }`. | AI Constraint Satisfaction | **Should have** | **VERIFIED** | `UC-AI-001` (Cũ: `UC-06`) |
 | **F-AI-002** | **1-chạm giữ chỗ toàn bộ môn trong phương án AI**<br>*(1-Click Batch Reserve AI Plan)* | `POST /api/v1/student/schedule-optimizer/batch-reserve` | STUDENT | **In**: `{ sectionIds: [Long] }` từ phương án AI đã chọn.<br>**Logic**: Thực thi giao dịch giữ chỗ đồng loạt 5 phút cho tất cả các môn trong phương án trong một lời gọi duy nhất.<br>**Out**: `200 OK` `{ reservedSections: [...], expiresAt }`. | Batch Atomic Reserve | **Should have** | **VERIFIED** | `UC-AI-002` (Cũ: `UC-06`) |
 | **F-AI-003** | **Hỏi đáp quy chế đào tạo qua Chatbot AI RAG**<br>*(Query Regulations via AI Advisor RAG)* | `POST /api/v1/ai/academic-advisor` | STUDENT | **In**: `{ question: string, contextHistory: [...] }`.<br>**Logic**: Truy xuất văn bản quy chế đào tạo liên quan (RAG Retrieval), tổng hợp câu trả lời tự nhiên qua Google Gemini LLM.<br>**Out**: `200 OK` `{ answer: string, referenceArticles: [...] }`. | AI RAG LLM | **Could have** | **VERIFIED** | `UC-AI-003` (Cũ: `UC-11`) |
-| **F-AI-004** | **Tự động tạo khung đề cương môn học 15 tuần qua AI**<br>*(Generate 15-Week Syllabus via AI)* | `POST /api/v1/ai/generate-syllabus` | ADMIN, LECTURER | **In**: `{ courseId, courseName, credits, targetAudience }`.<br>**Logic**: Gọi mô hình Google Gemini 1.5 sinh đề cương chi tiết 15 tuần định dạng Markdown, lưu trường `courses.syllabus`.<br>**Out**: `200 OK` `{ syllabusMarkdown: string }`. | Generative AI | **Could have** | **VERIFIED** | `UC-AI-004` (Cũ: `UC-20`) |
 | **F-CRED-001** | **Xuất bảng điểm điện tử gắn mã serial & Chữ ký số HMAC**<br>*(Export Digital Transcript with HMAC Signature)* | `GET /api/v1/student/credentials/transcript` | STUDENT | **In**: `studentId` từ context token.<br>**Logic**: Tổng hợp kết quả học tập, sinh chuỗi hash canonical và ký chữ ký số HMAC-SHA256, sinh mã serial định danh duy nhất (**BR-11**).<br>**Out**: `200 OK` `{ serialNumber, digitalSignature, transcriptPayload, qrCodeUrl }`. | BR-11 | **Must have** | **PARTIALLY_IMPLEMENTED** | `UC-CRED-001` (Cũ: `UC-09`) |
-| **F-CRED-002** | **Xác thực tính hợp lệ của bảng điểm số công khai**<br>*(Public Verify Digital Transcript)* | `GET /api/v1/public/credentials/verify` | PUBLIC VERIFIER | **In**: Query params `{ serial, signature }` từ việc quét mã QR trên bảng điểm điện tử.<br>**Logic**: Tái tạo chuỗi canonical payload từ DB, đối soát chữ ký HMAC-SHA256 không cần đăng nhập; hiển thị huy hiệu xác thực.<br>**Out**: `200 OK` `{ isValid: boolean, studentName, studentCode, gpa, issuedAt }`. | Cryptographic Verification | **Must have** | **VERIFIED** | `UC-CRED-002` (Cũ: `UC-21`) |
+| **F-CRED-002** | **Xác thực tính hợp lệ của bảng điểm số công khai**<br>*(Public Verify Digital Transcript)* | `GET /api/v1/public/credentials/verify` | PUBLIC VERIFIER | **In**: Query params `{ serial, signature }` từ việc quét mã QR trên bảng điểm điện tử.<br>**Logic**: Tái tạo chuỗi canonical payload từ DB, đối soát chữ ký HMAC-SHA256 không cần đăng nhập; hiển thị huy hiệu xác thực.<br>**Out**: `200 OK` `{ isValid: boolean, studentName, studentCode, gpa, issuedAt }`. | Cryptographic Verification | **Must have** | **VERIFIED** | `UC-CRED-002` (Cũ: `UC-20`) |
 
 ---
 ## 3.3. Ma trận Đối soát Bằng chứng Triển khai (Implementation Evidence Matrix)
@@ -620,7 +617,6 @@ Dưới đây là bảng đối soát chi tiết từng Function ID với mã ng
 | **F-AI-001**<br>Xếp lịch tối ưu thời khóa biểu bằng thuật toán AI CSP | `POST /api/v1/student/schedule-optimizer/solve` | ScheduleOptimizerController.java (`academic-service`) | SmartScheduleOptimizerService.java (CSP) | `class_sections` | `CourseRegistration.jsx` | `ScheduleOptimizerControllerTest.java` | **VERIFIED** | Thuật toán CSP Backtracking đề xuất Top 3 phương án TKB tối ưu. |
 | **F-AI-002**<br>1-chạm giữ chỗ toàn bộ môn trong phương án AI | `POST /api/v1/student/schedule-optimizer/batch-reserve` | ScheduleOptimizerController.java (`academic-service`) | SmartScheduleOptimizerService.java | `slot_reservations` | `CourseRegistration.jsx` | `ScheduleOptimizerControllerTest.java` | **VERIFIED** | 1-chạm giữ chỗ 5 phút toàn bộ môn học trong phương án đã chọn. |
 | **F-AI-003**<br>Hỏi đáp quy chế đào tạo qua Chatbot AI RAG | `POST /api/v1/ai/academic-advisor` | AiAdvisorController.java (`ai-service`) | AiAdvisorService.java (RAG Gemini) | Tài liệu Quy chế | `AiAdvisor.jsx` | `AiAdvisorControllerTest.java` | **VERIFIED** | Trợ lý ảo AI tư vấn quy chế đào tạo và giải đáp thắc mắc học vụ. |
-| **F-AI-004**<br>Tự động tạo khung đề cương môn học 15 tuần qua AI | `POST /api/v1/ai/generate-syllabus` | AiSyllabusController.java (`ai-service`) | AiSyllabusService.java (Gemini 1.5) | `courses.syllabus` | `AdminCourses.jsx` | `AiSyllabusControllerTest.java` | **VERIFIED** | Tự động sinh khung đề cương chi tiết môn học 15 tuần bằng Gemini AI. |
 | **F-CRED-001**<br>Xuất bảng điểm điện tử gắn mã serial & Chữ ký số HMAC | `GET /api/v1/student/credentials/transcript` | DigitalCredentialController.java (`academic-service`) | DigitalCredentialService.java (HMAC-SHA256) | `student_profiles`, `grades` | `StudentGrades.jsx` / `grades.tsx` | `DigitalCredentialControllerTest.java` | **PARTIALLY_IMPLEMENTED** | Sinh bằng số gắn HMAC-SHA256; đang dùng dữ liệu fallback mẫu. |
 | **F-CRED-002**<br>Xác thực tính hợp lệ của bảng điểm số công khai | `GET /api/v1/public/credentials/verify` | DigitalCredentialController.java (`academic-service`) | DigitalCredentialService.java | Cổng công khai (No Auth) | `TranscriptVerifyPage.jsx` | `DigitalCredentialControllerTest.java` | **VERIFIED** | Cổng đối soát công khai xác thực chữ ký số chống bằng giả mạo. |
 
@@ -751,14 +747,13 @@ Dưới đây là bảng đối soát chi tiết từng Function ID với mã ng
 | | `GET` | `/api/v1/public/credentials/verify` | Public | Cổng đối soát công khai tính hợp lệ của bảng điểm |
 | **Quản trị Môn & Lớp**| `GET/POST`| `/api/v1/admin/courses` | `ADMIN` | Quản lý danh mục môn học & tiên quyết |
 | | `GET/POST`| `/api/v1/admin/class-sections` | `ADMIN` | Mở lớp học phần, xếp phòng/lịch chống xung đột |
-| **AI Đào tạo** | `POST` | `/api/v1/ai/generate-syllabus` | `ADMIN, LECTURER`| Sinh đề cương chi tiết 15 tuần bằng Google Gemini |
-| | `POST` | `/api/v1/ai/academic-advisor` | `STUDENT` | Trợ lý ảo cố vấn quy chế học vụ và gợi ý lộ trình |
+| **AI Đào tạo** | `POST` | `/api/v1/ai/academic-advisor` | `STUDENT` | Trợ lý ảo cố vấn quy chế học vụ và gợi ý lộ trình |
 
 ---
 
-# 8. ĐẶC TẢ CHI TIẾT 21 USE CASE (DETAILED USE CASE SPECIFICATIONS)
+# 8. ĐẶC TẢ CHI TIẾT 20 USE CASE (DETAILED USE CASE SPECIFICATIONS)
 
-## 8.1. Mục lục & Ma trận Phân loại 21 Use Case
+## 8.1. Mục lục & Ma trận Phân loại 20 Use Case
 
 | Mã UC | Tên Use Case | Actor Chính | Mức Ưu tiên | Tình trạng Triển khai |
 | :---: | :--- | :--- | :---: | :---: |
@@ -781,12 +776,11 @@ Dưới đây là bảng đối soát chi tiết từng Function ID với mã ng
 | [UC-17](#uc-17-tra-cứu-nhật-ký-kiểm-toán-audit-trail) | Tra cứu Nhật ký Kiểm toán (Audit Trail) | ADMIN | Should | VERIFIED |
 | [UC-18](#uc-18-quản-lý-khung-ctđt--môn-học-tiên-quyết) | Quản lý Khung CTĐT & Môn học Tiên quyết | ADMIN | Must | VERIFIED |
 | [UC-19](#uc-19-mở-lớp-học-phần--kiểm-soát-xung-đột-phònglịch) | Mở Lớp Học phần & Kiểm soát Xung đột | ADMIN | Must | VERIFIED |
-| [UC-20](#uc-20-ai-sinh-đề-cương-môn-học-tự-động) | AI Sinh Đề cương Môn học Tự động | ADMIN / LECTURER | Could | VERIFIED |
-| [UC-21](#uc-21-đối-soát-tính-hợp-lệ-bảng-điểm-số-công-khai) | Đối soát Bảng điểm Số Công khai | PUBLIC VERIFIER | Must | VERIFIED |
+| [UC-20](#uc-20-đối-soát-tính-hợp-lệ-bảng-điểm-số-công-khai) | Đối soát Bảng điểm Số Công khai | PUBLIC VERIFIER | Must | VERIFIED |
 
 ---
 
-## 8.2. Danh sách Đặc tả Chi tiết 21 Use Case (Chuẩn 13 Phần IEEE)
+## 8.2. Danh sách Đặc tả Chi tiết 20 Use Case (Chuẩn 13 Phần IEEE)
 
 ---
 
@@ -2284,7 +2278,6 @@ Quản trị viên Đào tạo (Admin) quản lý danh mục toàn bộ môn h�
 ### 6. Luồng Thay thế (Alternative Flows)
 - **AF-01: Chỉnh sửa thông tin môn học**: Admin cập nhật tên môn hoặc đề cương chi tiết của môn học hiện có.
 - **AF-02: Xóa môn học hợp lệ (BR-12)**: Admin chọn xóa một môn học vừa tạo nhầm chưa từng mở bất kỳ lớp học phần nào trong lịch sử → hệ thống xóa môn thành công.
-- **AF-03: Sinh đề cương bằng AI**: Admin nhấn nút "AI Sinh Đề Cương" để tự động tạo syllabus 15 tuần (**UC-20**).
 
 ### 7. Luồng Ngoại lệ (Exception Flows)
 - **EF-01: Tham chiếu vòng môn tiên quyết (BR-02)**: Admin thiết lập Môn A yêu cầu Môn B, sau đó chọn Môn B yêu cầu Môn A → thuật toán phát hiện chu trình ném ngoại lệ, trả về HTTP 400: *"Không thể thiết lập quan hệ tiên quyết vòng lặp giữa các môn học."*
@@ -2305,7 +2298,7 @@ Quản trị viên Đào tạo (Admin) quản lý danh mục toàn bộ môn h�
 - **Đọc/Ghi**: Bảng `courses`, `class_sections`, `audit_logs`.
 
 ### 12. Màn hình / UI Liên kết (UI/UX Screens)
-- Web: `AdminCourses.jsx` (Modal Thêm/Sửa môn học, Modal AI Sinh đề cương).
+- Web: `AdminCourses.jsx` (Modal Thêm/Sửa môn học).
 
 ### 13. Tiêu chí Nghiệm thu (Acceptance Criteria)
 - [ ] Thêm mới và cập nhật thông tin môn học thành công.
@@ -2399,93 +2392,11 @@ Quản trị viên Đào tạo (Admin) mở các lớp học phần mới cho m�
 
 ---
 
-## UC-20: AI Sinh Đề cương Môn học Tự động
+## UC-20: Đối soát Tính Hợp lệ Bảng điểm Số Công khai
 
 | Trường | Nội dung |
 | :--- | :--- |
 | **Mã Use Case** | `UC-20` |
-| **Tên Use Case** | AI Tự động Sinh Đề cương Chi tiết Môn học (AI Syllabus Generator) |
-| **Actor Chính** | ADMIN, LECTURER |
-| **Actor Phụ** | System (AiSyllabusService, Google Gemini 1.5 Flash API) |
-| **Chức năng liên kết** | `F-AI-004` (AI sinh đề cương môn học 15 tuần) |
-| **Business Rules** | Chuẩn Đào tạo Dựa trên Chuẩn đầu ra (Outcome-Based Education - OBE) |
-| **Mức Ưu tiên** | **Could have** |
-| **Trạng thái Triển khai** | **VERIFIED** – `AiSyllabusController.java`, `AiSyllabusService.java` (`ai-service`) |
-
-> ### 🧭 CHỈ DẪN NHANH CHO KHÁCH HÀNG & DEVELOPER (QUICK NAVIGATION GUIDE)
-> - **📌 Đó là tính năng gì? (WHAT)**: Công cụ AI Tạo Đề cương Môn học Tự động (AI 15-Week Syllabus Generator) dành cho Quản trị viên và Giảng viên: ứng dụng mô hình trí tuệ nhân tạo tạo sinh Google Gemini để tự động tạo khung đề cương chi tiết môn học 15 tuần theo chuẩn kiểm định chất lượng đào tạo (nội dung lý thuyết, bài tập thực hành, phương pháp đánh giá, tài liệu học tập định dạng Markdown); người dùng có thể chỉnh sửa trực tiếp và lưu vào hồ sơ môn học.
-> - **📍 Tìm thấy ở đâu? (WHERE)**:
->   - **Dành cho Khách hàng**: Tại trang Quản lý môn học (`/admin/courses`), nhấn vào chi tiết môn học và bấm nút **AI Tạo đề cương 15 tuần**.
->   - **Dành cho Lập trình viên**: Frontend: `frontend/src/pages/AdminCourses.jsx` (Modal AI Syllabus) | Backend Controller: `AiSyllabusController.java` (`ai-service`) | Service: `AiSyllabusService.java` (Google Gemini 1.5 Pro/Flash SDK) | REST API: `POST /api/v1/ai/generate-syllabus` | Bảng CSDL: Cột `courses.syllabus` (TEXT/Markdown).
-> - **📝 Cần làm gì? (ACTION / HOW)**:
->   - **Khách hàng thao tác**: 1. Mở màn hình Quản lý môn học, chọn môn học cần xây dựng đề cương. 2. Nhấn nút **AI Tạo đề cương 15 tuần**. 3. Nhập mục tiêu môn học, đối tượng đào tạo và số tín chỉ (nếu muốn bổ sung chỉ dẫn). 4. Nhấn nút **Bắt đầu sinh đề cương qua AI**. 5. Chờ AI xử lý trong vài giây; màn hình hiển thị toàn bộ khung đề cương 15 tuần định dạng Markdown chuyên nghiệp. 6. Giảng viên/Admin có thể chỉnh sửa lại câu từ trực tiếp trên khung soạn thảo và nhấn **Lưu đề cương**.
->   - **Developer xử lý kỹ thuật**: 1. Tiếp nhận request `POST /api/v1/ai/generate-syllabus` với `{ courseId, courseName, credits, targetAudience }`. 2. Xây dựng Prompt kỹ thuật theo chuẩn kiểm định CDIO/ABET: yêu cầu phân bổ 15 tuần học, mục tiêu chuẩn đầu ra, tài liệu tham khảo và thang đánh giá. 3. Gọi Google Gemini 1.5 API sinh văn bản Markdown. 4. Trả về JSON `{ syllabusMarkdown: '...' }`. 5. Khi người dùng bấm lưu, gọi `PUT /api/v1/admin/courses/{id}` cập nhật nội dung vào cột `syllabus` của bảng `courses`.
-
-### 1. Mô tả Ngắn gọn
-Quản trị viên hoặc Giảng viên nhập tên môn học, số tín chỉ và mục tiêu đào tạo tổng quát; dịch vụ AI tích hợp Google Gemini 1.5 Flash tự động phân tích và sinh ra khung Đề cương chi tiết môn học hoàn chỉnh chuẩn 15 tuần (chuẩn đầu ra CLO, nội dung từng tuần, bài tập thực hành, tài liệu tham khảo và hình thức đánh giá).
-
-### 2. Tiền điều kiện (Preconditions)
-- Người dùng đã đăng nhập với vai trò `ADMIN` hoặc `LECTURER`.
-- Dịch vụ `ai-service` đang hoạt động và cấu hình hợp lệ API Key của Google Gemini.
-
-### 3. Hậu điều kiện – Thành công (Postconditions – Success)
-- Đề cương chi tiết định dạng Markdown hoàn chỉnh 15 tuần được sinh ra và lưu vào trường `syllabus` của môn học trong bảng `courses`.
-- Giảng viên và sinh viên có thể xem và tải về đề cương chi tiết này.
-
-### 4. Hậu điều kiện – Thất bại (Postconditions – Failure)
-- Nếu lỗi API hoặc nội dung không hợp lệ, hệ thống giữ nguyên đề cương hiện tại và hiển thị thông báo lỗi.
-
-### 5. Luồng Chính (Main Flow – Happy Path)
-| Bước | Actor | Hành động / Phản hồi Hệ thống |
-| :---: | :--- | :--- |
-| 1 | ACTOR | Truy cập trang Quản lý Môn học và chọn một môn học cần tạo đề cương. |
-| 2 | ACTOR | Nhấn nút **"AI Sinh Đề Cương 15 Tuần"**. |
-| 3 | SYSTEM | Hiển thị modal xác nhận: Tên môn học, Số tín chỉ, Mô tả môn học, Đối tượng sinh viên. |
-| 4 | ACTOR | Bổ sung các từ khóa công nghệ trọng tâm (ví dụ: *"Spring Boot 3, Microservices, Docker"*) và nhấn **"Bắt Đầu Sinh"**. |
-| 5 | SYSTEM | Gửi `POST /api/v1/ai/generate-syllabus` với payload môn học. |
-| 6 | SYSTEM | `AiSyllabusService` tạo cấu trúc Prompt chuẩn sư phạm gửi tới mô hình Google Gemini 1.5 Flash. |
-| 7 | SYSTEM | Gemini phân tích và trả về bản đề cương 15 tuần phân rã chi tiết theo chuẩn giáo dục hiện đại. |
-| 8 | SYSTEM | Hiển thị bản nháp đề cương trên trình soạn thảo Markdown trực quan để người dùng duyệt. |
-| 9 | ACTOR | Đọc kiểm tra, chỉnh sửa một số nội dung theo ý muốn và nhấn nút **"Phê Duyệt & Lưu Đề Cương"**. |
-| 10 | SYSTEM | Cập nhật nội dung đề cương vào cơ sở dữ liệu (`courses.syllabus`). |
-
-### 6. Luồng Thay thế (Alternative Flows)
-- **AF-01: Yêu cầu AI sinh lại (Regenerate)**: Người dùng chưa ưng ý với cấu trúc các tuần học → nhấn nút "Sinh lại phương án khác" → Gemini tạo phiên bản đề cương mới.
-- **AF-02: Xuất đề cương ra file PDF**: Người dùng tải bản in đề cương PDF chính thức có tiêu đề và biểu mẫu của học viện.
-
-### 7. Luồng Ngoại lệ (Exception Flows)
-- **EF-01: Google Gemini API Timeout hoặc Rate Limit**: Hệ thống thông báo: *"Dịch vụ AI đang bận hoặc quá tải. Vui lòng thử lại sau ít phút."*
-
-### 8. Yêu cầu Đặc biệt & Business Rules (Special Requirements & BRs)
-- Đề cương sinh ra bắt buộc phải đủ 15 tuần học, phân định rõ buổi lý thuyết và thực hành.
-- Phải bao gồm Chuẩn đầu ra môn học (CLOs) tương thích với Chuẩn đầu ra chương trình (PLOs).
-
-### 9. Điểm Mở rộng (Extension Points)
-- Tự động sinh bộ câu hỏi trắc nghiệm ôn tập và ngân hàng đề thi tương ứng với đề cương vừa sinh.
-- Phân tích sự trùng lặp kiến thức giữa các đề cương môn học khác nhau trong cùng ngành.
-
-### 10. Tần suất Sử dụng (Frequency of Use)
-- Khi xây dựng môn học mới hoặc rà soát định kỳ chương trình đào tạo hàng năm.
-
-### 11. Luồng Dữ liệu Liên quan (Data Entities & Relations)
-- **Đọc/Ghi**: Bảng `courses` (trường `syllabus`), Google Gemini API.
-
-### 12. Màn hình / UI Liên kết (UI/UX Screens)
-- Web: `AdminCourses.jsx` (Modal AI Syllabus Generator kèm Markdown Editor).
-
-### 13. Tiêu chí Nghiệm thu (Acceptance Criteria)
-- [ ] Sinh thành công đề cương chi tiết 15 tuần mạch lạc, đúng chuyên ngành môn học.
-- [ ] Đề cương có đủ chuẩn đầu ra, nội dung 15 tuần, tài liệu tham khảo và hình thức đánh giá.
-- [ ] Cho phép người dùng chỉnh sửa Markdown trực tiếp trước khi bấm lưu.
-- [ ] Lưu thành công vào cơ sở dữ liệu và hiển thị cho sinh viên tra cứu.
-
----
-
-## UC-21: Đối soát Tính Hợp lệ Bảng điểm Số Công khai
-
-| Trường | Nội dung |
-| :--- | :--- |
-| **Mã Use Case** | `UC-21` |
 | **Tên Use Case** | Đối soát Tính Hợp lệ Bảng điểm Số Công khai (Public Credential Verification Portal) |
 | **Actor Chính** | PUBLIC VERIFIER (Nhà tuyển dụng, Phụ huynh, Cơ quan thứ ba) |
 | **Actor Phụ** | System (DigitalCredentialService) |

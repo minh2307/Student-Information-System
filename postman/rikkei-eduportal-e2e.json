@@ -1897,7 +1897,7 @@
       ]
     },
     {
-      "name": "07. AI Academic Advisor & Syllabus (ai-service)",
+      "name": "07. AI Academic Advisor (ai-service)",
       "item": [
         {
           "name": "39. POST /ai/academic-advisor — Sinh viên hỏi Cố vấn AI 24/7 -> 200 OK",
@@ -1951,58 +1951,7 @@
           ]
         },
         {
-          "name": "40. POST /ai/generate-syllabus — Giảng viên yêu cầu AI sinh đề cương -> 200 OK",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_lecturer}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{base_ai_url}}{{api_prefix}}/ai/generate-syllabus",
-              "host": [
-                "{{base_ai_url}}{{api_prefix}}/ai/generate-syllabus"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"courseName\": \"Data Structures and Algorithms\",\n  \"credits\": 3,\n  \"description\": \"Môn học nâng cao về cấu trúc dữ liệu Tree, Graph và các giải thuật tối ưu.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "if (pm.response.code !== 503 && pm.response.code !== 502) {",
-                  "    pm.test(\"AI Syllabus response is 200 OK or handled gracefully\", function () {",
-                  "        pm.expect([200, 400, 500]).to.include(pm.response.code);",
-                  "    });",
-                  "} else {",
-                  "    pm.test(\"ai-service route accessible\", function () { pm.expect(true).to.be.true; });",
-                  "}"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "41. GET /announcements — Bản tin đào tạo & thông báo học vụ -> 200 OK",
+          "name": "40. GET /announcements — Bản tin đào tạo & thông báo học vụ -> 200 OK",
           "request": {
             "method": "GET",
             "header": [
@@ -2048,7 +1997,7 @@
       "name": "08. Security, RBAC & Negative Scenarios",
       "item": [
         {
-          "name": "42. STUDENT gọi PUT /lecturer/grades/{id} -> 403 Forbidden",
+          "name": "41. STUDENT gọi PUT /lecturer/grades/{id} -> 403 Forbidden",
           "request": {
             "method": "PUT",
             "header": [
@@ -2095,7 +2044,7 @@
           ]
         },
         {
-          "name": "43. STUDENT gọi POST /admin/class-sections -> 403 Forbidden",
+          "name": "42. STUDENT gọi POST /admin/class-sections -> 403 Forbidden",
           "request": {
             "method": "POST",
             "header": [
@@ -2142,7 +2091,7 @@
           ]
         },
         {
-          "name": "44. LECTURER gọi API của lớp không thuộc phân công -> 403 Forbidden",
+          "name": "43. LECTURER gọi API của lớp không thuộc phân công -> 403 Forbidden",
           "request": {
             "method": "GET",
             "header": [
@@ -2184,7 +2133,7 @@
           ]
         },
         {
-          "name": "45. Gọi API bảo vệ không có JWT Bearer Token -> 401 Unauthorized",
+          "name": "44. Gọi API bảo vệ không có JWT Bearer Token -> 401 Unauthorized",
           "request": {
             "method": "GET",
             "header": [

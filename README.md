@@ -33,7 +33,7 @@ Hệ thống được thiết kế theo kiến trúc Microservices phân tách t
 │   ├── auth-service/           # Xác thực JWT, Hồ sơ cá nhân & Quản lý User (Port 8081)
 │   ├── course-service/         # Quản lý Môn học & Mở lớp học phần (Port 8082)
 │   ├── enrollment-service/     # Cổng Sinh viên, Đăng ký tín chỉ & Lịch học (Port 8083)
-│   ├── ai-service/             # AI Syllabus Generator & Academic Advisor Chatbot (Port 8084)
+│   ├── ai-service/             # AI Academic Advisor Chatbot (Port 8084)
 │   └── lecturer-service/       # Cổng Giảng viên, Quản lý lớp & Nhập/Khóa bảng điểm (Port 8085)
 ├── frontend/                   # ReactJS + Vite + Tailwind CSS + Zustand (Port 80 / 3000)
 ├── docker-compose.yml          # Điều phối Docker Compose (PostgreSQL, 6 Microservices, Frontend)
@@ -84,7 +84,7 @@ Toàn bộ dịch vụ được quản lý tập trung tại thư mục `/opt/ed
 | **`eduportal-auth`** | Auth Service (JWT & User Profiles) | `8081` | `8081` |
 | **`eduportal-course`** | Course Service (Môn học & Lớp học phần) | `8082` | `8082` |
 | **`eduportal-enrollment`** | Enrollment Service (Đăng ký tín chỉ & Dashboard) | `8083` | `8083` |
-| **`eduportal-ai`** | AI Service (Spring AI Syllabus & Advisor) | `8084` | `8084` |
+| **`eduportal-ai`** | AI Service (Spring AI Advisor) | `8084` | `8084` |
 | **`eduportal-lecturer`** | Lecturer Service (Quản lý lớp & Nhập điểm) | `8085` | `8085` |
 | **`eduportal-postgres`** | PostgreSQL 16 Alpine Database | `5432` | `5432` |
 
@@ -121,7 +121,7 @@ Dựa theo mục 8 của tài liệu SRS `PRJ-QUICK-REVIEW-PRE-OJT-03`, phân ch
 
 | Thành viên | Vai trò | Nhiệm vụ cụ thể (Backend + Frontend + DevOps) | Phân hệ phụ trách |
 |---|---|---|---|
-| **Nguyễn Sơn Minh** | **Team Lead / AI Integrator** | - Khởi tạo khung Project Spring Boot & ReactJS (Vite + Tailwind + Zustand).<br>- Thiết kế SQL khởi tạo DB PostgreSQL (Schema & Seed Data chuẩn).<br>- Phát triển Module **AI Integration** (BE: Spring AI Syllabus Generator & Academic Advisor Chatbot; FE: UI Chatbot Advisor & Sinh đề cương AI).<br>- Thiết kế kiến trúc triển khai VPS, JVM Tuning & điều phối tiến độ Sprint. | `services/ai-service`, `init-db`, Root config, VPS Deploy |
+| **Nguyễn Sơn Minh** | **Team Lead / AI Integrator** | - Khởi tạo khung Project Spring Boot & ReactJS (Vite + Tailwind + Zustand).<br>- Thiết kế SQL khởi tạo DB PostgreSQL (Schema & Seed Data chuẩn).<br>- Phát triển Module **AI Integration** (BE: Academic Advisor Chatbot; FE: UI Chatbot Advisor).<br>- Thiết kế kiến trúc triển khai VPS, JVM Tuning & điều phối tiến độ Sprint. | `services/ai-service`, `init-db`, Root config, VPS Deploy |
 | **Nguyễn Quang Vinh** | **Full-stack Dev 1 (Auth, User & DevOps Co-Lead)** | - **Auth & User Profile**:<br>  + BE: Spring Security + JWT Filter, API Auth (`/login`), API Profile (`/profile/me`), CRUD Hồ sơ Sinh viên & Giảng viên cho Admin.<br>  + FE: Trang Đăng nhập, Khung Layout chung (Header/Sidebar navigation), Trang Quản lý Hồ sơ.<br>- **DevOps Core**: Thiết lập Dockerfile từng service, Docker Compose cho môi trường dev/staging/prod. | `services/auth-service`, `frontend` (Auth & Layout), Docker |
 | **Hoàng Cương Cát** | **Full-stack Dev 2 (Academic Catalog & Class Operations)** | - **Quản lý Danh mục Môn học & Lớp học phần**:<br>  + BE: API CRUD Môn học (`courses`), API Mở lớp học phần (`class_sections`), validate trùng phòng học/giảng viên & API Admin duyệt đăng ký (`PENDING` → `REGISTERED`).<br>  + FE: Trang Quản lý Danh mục Môn học & Trang Quản lý Lớp học phần/Duyệt đăng ký (Admin Portal). | `services/course-service`, `frontend` (Admin Catalog & Sections) |
 | **Phạm Viết Quân** | **Full-stack Dev 3 (Student Portal & Registration)** | - **Cổng Sinh viên & Đăng ký học phần**:<br>  + BE: API `/student/dashboard`, Engine Đăng ký học phần (Logic check sĩ số, giới hạn 24 tín chỉ, trùng lịch `has_conflict`). Phối hợp tối ưu DB Locking.<br>  + FE: Giao diện Student Dashboard (4 thẻ chỉ số, tiến độ học tập) & Trang Đăng ký/Hủy học phần. | `services/enrollment-service`, `frontend` (Student Portal) |
@@ -180,7 +180,6 @@ Toàn bộ API trả về cấu trúc JSON chuẩn:
 - `POST /api/v1/lecturer/classes/{sectionId}/lock-grades`: Chốt và khóa bảng điểm của lớp.
 
 ### 6.5. Module AI Integration (`ai-service` - Port 8084)
-- `POST /api/v1/ai/generate-syllabus`: (Role: ADMIN, LECTURER) Nhận tên môn học và số tín chỉ, Spring AI tự động sinh đề cương chi tiết môn học.
 - `POST /api/v1/ai/academic-advisor`: (Role: STUDENT) Chatbot giải đáp quy chế tín chỉ & gợi ý lộ trình môn học không bị trùng lịch.
 
 ---

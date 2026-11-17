@@ -899,7 +899,7 @@ collection['item'].append({
 
 
 # ====================================================================
-# FOLDER 7: AI ACADEMIC ADVISOR & SYLLABUS (ai-service)
+# FOLDER 7: AI ACADEMIC ADVISOR (ai-service)
 # ====================================================================
 folder7_items = []
 
@@ -927,29 +927,7 @@ folder7_items.append(make_request(
 ))
 
 folder7_items.append(make_request(
-    name='40. POST /ai/generate-syllabus — Giảng viên yêu cầu AI sinh đề cương -> 200 OK',
-    method='POST',
-    url_str='{{base_ai_url}}{{api_prefix}}/ai/generate-syllabus',
-    headers={
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer {{token_lecturer}}'
-    },
-    body_json={
-        'courseName': 'Data Structures and Algorithms',
-        'credits': 3,
-        'description': 'Môn học nâng cao về cấu trúc dữ liệu Tree, Graph và các giải thuật tối ưu.'
-    },
-    tests="""if (pm.response.code !== 503 && pm.response.code !== 502) {
-    pm.test("AI Syllabus response is 200 OK or handled gracefully", function () {
-        pm.expect([200, 400, 500]).to.include(pm.response.code);
-    });
-} else {
-    pm.test("ai-service route accessible", function () { pm.expect(true).to.be.true; });
-}"""
-))
-
-folder7_items.append(make_request(
-    name='41. GET /announcements — Bản tin đào tạo & thông báo học vụ -> 200 OK',
+    name='40. GET /announcements — Bản tin đào tạo & thông báo học vụ -> 200 OK',
     method='GET',
     url_str='{{base_enrollment_url}}{{api_prefix}}/announcements',
     headers={'Authorization': 'Bearer {{token_student}}'},
@@ -967,7 +945,7 @@ folder7_items.append(make_request(
 ))
 
 collection['item'].append({
-    'name': '07. AI Academic Advisor & Syllabus (ai-service)',
+    'name': '07. AI Academic Advisor (ai-service)',
     'item': folder7_items
 })
 
@@ -978,7 +956,7 @@ collection['item'].append({
 folder8_items = []
 
 folder8_items.append(make_request(
-    name='42. STUDENT gọi PUT /lecturer/grades/{id} -> 403 Forbidden',
+    name='41. STUDENT gọi PUT /lecturer/grades/{id} -> 403 Forbidden',
     method='PUT',
     url_str='{{base_lecturer_url}}{{api_prefix}}/lecturer/grades/{{enrollment_id_sv1}}',
     headers={
@@ -992,7 +970,7 @@ folder8_items.append(make_request(
 ))
 
 folder8_items.append(make_request(
-    name='43. STUDENT gọi POST /admin/class-sections -> 403 Forbidden',
+    name='42. STUDENT gọi POST /admin/class-sections -> 403 Forbidden',
     method='POST',
     url_str='{{base_course_url}}{{api_prefix}}/admin/class-sections',
     headers={
@@ -1006,7 +984,7 @@ folder8_items.append(make_request(
 ))
 
 folder8_items.append(make_request(
-    name='44. LECTURER gọi API của lớp không thuộc phân công -> 403 Forbidden',
+    name='43. LECTURER gọi API của lớp không thuộc phân công -> 403 Forbidden',
     method='GET',
     url_str='{{base_lecturer_url}}{{api_prefix}}/lecturer/classes/{{section_id_gv002}}/students',
     headers={'Authorization': 'Bearer {{token_lecturer}}'},
@@ -1025,7 +1003,7 @@ pm.test("Error message explains ownership restriction", function () {
 ))
 
 folder8_items.append(make_request(
-    name='45. Gọi API bảo vệ không có JWT Bearer Token -> 401 Unauthorized',
+    name='44. Gọi API bảo vệ không có JWT Bearer Token -> 401 Unauthorized',
     method='GET',
     url_str='{{base_lecturer_url}}{{api_prefix}}/lecturer/classes',
     headers={'Accept': 'application/json'},
