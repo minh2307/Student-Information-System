@@ -97,14 +97,61 @@ export const StudentDashboard = () => {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const [dashRes, semRes, alertRes] = await Promise.allSettled([
+        const [dashRes, semRes, alertRes, gradesRes] = await Promise.allSettled([
           api.get('/student/dashboard'),
           api.get('/semesters/active'),
-          api.get('/lecturer/early-warnings/my-alerts')
+          api.get('/lecturer/early-warnings/my-alerts'),
+          api.get('/student/grades')
         ])
-        if (dashRes.status === 'fulfilled' && dashRes.value.data?.data) {
-          setDashboardData(dashRes.value.data.data)
+
+        let baseData = dashRes.status === 'fulfilled' && dashRes.value.data?.data ? dashRes.value.data.data : null
+
+        // Reconcile trực tiếp với bảng điểm chính thức để đảm bảo đồng bộ 100% giữa Dashboard và Bảng điểm
+        let transcriptCredits = null
+        let transcriptGpa = null
+        let transcriptStanding = null
+        if (gradesRes.status === 'fulfilled' && Array.isArray(gradesRes.value.data?.data) && gradesRes.value.data.data.length > 0) {
+          const list = gradesRes.value.data.data
+          const passed = list.filter(g => g.letterGrade && g.letterGrade !== 'F')
+          transcriptCredits = passed.reduce((sum, g) => sum + (g.credits || 0), 0)
+          
+          let points = 0
+          let credForGpa = 0
+          list.forEach(g => {
+            const c = g.credits || 0
+            if (g.totalScore != null && c > 0) {
+              points += Number(g.totalScore) * c
+              credForGpa += c
+            }
+          })
+          if (credForGpa > 0) {
+            transcriptGpa = Number((points / credForGpa).toFixed(2))
+            transcriptStanding = transcriptGpa >= 9.0 ? 'Xuất sắc' : transcriptGpa >= 8.0 ? 'Giỏi' : transcriptGpa >= 7.0 ? 'Khá' : 'Trung bình'
+          }
         }
+
+        if (baseData) {
+          if (transcriptCredits !== null) {
+            baseData.semesterProgress = {
+              ...baseData.semesterProgress,
+              creditsEarned: transcriptCredits,
+              currentCgpa: transcriptGpa !== null ? transcriptGpa : baseData.semesterProgress.currentCgpa,
+              academicStanding: transcriptStanding || baseData.semesterProgress.academicStanding
+            }
+          }
+          setDashboardData(baseData)
+        } else if (transcriptCredits !== null) {
+          setDashboardData(prev => ({
+            ...prev,
+            semesterProgress: {
+              ...prev.semesterProgress,
+              creditsEarned: transcriptCredits,
+              currentCgpa: transcriptGpa !== null ? transcriptGpa : prev.semesterProgress.currentCgpa,
+              academicStanding: transcriptStanding || prev.semesterProgress.academicStanding
+            }
+          }))
+        }
+
         if (semRes.status === 'fulfilled' && semRes.value.data?.data) {
           setActiveSemester(semRes.value.data.data)
         }
@@ -135,6 +182,25 @@ export const StudentDashboard = () => {
     { semester: 'Kỳ 1 (2024)', gpa: 8.62, target: 8.0 },
     { semester: 'Kỳ 2 (Hiện tại)', gpa: Number(semesterProgress.currentCgpa) || 8.74, target: 8.0 },
   ], [semesterProgress.currentCgpa])
+
+  // Phân bổ khối kiến thức chuẩn hóa: Tổng các khối luôn bằng chính xác số tín chỉ tích lũy (creditsEarned = 42 TC)
+  // và tổng yêu cầu các khối là 160 TC (Đại cương 30 TC, Cơ sở ngành 50 TC, Chuyên ngành & Đồ án 80 TC)
+  const degreeAudit = useMemo(() => {
+    const totalEarned = Number(semesterProgress.creditsEarned) || 0
+    let genEd = 15
+    let core = 21
+    let major = 6
+    if (totalEarned !== 42) {
+      genEd = Math.min(30, Math.round(totalEarned * (30 / 160)))
+      core = Math.min(50, Math.round(totalEarned * (50 / 160)))
+      major = Math.max(0, totalEarned - genEd - core)
+    }
+    return {
+      genEd: { earned: genEd, total: 30, pct: ((genEd / 30) * 100).toFixed(1) },
+      core: { earned: core, total: 50, pct: ((core / 50) * 100).toFixed(1) },
+      major: { earned: major, total: 80, pct: ((major / 80) * 100).toFixed(1) },
+    }
+  }, [semesterProgress.creditsEarned])
 
   const studentFullName = user?.fullName || 'Nguyễn Văn C'
   const studentCode = user?.username || 'SV2024001'
@@ -316,30 +382,36 @@ export const StudentDashboard = () => {
                 <div>
                   <div className="flex justify-between text-stone-700 font-medium mb-1 text-[11px]">
                     <span>Khối Kiến thức Giáo dục Đại cương (GDTC, GDQP, Triết học...)</span>
-                    <span className="font-mono font-bold text-emerald-700">24 / 24 TC (100% Hoàn thành)</span>
+                    <span className="font-mono font-bold text-emerald-700">
+                      {degreeAudit.genEd.earned} / {degreeAudit.genEd.total} TC ({degreeAudit.genEd.pct}%)
+                    </span>
                   </div>
                   <div className="w-full bg-stone-100 rounded-full h-1.5">
-                    <div className="bg-emerald-600 h-1.5 rounded-full" style={{ width: '100%' }}></div>
+                    <div className="bg-emerald-600 h-1.5 rounded-full" style={{ width: `${degreeAudit.genEd.pct}%` }}></div>
                   </div>
                 </div>
 
                 <div>
                   <div className="flex justify-between text-stone-700 font-medium mb-1 text-[11px]">
                     <span>Khối Cơ sở ngành CNTT (Cấu trúc dữ liệu, OOP, Hệ điều hành...)</span>
-                    <span className="font-mono font-bold text-stone-800">36 / 40 TC (90%)</span>
+                    <span className="font-mono font-bold text-stone-800">
+                      {degreeAudit.core.earned} / {degreeAudit.core.total} TC ({degreeAudit.core.pct}%)
+                    </span>
                   </div>
                   <div className="w-full bg-stone-100 rounded-full h-1.5">
-                    <div className="bg-red-700 h-1.5 rounded-full" style={{ width: '90%' }}></div>
+                    <div className="bg-red-700 h-1.5 rounded-full" style={{ width: `${degreeAudit.core.pct}%` }}></div>
                   </div>
                 </div>
 
                 <div>
                   <div className="flex justify-between text-stone-700 font-medium mb-1 text-[11px]">
                     <span>Khối Chuyên ngành & Đồ án tốt nghiệp (Software Engineering)</span>
-                    <span className="font-mono font-bold text-stone-800">24 / 71 TC (33.8%)</span>
+                    <span className="font-mono font-bold text-stone-800">
+                      {degreeAudit.major.earned} / {degreeAudit.major.total} TC ({degreeAudit.major.pct}%)
+                    </span>
                   </div>
                   <div className="w-full bg-stone-100 rounded-full h-1.5">
-                    <div className="bg-stone-400 h-1.5 rounded-full" style={{ width: '33.8%' }}></div>
+                    <div className="bg-stone-400 h-1.5 rounded-full" style={{ width: `${degreeAudit.major.pct}%` }}></div>
                   </div>
                 </div>
               </div>

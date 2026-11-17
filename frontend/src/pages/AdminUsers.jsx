@@ -173,7 +173,7 @@ export const AdminUsers = () => {
         },
         {
           user: { id: 4, username: 'sv2024001', fullName: 'Nguyễn Văn C', email: 'nguyenvanc@rikkei.edu.vn', role: 'STUDENT', status: 'ACTIVE', createdAt: '2026-10-19T10:00:00' },
-          studentProfile: { studentCode: 'SV2024001', major: 'Computer Science', currentSemester: 6, creditsEarned: 84 },
+          studentProfile: { studentCode: 'SV2024001', major: 'Computer Science', currentSemester: 6, creditsEarned: 42 },
           lecturerProfile: null,
         },
       ])

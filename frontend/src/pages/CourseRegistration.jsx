@@ -1306,7 +1306,7 @@ export const CourseRegistration = () => {
               const isSlotLocked = effectiveAvailable <= 0 && !isHeldByMe
               const isBusy = actionLoadingId === (sec.isEnrolled ? sec.enrollmentId : sec.id)
               const wouldExceedCredits =
-                !sec.isEnrolled && !sec.isCompleted && enrolledSummary.credits + (sec.credits || 0) > 24
+                !sec.isEnrolled && !sec.isCompleted && !sec.isOtherSectionEnrolled && !sec.isCourseAlreadyPassed && enrolledSummary.credits + (sec.credits || 0) > 24
 
               const isRecentlyUpdated = Boolean(recentlyUpdatedIds[sec.id])
 
@@ -1345,6 +1345,14 @@ export const CourseRegistration = () => {
                       ) : sec.isEnrolled ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-red-100 text-red-900 border border-red-200 flex items-center gap-1">
                           <CheckCircle2 size={11} /> Đang theo học
+                        </span>
+                      ) : sec.isOtherSectionEnrolled ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-sky-100 text-sky-900 border border-sky-200 flex items-center gap-1">
+                          <Info size={11} /> Đã chọn lớp khác
+                        </span>
+                      ) : sec.isCourseAlreadyPassed ? (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 size={11} /> Đã tích lũy
                         </span>
                       ) : isHeldByMe ? (
                         <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500 text-white shadow-2xs flex items-center gap-1 animate-pulse">
@@ -1473,6 +1481,16 @@ export const CourseRegistration = () => {
                       <span className="px-3 py-1.5 rounded-lg text-[11px] font-mono text-stone-400 bg-stone-50 border border-stone-200 flex items-center gap-1 select-none" title="Đã chốt học phần. Bấm 'Mở lại đăng ký' ở thanh tổng kết bên dưới nếu muốn chọn thêm môn">
                         <Lock size={11} className="text-stone-400" />
                         <span>Đã khóa chọn môn</span>
+                      </span>
+                    ) : sec.isOtherSectionEnrolled ? (
+                      <span className="px-3 py-1.5 rounded-lg text-xs font-medium text-stone-500 bg-stone-100 border border-stone-200 flex items-center gap-1" title="Bạn đã đăng ký một lớp học phần khác của môn học này trong kỳ">
+                        <CheckCircle2 size={12} className="text-stone-400" />
+                        <span>Đã chọn lớp khác</span>
+                      </span>
+                    ) : sec.isCourseAlreadyPassed ? (
+                      <span className="px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 flex items-center gap-1" title="Môn học này bạn đã hoàn thành và tích lũy điểm">
+                        <CheckCircle2 size={12} className="text-emerald-600" />
+                        <span>Đã tích lũy</span>
                       </span>
                     ) : (
                       <div className="flex items-center gap-1.5">
