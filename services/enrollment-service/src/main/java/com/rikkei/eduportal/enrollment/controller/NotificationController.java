@@ -1,17 +1,14 @@
 package com.rikkei.eduportal.enrollment.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rikkei.eduportal.common.ApiResponse;
-import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
 import com.rikkei.eduportal.enrollment.dto.NotificationDto;
+import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
+import com.rikkei.eduportal.enrollment.security.JwtTokenProvider;
 import com.rikkei.eduportal.enrollment.service.AnnouncementAndNotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 
 @RestController
@@ -19,11 +16,13 @@ import java.util.List;
 public class NotificationController {
 
     private final AnnouncementAndNotificationService service;
-    private final ObjectMapper objectMapper;
+    private final JwtTokenProvider jwtTokenProvider;
 
-    public NotificationController(AnnouncementAndNotificationService service) {
+    public NotificationController(
+            AnnouncementAndNotificationService service,
+            JwtTokenProvider jwtTokenProvider) {
         this.service = service;
-        this.objectMapper = new ObjectMapper();
+        this.jwtTokenProvider = jwtTokenProvider;
     }
 
     @GetMapping
@@ -34,8 +33,11 @@ public class NotificationController {
     }
 
     @PutMapping("/{id}/read")
-    public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable Long id) {
-        service.markAsRead(id);
+    public ResponseEntity<ApiResponse<Void>> markAsRead(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        String username = extractUser(request);
+        service.markAsRead(id, username);
         return ResponseEntity.ok(ApiResponse.success("Đánh dấu đã đọc thành công", null));
     }
 
@@ -47,23 +49,14 @@ public class NotificationController {
     }
 
     private String extractUser(HttpServletRequest request) {
-        String usernameHeader = request.getHeader("X-User-Username");
-        if (usernameHeader != null && !usernameHeader.trim().isEmpty()) {
-            return usernameHeader.trim();
-        }
+        // Cryptographic JWT Bearer Token verification (Primary active defense)
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7).trim();
-            String[] parts = token.split("\\.");
-            if (parts.length >= 2) {
-                try {
-                    byte[] decoded = Base64.getUrlDecoder().decode(parts[1]);
-                    JsonNode claims = objectMapper.readTree(new String(decoded, StandardCharsets.UTF_8));
-                    if (claims.has("sub")) return claims.get("sub").asText();
-                    if (claims.has("username")) return claims.get("username").asText();
-                } catch (Exception ignored) {}
-            }
+            return jwtTokenProvider.validateAndGetSubject(token);
         }
-        throw new UnauthorizedException("Yêu cầu xác thực: Vui lòng đăng nhập để truy cập thông báo.");
+
+        // Do not blindly trust unverified headers without cryptographic token
+        throw new UnauthorizedException("Yêu cầu xác thực: Vui lòng cung cấp mã xác thực JWT hợp lệ để truy cập thông báo.");
     }
 }

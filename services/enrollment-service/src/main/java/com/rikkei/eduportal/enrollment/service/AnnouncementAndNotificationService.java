@@ -5,6 +5,7 @@ import com.rikkei.eduportal.enrollment.dto.NotificationDto;
 import com.rikkei.eduportal.enrollment.entity.Announcement;
 import com.rikkei.eduportal.enrollment.entity.Notification;
 import com.rikkei.eduportal.enrollment.entity.User;
+import com.rikkei.eduportal.enrollment.exception.BusinessException;
 import com.rikkei.eduportal.enrollment.exception.ResourceNotFoundException;
 import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
 import com.rikkei.eduportal.enrollment.repository.AnnouncementRepository;
@@ -86,6 +87,21 @@ public class AnnouncementAndNotificationService {
                 )).collect(Collectors.toList());
     }
 
+    @Transactional
+    public void markAsRead(Long notificationId, String username) {
+        User user = resolveUser(username);
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông báo với ID: " + notificationId));
+
+        if (notification.getUser() == null || !notification.getUser().getId().equals(user.getId())) {
+            throw new BusinessException(403, "Từ chối truy cập: Bạn không có quyền thao tác trên thông báo này.");
+        }
+
+        notification.setIsRead(true);
+        notificationRepository.save(notification);
+    }
+
+    @Deprecated
     @Transactional
     public void markAsRead(Long notificationId) {
         notificationRepository.findById(notificationId).ifPresent(n -> {

@@ -60,9 +60,9 @@ public class JwtGatewayValidator {
                 path.equals("/api/v1/semesters") || path.startsWith("/api/v1/semesters/") ||
                 path.equals("/api/v1/student/class-sections") ||
                 path.startsWith("/api/v1/announcements") ||
-                path.startsWith("/api/v1/attendance") ||
-                path.startsWith("/attendance") ||
-                path.startsWith("/api/v1/student/attendance")) {
+                path.startsWith("/api/v1/attendance/check-in") ||
+                path.startsWith("/attendance/check-in") ||
+                path.startsWith("/api/v1/student/attendance/check-in")) {
                 return true;
             }
         }

@@ -43,4 +43,32 @@ class JwtGatewayValidatorTest {
         assertTrue(validator.hasRequiredRole("/api/v1/lecturer/early-warnings/section/1", "LECTURER"));
         assertTrue(validator.hasRequiredRole("/api/v1/lecturer/early-warnings/section/1", "ADMIN"));
     }
+
+    @Test
+    @DisplayName("GATEWAY-ATT-01: Sinh viên có quyền truy cập /api/v1/student/attendance/history")
+    void studentCanAccessAttendanceHistory() {
+        assertTrue(validator.hasRequiredRole("/api/v1/student/attendance/history", "STUDENT"));
+        assertTrue(validator.hasRequiredRole("/api/v1/student/attendance/history", "ROLE_STUDENT"));
+    }
+
+    @Test
+    @DisplayName("GATEWAY-ATT-02: Giảng viên không có quyền truy cập lịch sử điểm danh sinh viên")
+    void lecturerCannotAccessStudentAttendanceHistory() {
+        assertFalse(validator.hasRequiredRole("/api/v1/student/attendance/history", "LECTURER"));
+    }
+
+    @Test
+    @DisplayName("GATEWAY-ATT-03: Lịch sử điểm danh KHÔNG phải là public endpoint (bắt buộc JWT)")
+    void attendanceHistoryIsNotPublicPath() {
+        assertFalse(validator.isPublicPath("/api/v1/student/attendance/history", "GET"));
+        assertFalse(validator.isPublicPath("/api/v1/student/attendance/history", "POST"));
+    }
+
+    @Test
+    @DisplayName("GATEWAY-ATT-04: GET check-in vẫn là fallback public cho quét mã camera ngoài")
+    void attendanceCheckInGetIsPublicFallback() {
+        assertTrue(validator.isPublicPath("/api/v1/attendance/check-in", "GET"));
+        assertTrue(validator.isPublicPath("/attendance/check-in", "GET"));
+        assertTrue(validator.isPublicPath("/api/v1/student/attendance/check-in", "GET"));
+    }
 }

@@ -1,10 +1,12 @@
 package com.rikkei.eduportal.enrollment.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rikkei.eduportal.common.ApiResponse;
 import com.rikkei.eduportal.enrollment.dto.*;
+import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
+import com.rikkei.eduportal.enrollment.security.JwtTokenProvider;
+import com.rikkei.eduportal.enrollment.service.AcademicContextService;
 import com.rikkei.eduportal.enrollment.service.CourseRegistrationService;
+import com.rikkei.eduportal.enrollment.service.ExamScheduleService;
 import com.rikkei.eduportal.enrollment.service.RealtimeSeatService;
 import com.rikkei.eduportal.enrollment.service.StudentDashboardService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,8 +18,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 
 @RestController
@@ -28,22 +28,23 @@ public class StudentPortalController {
 
     private final StudentDashboardService dashboardService;
     private final CourseRegistrationService registrationService;
-    private final com.rikkei.eduportal.enrollment.service.ExamScheduleService examScheduleService;
+    private final ExamScheduleService examScheduleService;
     private final RealtimeSeatService realtimeSeatService;
-    private final com.rikkei.eduportal.enrollment.service.AcademicContextService academicContextService;
-    private final ObjectMapper objectMapper;
+    private final AcademicContextService academicContextService;
+    private final JwtTokenProvider jwtTokenProvider;
 
     public StudentPortalController(StudentDashboardService dashboardService,
                                    CourseRegistrationService registrationService,
-                                   com.rikkei.eduportal.enrollment.service.ExamScheduleService examScheduleService,
+                                   ExamScheduleService examScheduleService,
                                    RealtimeSeatService realtimeSeatService,
-                                   com.rikkei.eduportal.enrollment.service.AcademicContextService academicContextService) {
+                                   AcademicContextService academicContextService,
+                                   JwtTokenProvider jwtTokenProvider) {
         this.dashboardService = dashboardService;
         this.registrationService = registrationService;
         this.examScheduleService = examScheduleService;
         this.realtimeSeatService = realtimeSeatService;
         this.academicContextService = academicContextService;
-        this.objectMapper = new ObjectMapper();
+        this.jwtTokenProvider = jwtTokenProvider;
     }
 
     /**
@@ -238,42 +239,20 @@ public class StudentPortalController {
     }
 
     /**
-     * Trích xuất danh tính sinh viên từ Headers (Gateway/JWT/X-User-Username) hoặc fallback sv2024001
+     * Trích xuất danh tính sinh viên từ JWT Bearer Token được xác minh chữ ký mật mã (Fail-Closed).
+     * Tuyệt đối không tin tưởng client-supplied headers (X-User-Username, X-Student-Code) mà không có JWT.
+     * Loại bỏ hoàn toàn fallback giải mã Base64 không chữ ký.
      */
     private String extractStudentIdentifier(HttpServletRequest request) {
-        // 1. Kiểm tra header chuyển tiếp từ Gateway / Auth
-        String usernameHeader = request.getHeader("X-User-Username");
-        if (usernameHeader != null && !usernameHeader.trim().isEmpty()) {
-            return usernameHeader.trim();
-        }
-
-        String studentCodeHeader = request.getHeader("X-Student-Code");
-        if (studentCodeHeader != null && !studentCodeHeader.trim().isEmpty()) {
-            return studentCodeHeader.trim();
-        }
-
-        // 2. Phân tích JWT Bearer Token nếu có
+        // 1. Cryptographic JWT Bearer Token verification (Primary active defense)
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7).trim();
-            String[] parts = token.split("\\.");
-            if (parts.length >= 2) {
-                try {
-                    byte[] decoded = Base64.getUrlDecoder().decode(parts[1]);
-                    JsonNode claims = objectMapper.readTree(new String(decoded, StandardCharsets.UTF_8));
-                    if (claims.has("sub")) {
-                        return claims.get("sub").asText();
-                    } else if (claims.has("username")) {
-                        return claims.get("username").asText();
-                    }
-                } catch (Exception ex) {
-                    log.debug("Could not decode JWT payload, using fallback: {}", ex.getMessage());
-                }
-            }
+            return jwtTokenProvider.validateAndGetSubject(token);
         }
 
-        // 3. Không có thông tin xác thực hợp lệ -> Từ chối truy cập (401)
-        throw new com.rikkei.eduportal.enrollment.exception.UnauthorizedException(
-                "Yêu cầu xác thực: Vui lòng đăng nhập để truy cập cổng thông tin sinh viên.");
+        // 2. Không có token hợp lệ -> Từ chối truy cập (401 Unauthorized)
+        throw new UnauthorizedException(
+                "Yêu cầu xác thực: Vui lòng cung cấp mã xác thực JWT hợp lệ để truy cập cổng thông tin sinh viên.");
     }
 }
