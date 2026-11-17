@@ -374,6 +374,11 @@ jobs:
       fail-fast: true
       matrix:
         service:
+          - name: api-gateway
+            context: .
+            file: services/api-gateway/Dockerfile
+            artifact: backend-jars
+            build_args: JAR_FILE=services/api-gateway/build/libs/api-gateway-0.0.1-SNAPSHOT.jar
           - name: auth-service
             context: .
             file: services/auth-service/Dockerfile
