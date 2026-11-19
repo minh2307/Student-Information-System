@@ -52,6 +52,9 @@ class EarlyWarningServiceTest {
     @Mock
     private LecturerProfileRepository lecturerProfileRepo;
 
+    @Mock
+    private NotificationRepository notificationRepo;
+
     @InjectMocks
     private EarlyWarningService earlyWarningService;
 
@@ -210,6 +213,29 @@ class EarlyWarningServiceTest {
         assertNotNull(res);
         assertEquals("SENT", res.getStatus());
         assertEquals(1, res.getSentCount());
+        assertTrue(res.getRecipientNames().get(0).contains("Nguyen Van A"));
+    }
+
+    @Test
+    @DisplayName("TC-EWS-05: Giảng viên gửi thông báo tùy chỉnh thành công tới sinh viên trong lớp")
+    void testSendCustomNotification_Success() {
+        when(classSectionRepo.findById(100L)).thenReturn(Optional.of(section));
+        when(enrollmentRepo.findBySectionIdAndStatus(100L, EnrollmentStatus.REGISTERED))
+                .thenReturn(List.of(enrollment1, enrollment2));
+
+        com.rikkei.eduportal.lecturer.dto.request.SendLecturerNotificationRequest req =
+                new com.rikkei.eduportal.lecturer.dto.request.SendLecturerNotificationRequest();
+        req.setSectionId(100L);
+        req.setTitle("Nhắc nhở nộp bài tập lớn");
+        req.setMessage("Các em chú ý hạn nộp bài tập lớn trước 23h59 ngày mai.");
+        req.setStudentIds(List.of(101L));
+
+        DispatchWarningResponse res = earlyWarningService.sendCustomNotification(10L, req, false);
+
+        assertNotNull(res);
+        assertEquals("SENT", res.getStatus());
+        assertEquals(1, res.getSentCount());
+        assertEquals(1, res.getRecipientNames().size());
         assertTrue(res.getRecipientNames().get(0).contains("Nguyen Van A"));
     }
 }

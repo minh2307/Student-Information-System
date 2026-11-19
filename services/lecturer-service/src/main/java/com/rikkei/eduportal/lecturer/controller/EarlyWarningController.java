@@ -2,6 +2,7 @@ package com.rikkei.eduportal.lecturer.controller;
 
 import com.rikkei.eduportal.common.ApiResponse;
 import com.rikkei.eduportal.lecturer.dto.request.DispatchWarningRequest;
+import com.rikkei.eduportal.lecturer.dto.request.SendLecturerNotificationRequest;
 import com.rikkei.eduportal.lecturer.dto.response.DispatchWarningResponse;
 import com.rikkei.eduportal.lecturer.dto.response.EarlyWarningSummaryResponse;
 import com.rikkei.eduportal.lecturer.dto.response.StudentRiskDto;
@@ -57,6 +58,24 @@ public class EarlyWarningController {
         DispatchWarningResponse response = earlyWarningService.dispatchWarningsByUsername(
                 authentication.getName(), request, isAdmin);
         return ResponseEntity.ok(ApiResponse.success("Đã bắn cảnh báo học vụ thành công", response));
+    }
+
+    /**
+     * POST /api/v1/lecturer/early-warnings/notify
+     * Giảng viên gửi thông báo riêng hoặc dặn dò trực tiếp tới một hoặc nhiều sinh viên
+     */
+    @PostMapping("/notify")
+    @PreAuthorize("hasAnyRole('LECTURER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<DispatchWarningResponse>> sendCustomNotification(
+            Authentication authentication,
+            @RequestBody SendLecturerNotificationRequest request) {
+
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        DispatchWarningResponse response = earlyWarningService.sendCustomNotificationByUsername(
+                authentication.getName(), request, isAdmin);
+        return ResponseEntity.ok(ApiResponse.success("Đã gửi thông báo riêng tới sinh viên thành công", response));
     }
 
     /**

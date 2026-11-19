@@ -47,6 +47,10 @@ public class DigitalCredentialService {
      * Sinh bảng điểm số có gắn chữ ký mật mã chống giả mạo (Verifiable Digital Transcript)
      */
     public DigitalCredentialDto generateTranscriptCredential(String studentIdentifier) {
+        return generateTranscriptCredential(studentIdentifier, null);
+    }
+
+    public DigitalCredentialDto generateTranscriptCredential(String studentIdentifier, String customBaseUrl) {
         StudentProfile student = dashboardService.resolveStudent(studentIdentifier);
         User user = student.getUser();
         StudentDashboardResponse dashboard = dashboardService.getStudentDashboard(student.getStudentCode());
@@ -65,7 +69,12 @@ public class DigitalCredentialService {
                 user != null ? user.getFullName() : student.getStudentCode(), cgpa, credits);
 
         String signature = computeHmacSignature(canonicalData);
-        String verificationUrl = portalBaseUrl + "/verify/transcript?serial=" + serial + "&sig=" + signature;
+        String effectiveBaseUrl = (customBaseUrl != null && !customBaseUrl.isBlank()) ? customBaseUrl : portalBaseUrl;
+        // Trim trailing slash if present
+        if (effectiveBaseUrl.endsWith("/")) {
+            effectiveBaseUrl = effectiveBaseUrl.substring(0, effectiveBaseUrl.length() - 1);
+        }
+        String verificationUrl = effectiveBaseUrl + "/verify/transcript?serial=" + serial + "&sig=" + signature;
 
         DigitalCredentialDto dto = new DigitalCredentialDto();
         dto.setSerial(serial);

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react'
-import { Save, Loader2, CheckCircle2, Lock } from 'lucide-react'
+import { Save, Loader2, CheckCircle2, Lock, MessageSquare } from 'lucide-react'
 import { getRealAvatar } from '../../../utils/avatarUtils'
 
 /**
@@ -38,7 +38,7 @@ const INPUT_CLS =
  *   onSave         - fn(enrollmentId, payload) → Promise<{ok, error}>
  *   onToast        - fn(message, type)
  */
-export function GradeRow({ student, isSaving, onSave, onToast }) {
+export function GradeRow({ student, isSaving, onSave, onToast, onNotify }) {
   const locked = student.isLocked
 
   const [att, setAtt]   = useState(student.attendanceRate ?? '')
@@ -200,27 +200,40 @@ export function GradeRow({ student, isSaving, onSave, onToast }) {
         )}
       </td>
 
-      {/* Trạng thái / nút Lưu */}
+      {/* Trạng thái / nút Lưu & Nhắn tin */}
       <td className="px-4 py-3.5 text-center">
-        {locked ? (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
-            <Lock size={11} /> Đã khóa
-          </span>
-        ) : isSaving ? (
-          <Loader2 size={16} className="text-blue-500 animate-spin mx-auto" />
-        ) : rowStatus === 'success' ? (
-          <CheckCircle2 size={16} className="text-emerald-500 mx-auto" />
-        ) : (
-          <button
-            onClick={handleSave}
-            disabled={!dirty}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                       bg-red-600 text-white hover:bg-red-700 transition-colors
-                       disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-          >
-            <Save size={12} /> Lưu
-          </button>
-        )}
+        <div className="flex items-center justify-center gap-1.5">
+          {onNotify && (
+            <button
+              type="button"
+              onClick={() => onNotify(student)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              title={`Gửi thông báo / nhắn tin riêng cho ${student.fullName}`}
+              aria-label={`Gửi thông báo cho ${student.fullName}`}
+            >
+              <MessageSquare size={14} />
+            </button>
+          )}
+          {locked ? (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
+              <Lock size={11} /> Đã khóa
+            </span>
+          ) : isSaving ? (
+            <Loader2 size={16} className="text-blue-500 animate-spin mx-auto" />
+          ) : rowStatus === 'success' ? (
+            <CheckCircle2 size={16} className="text-emerald-500 mx-auto" />
+          ) : (
+            <button
+              onClick={handleSave}
+              disabled={!dirty}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                         bg-red-600 text-white hover:bg-red-700 transition-colors
+                         disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+            >
+              <Save size={12} /> Lưu
+            </button>
+          )}
+        </div>
       </td>
     </tr>
   )
@@ -229,7 +242,7 @@ export function GradeRow({ student, isSaving, onSave, onToast }) {
 /**
  * Card dạng mobile cho mỗi sinh viên
  */
-export function GradeCard({ student, isSaving, onSave, onToast }) {
+export function GradeCard({ student, isSaving, onSave, onToast, onNotify }) {
   const locked = student.isLocked
   const [att, setAtt] = useState(student.attendanceRate ?? '')
   const [mid, setMid] = useState(student.midtermScore ?? '')
@@ -273,16 +286,29 @@ export function GradeCard({ student, isSaving, onSave, onToast }) {
             <p className="text-xs text-slate-400 font-mono">{student.studentCode}</p>
           </div>
         </div>
-        {locked && (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-            <Lock size={10} /> Khóa
-          </span>
-        )}
-        {!locked && student.letterGrade && (
-          <span className={`text-lg font-bold tabular-nums ${letterColor(student.letterGrade)}`}>
-            {student.letterGrade}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {onNotify && (
+            <button
+              type="button"
+              onClick={() => onNotify(student)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              title={`Nhắn tin riêng cho ${student.fullName}`}
+              aria-label={`Gửi thông báo cho ${student.fullName}`}
+            >
+              <MessageSquare size={16} />
+            </button>
+          )}
+          {locked && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+              <Lock size={10} /> Khóa
+            </span>
+          )}
+          {!locked && student.letterGrade && (
+            <span className={`text-lg font-bold tabular-nums ${letterColor(student.letterGrade)}`}>
+              {student.letterGrade}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Inputs */}
