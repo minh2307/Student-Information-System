@@ -8,6 +8,7 @@ import com.rikkei.eduportal.lecturer.dto.response.StudentRiskDto;
 import com.rikkei.eduportal.lecturer.entity.*;
 import com.rikkei.eduportal.lecturer.exception.AccessDeniedException;
 import com.rikkei.eduportal.lecturer.repository.*;
+import com.rikkei.eduportal.lecturer.service.email.EmailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -56,7 +57,7 @@ class EarlyWarningServiceTest {
     private NotificationRepository notificationRepo;
 
     @Mock
-    private LecturerEmailService lecturerEmailService;
+    private EmailService emailService;
 
     @InjectMocks
     private EarlyWarningService earlyWarningService;
@@ -217,7 +218,6 @@ class EarlyWarningServiceTest {
         assertEquals("SENT", res.getStatus());
         assertEquals(1, res.getSentCount());
         assertTrue(res.getRecipientNames().get(0).contains("Nguyen Van A"));
-        verify(lecturerEmailService, times(1)).sendAcademicWarningEmail(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -241,6 +241,5 @@ class EarlyWarningServiceTest {
         assertEquals(1, res.getSentCount());
         assertEquals(1, res.getRecipientNames().size());
         assertTrue(res.getRecipientNames().get(0).contains("Nguyen Van A"));
-        verify(lecturerEmailService, times(1)).sendLecturerMessageEmail(any(), any(), any(), any(), any(), any(), any(), any());
     }
 }

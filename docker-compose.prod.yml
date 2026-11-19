@@ -20,7 +20,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 256M
     logging:
       driver: "json-file"
@@ -55,7 +54,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   course-service:
@@ -76,7 +74,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   enrollment-service:
@@ -103,7 +100,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   lecturer-service:
@@ -120,7 +116,7 @@ services:
       SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp.gmail.com}
       SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
       SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-workspacegateos@gmail.com}
-      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-byhekintjfrytcyd}
       SPRING_MAIL_FROM: ${SPRING_MAIL_FROM:-Rikkei EduPortal <workspacegateos@gmail.com>}
       SPRING_MAIL_ENABLED: ${SPRING_MAIL_ENABLED:-true}
       PORTAL_URL: ${PORTAL_URL:-http://localhost:3000}
@@ -132,7 +128,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   ai-service:
@@ -155,7 +150,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   api-gateway:
@@ -182,7 +176,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   frontend:
@@ -201,7 +194,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
           memory: 64M
 
 volumes:

@@ -10,8 +10,10 @@ import com.rikkei.eduportal.lecturer.entity.*;
 import com.rikkei.eduportal.lecturer.exception.AccessDeniedException;
 import com.rikkei.eduportal.lecturer.exception.ResourceNotFoundException;
 import com.rikkei.eduportal.lecturer.repository.*;
+import com.rikkei.eduportal.lecturer.service.email.EmailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,8 +35,9 @@ public class EarlyWarningService {
     private final StudentProfileRepository studentProfileRepo;
     private final LecturerProfileRepository lecturerProfileRepo;
     private final NotificationRepository notificationRepo;
-    private final LecturerEmailService lecturerEmailService;
+    private final EmailService emailService;
 
+    @Autowired
     public EarlyWarningService(ClassSectionRepository classSectionRepo,
                                EnrollmentRepository enrollmentRepo,
                                AttendanceSessionRepository attendanceSessionRepo,
@@ -43,7 +46,7 @@ public class EarlyWarningService {
                                StudentProfileRepository studentProfileRepo,
                                LecturerProfileRepository lecturerProfileRepo,
                                NotificationRepository notificationRepo,
-                               @org.springframework.beans.factory.annotation.Autowired(required = false) LecturerEmailService lecturerEmailService) {
+                               @Autowired(required = false) EmailService emailService) {
         this.classSectionRepo = classSectionRepo;
         this.enrollmentRepo = enrollmentRepo;
         this.attendanceSessionRepo = attendanceSessionRepo;
@@ -52,7 +55,7 @@ public class EarlyWarningService {
         this.studentProfileRepo = studentProfileRepo;
         this.lecturerProfileRepo = lecturerProfileRepo;
         this.notificationRepo = notificationRepo;
-        this.lecturerEmailService = lecturerEmailService;
+        this.emailService = emailService;
     }
 
     public EarlyWarningService(ClassSectionRepository classSectionRepo,
@@ -63,7 +66,8 @@ public class EarlyWarningService {
                                StudentProfileRepository studentProfileRepo,
                                LecturerProfileRepository lecturerProfileRepo,
                                NotificationRepository notificationRepo) {
-        this(classSectionRepo, enrollmentRepo, attendanceSessionRepo, attendanceRecordRepo, gradeRepo, studentProfileRepo, lecturerProfileRepo, notificationRepo, null);
+        this(classSectionRepo, enrollmentRepo, attendanceSessionRepo, attendanceRecordRepo,
+             gradeRepo, studentProfileRepo, lecturerProfileRepo, notificationRepo, null);
     }
 
     @Transactional(readOnly = true)
@@ -291,6 +295,10 @@ public class EarlyWarningService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toMap(StudentProfile::getId, s -> s, (a, b) -> a));
 
+        boolean shouldSendEmail = (request.getSendEmail() == null || Boolean.TRUE.equals(request.getSendEmail()))
+                && emailService != null && emailService.isMailConfigured();
+        int emailsDispatched = 0;
+
         List<String> names = new ArrayList<>();
         for (StudentRiskDto s : targets) {
             StudentProfile student = studentMap.get(s.getStudentId());
@@ -322,29 +330,39 @@ public class EarlyWarningService {
             notif.setCreatedAt(LocalDateTime.now());
             notificationRepo.save(notif);
 
-            if (lecturerEmailService != null && student.getUser() != null) {
-                try {
-                    lecturerEmailService.sendAcademicWarningEmail(
-                            student.getUser().getEmail(),
-                            student.getUser().getFullName(),
-                            student.getStudentCode(),
-                            evaluated.getSectionCode(),
+            names.add(s.getFullName() + " (" + s.getStudentCode() + ")");
+
+            // Dispatch Email asynchronously
+            if (shouldSendEmail) {
+                String toEmail = (request.getTestRecipientEmail() != null && !request.getTestRecipientEmail().isBlank())
+                        ? request.getTestRecipientEmail().trim()
+                        : student.getUser().getEmail();
+
+                if (toEmail != null && !toEmail.isBlank()) {
+                    emailService.sendEarlyWarningEmail(
+                            toEmail,
+                            s.getFullName(),
+                            s.getStudentCode(),
+                            student.getUser().getId(),
                             evaluated.getCourseName(),
+                            evaluated.getSectionCode(),
                             s.getRiskLevel(),
                             s.getRiskReasons(),
                             s.getSuggestions()
                     );
-                } catch (Exception ex) {
-                    // Lỗi email không làm gián đoạn transaction lưu thông báo
+                    emailsDispatched++;
                 }
             }
-
-            names.add(s.getFullName() + " (" + s.getStudentCode() + ")");
         }
 
-        log.info("Dispatched and persisted academic early warnings to {} students in section {}", names.size(), evaluated.getSectionCode());
-        String msg = "Đã gửi thông báo cảnh báo sớm và nhắc nhở học vụ thành công tới " + names.size() + " sinh viên.";
-        return new DispatchWarningResponse(names.size(), "SENT", LocalDateTime.now(), names, msg);
+        log.info("Dispatched and persisted academic early warnings to {} students in section {}, dispatched {} emails",
+                names.size(), evaluated.getSectionCode(), emailsDispatched);
+
+        String emailStatus = shouldSendEmail ? (emailsDispatched > 0 ? "DISPATCHED" : "NO_RECIPIENT_EMAIL") : "OFF";
+        String msg = "Đã gửi thông báo cảnh báo sớm thành công tới " + names.size() + " sinh viên."
+                + (emailsDispatched > 0 ? " Đồng thời đã phát hành " + emailsDispatched + " email cảnh báo học vụ." : "");
+
+        return new DispatchWarningResponse(names.size(), "SENT", LocalDateTime.now(), names, msg, emailsDispatched, emailStatus);
     }
 
     /**
@@ -422,6 +440,10 @@ public class EarlyWarningService {
         String lecturerName = section.getLecturer() != null && section.getLecturer().getUser() != null
                 ? section.getLecturer().getUser().getFullName() : "Giảng viên phụ trách";
 
+        boolean shouldSendEmail = (request.getSendEmail() == null || Boolean.TRUE.equals(request.getSendEmail()))
+                && emailService != null && emailService.isMailConfigured();
+        int emailsDispatched = 0;
+
         List<String> recipientNames = new ArrayList<>();
         for (StudentProfile student : targetStudents) {
             User user = student.getUser();
@@ -437,29 +459,39 @@ public class EarlyWarningService {
             notif.setCreatedAt(LocalDateTime.now());
             notificationRepo.save(notif);
 
-            if (lecturerEmailService != null) {
-                try {
-                    lecturerEmailService.sendLecturerMessageEmail(
-                            user.getEmail(),
+            recipientNames.add(user.getFullName() + " (" + student.getStudentCode() + ")");
+
+            if (shouldSendEmail) {
+                String toEmail = (request.getTestRecipientEmail() != null && !request.getTestRecipientEmail().isBlank())
+                        ? request.getTestRecipientEmail().trim()
+                        : user.getEmail();
+
+                if (toEmail != null && !toEmail.isBlank()) {
+                    emailService.sendCustomNotificationEmail(
+                            toEmail,
                             user.getFullName(),
                             student.getStudentCode(),
-                            section.getSectionCode(),
-                            courseName,
+                            user.getId(),
                             lecturerName,
-                            request.getTitle(),
-                            request.getMessage()
+                            courseName,
+                            section.getSectionCode(),
+                            request.getTitle().trim(),
+                            request.getMessage().trim(),
+                            notifType
                     );
-                } catch (Exception ex) {
-                    // Lỗi email không làm gián đoạn transaction
+                    emailsDispatched++;
                 }
             }
-
-            recipientNames.add(user.getFullName() + " (" + student.getStudentCode() + ")");
         }
 
-        log.info("Sent custom lecturer notification to {} students in section {}", recipientNames.size(), section.getSectionCode());
-        String msg = "Đã gửi thông báo riêng thành công tới " + recipientNames.size() + " sinh viên.";
-        return new DispatchWarningResponse(recipientNames.size(), "SENT", LocalDateTime.now(), recipientNames, msg);
+        log.info("Sent custom lecturer notification to {} students in section {}, dispatched {} emails",
+                recipientNames.size(), section.getSectionCode(), emailsDispatched);
+
+        String emailStatus = shouldSendEmail ? (emailsDispatched > 0 ? "DISPATCHED" : "NO_RECIPIENT_EMAIL") : "OFF";
+        String msg = "Đã gửi thông báo thành công tới " + recipientNames.size() + " sinh viên."
+                + (emailsDispatched > 0 ? " Đồng thời đã phát hành " + emailsDispatched + " email thông báo." : "");
+
+        return new DispatchWarningResponse(recipientNames.size(), "SENT", LocalDateTime.now(), recipientNames, msg, emailsDispatched, emailStatus);
     }
 
     /**
