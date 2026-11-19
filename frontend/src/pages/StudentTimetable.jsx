@@ -42,7 +42,7 @@ const DAY_MAP = [
 ]
 
 // Ca học chuẩn đại học
-const TIME_SLOTS = [
+export const TIME_SLOTS = [
   { id: 1, name: 'Ca 1 (Sáng sớm)', period: 'Tiết 1 - 3', time: '07:00 - 09:15', startHour: 7, endHour: 9.25 },
   { id: 2, name: 'Ca 2 (Sáng chính)', period: 'Tiết 4 - 6', time: '09:30 - 11:45', startHour: 9.5, endHour: 11.75 },
   { id: 3, name: 'Ca 3 (Chiều sớm)', period: 'Tiết 7 - 9', time: '13:00 - 15:15', startHour: 13, endHour: 15.25 },
@@ -69,10 +69,53 @@ const getCourseColor = (code = '') => {
   return COLOR_PALETTES[index]
 }
 
-const timeStringToFloat = (tStr) => {
+export const timeStringToFloat = (tStr) => {
   if (!tStr) return 0
   const parts = tStr.split(':')
   return parseFloat(parts[0]) + parseFloat(parts[1] || 0) / 60
+}
+
+// Xác định ca học duy nhất phù hợp nhất cho mỗi lớp học phần (tránh trùng lặp ca)
+export const getSlotForClass = (item) => {
+  if (!item || !item.startTime) return null
+  const startF = timeStringToFloat(item.startTime)
+  let endF = timeStringToFloat(item.endTime)
+  if (!endF || endF <= startF) {
+    endF = startF + 1.5 // Mặc định thời lượng 1.5h nếu không có endTime
+  }
+
+  // 1. Tìm ca học có thời gian trùng lặp (overlap) lớn nhất
+  let bestSlotId = null
+  let maxOverlap = -1
+
+  for (const slot of TIME_SLOTS) {
+    const overlapStart = Math.max(startF, slot.startHour)
+    const overlapEnd = Math.min(endF, slot.endHour)
+    const overlap = Math.max(0, overlapEnd - overlapStart)
+
+    if (overlap > maxOverlap) {
+      maxOverlap = overlap
+      bestSlotId = slot.id
+    }
+  }
+
+  if (maxOverlap > 0) {
+    return bestSlotId
+  }
+
+  // 2. Dự phòng: nếu lớp học nằm ở khoảng nghỉ giữa các ca, chọn ca có tâm điểm gần nhất
+  const midPoint = (startF + endF) / 2
+  let minDistance = Infinity
+  for (const slot of TIME_SLOTS) {
+    const slotMid = (slot.startHour + slot.endHour) / 2
+    const dist = Math.abs(midPoint - slotMid)
+    if (dist < minDistance) {
+      minDistance = dist
+      bestSlotId = slot.id
+    }
+  }
+
+  return bestSlotId || 1
 }
 
 // Tìm thứ 2 của tuần chứa date
@@ -491,13 +534,11 @@ export const StudentTimetable = () => {
     return { totalCourses, totalCredits, activeDays }
   }, [timetable])
 
-  // Match một lớp học vào Ca học
+  // Match một lớp học vào Ca học (đảm bảo mỗi lớp chỉ thuộc đúng 1 ca duy nhất)
   const getClassesForSlot = (dayKey, slot) => {
     return timetable.filter(item => {
       if (item.dayOfWeek !== dayKey) return false
-      const startF = timeStringToFloat(item.startTime)
-      // Kiểm tra nếu lớp bắt đầu trong khoảng hoặc trùng với ca
-      return (startF >= slot.startHour - 0.5 && startF < slot.endHour)
+      return getSlotForClass(item) === slot.id
     })
   }
 

@@ -60,6 +60,43 @@ const parseHour = (timeStr) => {
   return parseInt(parts[0], 10) + (parseInt(parts[1] || '0', 10) / 60)
 }
 
+// Phân bổ lớp vào đúng 1 ca học phù hợp nhất (tránh trùng lặp ca)
+const getPeriodForSection = (sec) => {
+  if (!sec || !sec.startTime) return null
+  const startH = parseHour(sec.startTime)
+  let endH = parseHour(sec.endTime)
+  if (!endH || endH <= startH) endH = startH + 1.5
+
+  let bestPeriodId = null
+  let maxOverlap = -1
+
+  for (const period of TIME_PERIODS) {
+    const overlapStart = Math.max(startH, period.startHour)
+    const overlapEnd = Math.min(endH, period.endHour)
+    const overlap = Math.max(0, overlapEnd - overlapStart)
+
+    if (overlap > maxOverlap) {
+      maxOverlap = overlap
+      bestPeriodId = period.id
+    }
+  }
+
+  if (maxOverlap > 0) return bestPeriodId
+
+  const midPoint = (startH + endH) / 2
+  let minDistance = Infinity
+  for (const period of TIME_PERIODS) {
+    const periodMid = (period.startHour + period.endHour) / 2
+    const dist = Math.abs(midPoint - periodMid)
+    if (dist < minDistance) {
+      minDistance = dist
+      bestPeriodId = period.id
+    }
+  }
+
+  return bestPeriodId || 'CA_1'
+}
+
 export const ScheduleOptimizerModal = ({
   open,
   onClose,
@@ -997,9 +1034,7 @@ export const ScheduleOptimizerModal = ({
                                 {DAY_COLUMNS.map(day => {
                                   const matched = (activePlan.sections || []).filter(sec => {
                                     if (!sec.dayOfWeek || sec.dayOfWeek.toUpperCase() !== day.key.toUpperCase()) return false
-                                    const startH = parseHour(sec.startTime)
-                                    const endH = parseHour(sec.endTime)
-                                    return !(endH <= period.startHour || startH >= period.endHour)
+                                    return getPeriodForSection(sec) === period.id
                                   })
 
                                   const isAvoided = avoidDays.includes(day.key)

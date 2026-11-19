@@ -57,6 +57,49 @@ const timeStringToFloat = (tStr) => {
   return parseFloat(parts[0]) + parseFloat(parts[1] || 0) / 60
 }
 
+// Xác định ca dạy duy nhất phù hợp nhất cho mỗi lớp học phần (tránh trùng lặp ca)
+export const getSlotForClass = (item) => {
+  if (!item || !item.startTime) return null
+  const startF = timeStringToFloat(item.startTime)
+  let endF = timeStringToFloat(item.endTime)
+  if (!endF || endF <= startF) {
+    endF = startF + 1.5 // Mặc định thời lượng 1.5h nếu không có endTime
+  }
+
+  // 1. Tìm ca học có thời gian trùng lặp (overlap) lớn nhất
+  let bestSlotId = null
+  let maxOverlap = -1
+
+  for (const slot of TIME_SLOTS) {
+    const overlapStart = Math.max(startF, slot.startHour)
+    const overlapEnd = Math.min(endF, slot.endHour)
+    const overlap = Math.max(0, overlapEnd - overlapStart)
+
+    if (overlap > maxOverlap) {
+      maxOverlap = overlap
+      bestSlotId = slot.id
+    }
+  }
+
+  if (maxOverlap > 0) {
+    return bestSlotId
+  }
+
+  // 2. Dự phòng: nếu lớp học nằm ở khoảng nghỉ giữa các ca, chọn ca có tâm điểm gần nhất
+  const midPoint = (startF + endF) / 2
+  let minDistance = Infinity
+  for (const slot of TIME_SLOTS) {
+    const slotMid = (slot.startHour + slot.endHour) / 2
+    const dist = Math.abs(midPoint - slotMid)
+    if (dist < minDistance) {
+      minDistance = dist
+      bestSlotId = slot.id
+    }
+  }
+
+  return bestSlotId || 1
+}
+
 // Tìm thứ 2 của tuần chứa date
 const getMonday = (d) => {
   const date = new Date(d)
@@ -274,11 +317,11 @@ export const LecturerTimetable = () => {
     return { totalClasses, totalStudents, totalCredits }
   }, [classes])
 
+  // Match một lớp học vào Ca học (đảm bảo mỗi lớp chỉ thuộc đúng 1 ca duy nhất)
   const getClassesForSlot = (dayKey, slot) => {
     return classes.filter(item => {
       if (item.dayOfWeek !== dayKey) return false
-      const startF = timeStringToFloat(item.startTime)
-      return (startF >= slot.startHour - 0.5 && startF < slot.endHour)
+      return getSlotForClass(item) === slot.id
     })
   }
 
