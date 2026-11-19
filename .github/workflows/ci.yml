@@ -267,7 +267,7 @@ jobs:
           echo "Waiting for auth-service:8081..."
           AUTH_READY=false
           for i in $(seq 1 30); do
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/api/v1/auth/login)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/api/v1/auth/login || true)
             if curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1 || [ "$HTTP_CODE" = "405" ] || [ "$HTTP_CODE" = "500" ]; then
               echo "auth-service ready ✓"; AUTH_READY=true; break
             fi
@@ -282,7 +282,7 @@ jobs:
           echo "Waiting for lecturer-service:8085..."
           LECTURER_READY=false
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:8085/actuator/health > /dev/null 2>&1 || curl -s http://localhost:8085/actuator/health | grep -q "status"; then
+            if curl -sf http://localhost:8085/actuator/health > /dev/null 2>&1; then
               echo "lecturer-service ready ✓"; LECTURER_READY=true; break
             fi
             sleep 3
@@ -297,7 +297,8 @@ jobs:
             echo "Waiting for enrollment-service:8083..."
             ENROLL_READY=false
             for i in $(seq 1 30); do
-              if curl -sf http://localhost:8083/actuator/health > /dev/null 2>&1 || [ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8083/api/v1/student/dashboard)" = "200" ]; then
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8083/api/v1/student/dashboard || true)
+              if curl -sf http://localhost:8083/actuator/health > /dev/null 2>&1 || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "200" ]; then
                 echo "enrollment-service ready ✓"; ENROLL_READY=true; break
               fi
               sleep 3
