@@ -337,7 +337,7 @@ export const StudentDashboard = () => {
               </div>
 
               {/* 3 Academic Metrics: Tabular Numbers, Zero Slop */}
-              <div className="grid grid-cols-3 gap-4 my-4 py-3 bg-stone-50/70 rounded-xl border border-stone-200/80 px-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-4 py-3 bg-stone-50/70 rounded-xl border border-stone-200/80 px-4">
                 <div>
                   <span className="text-[10px] font-mono uppercase text-stone-600 block">Điểm CGPA Tích lũy</span>
                   <div className="flex items-baseline gap-1 mt-0.5">
@@ -351,7 +351,7 @@ export const StudentDashboard = () => {
                   </span>
                 </div>
 
-                <div className="border-l border-stone-200 pl-4">
+                <div className="sm:border-l sm:border-stone-200 sm:pl-4">
                   <span className="text-[10px] font-mono uppercase text-stone-600 block">Tín chỉ hoàn thành</span>
                   <div className="flex items-baseline gap-1 mt-0.5">
                     <span className="font-mono text-2xl font-bold text-red-800">
@@ -364,7 +364,7 @@ export const StudentDashboard = () => {
                   </span>
                 </div>
 
-                <div className="border-l border-stone-200 pl-4">
+                <div className="sm:border-l sm:border-stone-200 sm:pl-4">
                   <span className="text-[10px] font-mono uppercase text-stone-600 block">Xếp loại Học vụ</span>
                   <div className="flex items-baseline gap-1 mt-0.5">
                     <span className="text-base font-bold text-stone-900 mt-1 block">
@@ -378,40 +378,40 @@ export const StudentDashboard = () => {
               </div>
 
               {/* Degree Audit Breakdown (Tiến độ theo khối kiến thức) */}
-              <div className="space-y-2 mt-4 text-xs">
+              <div className="space-y-2.5 mt-4 text-xs">
                 <div>
-                  <div className="flex justify-between text-stone-700 font-medium mb-1 text-[11px]">
-                    <span>Khối Kiến thức Giáo dục Đại cương (GDTC, GDQP, Triết học...)</span>
-                    <span className="font-mono font-bold text-emerald-700">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-stone-700 font-medium mb-1 text-[11px] gap-0.5 sm:gap-2">
+                    <span className="truncate">Khối Giáo dục Đại cương (GDTC, GDQP, Lý luận...)</span>
+                    <span className="font-mono font-bold text-emerald-700 shrink-0">
                       {degreeAudit.genEd.earned} / {degreeAudit.genEd.total} TC ({degreeAudit.genEd.pct}%)
                     </span>
                   </div>
-                  <div className="w-full bg-stone-100 rounded-full h-1.5">
-                    <div className="bg-emerald-600 h-1.5 rounded-full" style={{ width: `${degreeAudit.genEd.pct}%` }}></div>
+                  <div className="w-full bg-stone-100 rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-emerald-600 h-1.5 rounded-full transition-all duration-500" style={{ width: `${degreeAudit.genEd.pct}%` }}></div>
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-stone-700 font-medium mb-1 text-[11px]">
-                    <span>Khối Cơ sở ngành CNTT (Cấu trúc dữ liệu, OOP, Hệ điều hành...)</span>
-                    <span className="font-mono font-bold text-stone-800">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-stone-700 font-medium mb-1 text-[11px] gap-0.5 sm:gap-2">
+                    <span className="truncate">Khối Cơ sở ngành CNTT (CTDL & GT, OOP, Mạng, HĐH...)</span>
+                    <span className="font-mono font-bold text-red-800 shrink-0">
                       {degreeAudit.core.earned} / {degreeAudit.core.total} TC ({degreeAudit.core.pct}%)
                     </span>
                   </div>
-                  <div className="w-full bg-stone-100 rounded-full h-1.5">
-                    <div className="bg-red-700 h-1.5 rounded-full" style={{ width: `${degreeAudit.core.pct}%` }}></div>
+                  <div className="w-full bg-stone-100 rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-red-700 h-1.5 rounded-full transition-all duration-500" style={{ width: `${degreeAudit.core.pct}%` }}></div>
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between text-stone-700 font-medium mb-1 text-[11px]">
-                    <span>Khối Chuyên ngành & Đồ án tốt nghiệp (Software Engineering)</span>
-                    <span className="font-mono font-bold text-stone-800">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-stone-700 font-medium mb-1 text-[11px] gap-0.5 sm:gap-2">
+                    <span className="truncate">Khối Chuyên ngành & Đồ án tốt nghiệp (Software Engineering)</span>
+                    <span className="font-mono font-bold text-stone-800 shrink-0">
                       {degreeAudit.major.earned} / {degreeAudit.major.total} TC ({degreeAudit.major.pct}%)
                     </span>
                   </div>
-                  <div className="w-full bg-stone-100 rounded-full h-1.5">
-                    <div className="bg-stone-400 h-1.5 rounded-full" style={{ width: `${degreeAudit.major.pct}%` }}></div>
+                  <div className="w-full bg-stone-100 rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-stone-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${degreeAudit.major.pct}%` }}></div>
                   </div>
                 </div>
               </div>

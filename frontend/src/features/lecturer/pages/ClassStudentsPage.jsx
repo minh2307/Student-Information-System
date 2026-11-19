@@ -152,55 +152,57 @@ export function ClassStudentsPage() {
           )}
         </div>
 
-        {/* Send Notification Button */}
-        <button
-          id="btn-send-notification"
-          onClick={() => handleOpenNotify(null)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
-                     bg-blue-600 text-white hover:bg-blue-700 transition-colors shrink-0 shadow-sm"
-          title="Gửi thông báo & dặn dò tới sinh viên"
-        >
-          <MessageSquare size={16} />
-          Gửi Thông Báo
-        </button>
-
-        {/* QR Attendance button */}
-        <button
-          id="btn-qr-attendance"
-          onClick={() => setShowQrModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
-                     bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shrink-0 shadow-sm"
-        >
-          <QrCode size={16} />
-          Điểm danh QR Động
-        </button>
-
-        {/* Early Warning Button */}
-        <button
-          id="btn-early-warning"
-          onClick={() => setShowEarlyWarningModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
-                     bg-amber-600 text-white hover:bg-amber-700 transition-colors shrink-0 shadow-sm"
-          title="Hệ thống cảnh báo sớm nguy cơ học vụ"
-        >
-          <ShieldAlert size={16} />
-          Cảnh Báo Sớm
-        </button>
-
-        {/* Lock button */}
-        {!isAllLocked && (
+        {/* ── Action Toolbar: Clean, Cohesive, Modern Academic Style ── */}
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            id="btn-lock-grades"
-            onClick={() => setShowLockConfirm(true)}
-            disabled={locking || loadingStudents || registeredCount === 0}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
-                       bg-rose-600 text-white hover:bg-rose-700 transition-colors
-                       disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            id="btn-send-notification"
+            onClick={() => handleOpenNotify(null)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold
+                       bg-white text-stone-700 hover:text-blue-700 hover:bg-blue-50/80
+                       border border-stone-200 hover:border-blue-300 transition-all shadow-2xs shrink-0 cursor-pointer"
+            title="Gửi thông báo & dặn dò tới sinh viên"
           >
-            <Lock size={14} />
-            {locking ? 'Đang chốt…' : 'Chốt bảng điểm'}
+            <MessageSquare size={14} className="text-blue-600" />
+            <span>Gửi Thông Báo</span>
           </button>
-        )}
+
+          <button
+            id="btn-qr-attendance"
+            onClick={() => setShowQrModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold
+                       bg-white text-stone-700 hover:text-indigo-700 hover:bg-indigo-50/80
+                       border border-stone-200 hover:border-indigo-300 transition-all shadow-2xs shrink-0 cursor-pointer"
+          >
+            <QrCode size={14} className="text-indigo-600" />
+            <span>Điểm danh QR Động</span>
+          </button>
+
+          <button
+            id="btn-early-warning"
+            onClick={() => setShowEarlyWarningModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold
+                       bg-white text-stone-700 hover:text-amber-700 hover:bg-amber-50/80
+                       border border-stone-200 hover:border-amber-300 transition-all shadow-2xs shrink-0 cursor-pointer"
+            title="Hệ thống cảnh báo sớm nguy cơ học vụ"
+          >
+            <ShieldAlert size={14} className="text-amber-600" />
+            <span>Cảnh Báo Sớm</span>
+          </button>
+
+          {!isAllLocked && (
+            <button
+              id="btn-lock-grades"
+              onClick={() => setShowLockConfirm(true)}
+              disabled={locking || loadingStudents || registeredCount === 0}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold
+                         bg-red-700 text-white hover:bg-red-800 transition-all
+                         disabled:opacity-50 disabled:cursor-not-allowed shrink-0 shadow-2xs cursor-pointer"
+            >
+              <Lock size={13} />
+              <span>{locking ? 'Đang chốt…' : 'Chốt Bảng Điểm'}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Stats strip ─────────────────────────────────────────────── */}
