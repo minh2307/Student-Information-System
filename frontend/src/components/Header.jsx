@@ -173,7 +173,7 @@ export const Header = ({ onToggleMobileMenu }) => {
           <button
             type="button"
             onClick={() => setNotifOpen(prev => !prev)}
-            className="relative p-2 rounded-lg text-stone-600 hover:bg-stone-100 hover:text-stone-900 transition-colors focus:outline-none border border-transparent hover:border-stone-200"
+            className="relative p-2 rounded-lg text-stone-600 hover:bg-stone-100 hover:text-stone-900 transition-colors focus:outline-none border border-transparent hover:border-stone-200 cursor-pointer"
             title="Thông báo học vụ"
           >
             <Bell size={18} />
@@ -186,7 +186,7 @@ export const Header = ({ onToggleMobileMenu }) => {
 
           {/* Notifications Dropdown */}
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-xl border border-stone-200/90 py-2.5 transition-all animate-in fade-in slide-in-from-top-2 duration-150 z-50">
+            <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm sm:w-96 bg-white rounded-2xl shadow-xl border border-stone-200/90 py-2.5 transition-all animate-in fade-in slide-in-from-top-2 duration-150 z-50">
               <div className="px-4 pb-2 border-b border-stone-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-xs text-stone-900 uppercase tracking-wider">
@@ -201,7 +201,7 @@ export const Header = ({ onToggleMobileMenu }) => {
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllAsRead}
-                    className="text-[11px] text-red-700 hover:text-red-900 font-semibold flex items-center gap-1"
+                    className="text-[11px] text-red-700 hover:text-red-900 font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     <CheckCheck size={13} />
                     <span>Đánh dấu đã đọc</span>
@@ -266,7 +266,7 @@ export const Header = ({ onToggleMobileMenu }) => {
           <button
             type="button"
             onClick={() => setDropdownOpen((prev) => !prev)}
-            className="flex items-center gap-2 p-1.5 pl-2 pr-2.5 rounded-lg border border-stone-200 hover:border-stone-300 hover:bg-stone-50/80 transition-all focus:outline-none"
+            className="flex items-center gap-2 p-1.5 pl-2 pr-2.5 rounded-xl border border-stone-200 hover:border-stone-300 hover:bg-stone-50/80 transition-all focus:outline-none cursor-pointer"
             title="Tài khoản học vụ"
           >
             <img
@@ -296,7 +296,7 @@ export const Header = ({ onToggleMobileMenu }) => {
 
           {/* Dropdown Menu */}
           {dropdownOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-stone-200/90 py-2.5 transition-all animate-in fade-in slide-in-from-top-2 duration-150 z-50">
+            <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-xs sm:w-64 bg-white rounded-2xl shadow-xl border border-stone-200/90 py-2.5 transition-all animate-in fade-in slide-in-from-top-2 duration-150 z-50">
               <div className="px-4 pb-3 border-b border-stone-100">
                 <div className="flex items-center gap-3">
                   <img

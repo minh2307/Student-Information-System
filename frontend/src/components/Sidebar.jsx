@@ -45,9 +45,9 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
   }, [mobileOpen, onClose])
 
   const navItemClass = ({ isActive }) =>
-    `group flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-medium transition-all min-h-[42px] touch-manipulation ${
+    `group flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all min-h-[42px] touch-manipulation cursor-pointer ${
       isActive
-        ? 'bg-red-50 text-red-800 font-semibold border-l-3 border-red-700 shadow-2xs'
+        ? 'bg-red-50 text-red-800 font-bold border-l-3 border-red-700 shadow-2xs'
         : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100/70 active:bg-stone-200/60'
     }`
 

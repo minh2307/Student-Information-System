@@ -879,7 +879,54 @@ export const StudentTuition = () => {
               )}
             </div>
 
-            <div className="overflow-x-auto touch-scroll">
+            {/* Mobile View (< md): Clean breakdown cards */}
+            <div className="md:hidden divide-y divide-stone-100 font-sans">
+              {tuition.courses?.map((c, idx) => (
+                <div key={idx} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="font-mono font-bold text-red-800 text-xs bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
+                          {c.courseCode}
+                        </span>
+                        <span className="text-[10px] font-mono font-bold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200">
+                          {c.credits} TC
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-stone-900 text-xs leading-snug">
+                        {c.courseName}
+                      </h4>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-mono font-bold text-xs text-stone-900 block">
+                        {formatVnd(c.fee)}
+                      </span>
+                      <span className="text-[10px] font-mono text-stone-500">
+                        ({formatVnd(tuition.creditUnitPrice)}/TC)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {tuition.totalCredits > 0 && (
+                <div className="p-4 bg-stone-50/50 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-mono text-stone-500 text-[10px] block">FEE-FACILITY</span>
+                    <span className="text-stone-700 font-medium text-[11px]">Cơ sở vật chất & thư viện số</span>
+                  </div>
+                  <span className="font-mono font-bold text-stone-900">
+                    {formatVnd(tuition.facilityFee)}
+                  </span>
+                </div>
+              )}
+              <div className="p-4 bg-stone-100/80 flex items-center justify-between text-xs font-bold font-mono">
+                <span className="uppercase text-stone-900">Tổng cộng ({tuition.totalCredits} TC):</span>
+                <span className="text-red-800 text-sm">{formatVnd(tuition.totalAmount)}</span>
+              </div>
+            </div>
+
+            {/* Desktop View (md+): Traditional table */}
+            <div className="hidden md:block overflow-x-auto touch-scroll">
               <table className="w-full text-left border-collapse text-xs min-w-[620px]">
                 <thead>
                   <tr className="border-b border-stone-200 bg-stone-100/60 text-stone-600 uppercase tracking-wider font-mono text-[10px]">
