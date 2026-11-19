@@ -16,24 +16,82 @@ import {
   UserCheck,
   TrendingDown,
   ClipboardList,
+  Mail,
 } from 'lucide-react'
 import api from '../../../services/api'
 
 // ─── Inline Confirm Dialog (thay window.confirm) ─────────────────────────────
-function ConfirmDialog({ open, title, description, onConfirm, onCancel, loading }) {
+function ConfirmDialog({
+  open,
+  title,
+  description,
+  onConfirm,
+  onCancel,
+  loading,
+  sendEmail,
+  setSendEmail,
+  testRecipientEmail,
+  setTestRecipientEmail,
+  targetStudent,
+}) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm p-6 space-y-4 animate-in fade-in zoom-in-95">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6 space-y-4 animate-in zoom-in-95">
         <div className="flex items-start gap-3">
-          <div className="p-2 bg-rose-100 rounded-xl shrink-0">
-            <Bell className="w-5 h-5 text-rose-600" />
+          <div className="p-2.5 bg-rose-100 rounded-xl shrink-0 text-rose-600">
+            <Bell className="w-5 h-5" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h3 className="font-bold text-slate-900 text-sm">{title}</h3>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">{description}</p>
           </div>
         </div>
+
+        {/* Tùy chọn Gửi Email Cảnh Báo */}
+        <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3.5 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-xs font-bold text-indigo-950 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={sendEmail}
+                onChange={(e) => setSendEmail(e.target.checked)}
+                className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+              />
+              <Mail size={15} className="text-indigo-600" />
+              Đồng thời gửi Email cảnh báo học vụ
+            </label>
+            <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200">
+              Gmail SMTP
+            </span>
+          </div>
+
+          {sendEmail && (
+            <div className="pt-2 border-t border-indigo-100/80 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>Hòm thư nhận:</span>
+                <button
+                  type="button"
+                  onClick={() => setTestRecipientEmail('workspacegateos@gmail.com')}
+                  className="text-indigo-600 hover:text-indigo-800 font-semibold hover:underline"
+                >
+                  Test tới workspacegateos@gmail.com
+                </button>
+              </div>
+              <input
+                type="email"
+                placeholder={targetStudent?.email ? `Mặc định gửi tới: ${targetStudent.email}` : 'Để trống sẽ gửi tới email trường của sinh viên'}
+                value={testRecipientEmail}
+                onChange={(e) => setTestRecipientEmail(e.target.value)}
+                className="w-full text-xs font-medium border border-indigo-200 rounded-lg p-2 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
+              />
+              <p className="text-[10px] text-slate-400">
+                Email gửi từ: <strong className="text-slate-600">workspacegateos@gmail.com</strong>
+              </p>
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-2 justify-end pt-1">
           <button
             onClick={onCancel}
@@ -45,10 +103,10 @@ function ConfirmDialog({ open, title, description, onConfirm, onCancel, loading 
           <button
             onClick={onConfirm}
             disabled={loading}
-            className="px-4 py-2 text-xs font-bold text-white bg-rose-700 hover:bg-rose-800 rounded-lg flex items-center gap-1.5 transition disabled:opacity-50"
+            className="px-4 py-2 text-xs font-bold text-white bg-rose-700 hover:bg-rose-800 rounded-lg flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm"
           >
             {loading ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-            Xác nhận gửi
+            Xác nhận gửi cảnh báo
           </button>
         </div>
       </div>
@@ -223,6 +281,8 @@ export function EarlyWarningModal({ open, onClose, sectionId, sectionCode, cours
   const [expandedId, setExpandedId]             = useState(null)
   const [confirmOpen, setConfirmOpen]           = useState(false)
   const [confirmTarget, setConfirmTarget]       = useState(null) // null = all at-risk | StudentRiskDto = single
+  const [sendEmail, setSendEmail]               = useState(true)
+  const [testRecipientEmail, setTestRecipientEmail] = useState('')
 
   // Fetch khi mở hoặc sectionId thay đổi
   useEffect(() => {
@@ -236,6 +296,8 @@ export function EarlyWarningModal({ open, onClose, sectionId, sectionCode, cours
       setDispatchResult(null)
       setFilter('AT_RISK')
       setExpandedId(null)
+      setSendEmail(true)
+      setTestRecipientEmail('')
     }
   }, [open, sectionId]) // eslint-disable-line
 
@@ -271,7 +333,11 @@ export function EarlyWarningModal({ open, onClose, sectionId, sectionCode, cours
     setConfirmOpen(false)
 
     const isSingle = confirmTarget !== null
-    const payload  = { sectionId, sendEmail: true }
+    const payload  = {
+      sectionId,
+      sendEmail: sendEmail,
+      testRecipientEmail: testRecipientEmail.trim() || undefined,
+    }
     if (isSingle) payload.studentIds = [confirmTarget.studentId]
 
     if (isSingle) {
@@ -356,6 +422,11 @@ export function EarlyWarningModal({ open, onClose, sectionId, sectionCode, cours
         }
         onConfirm={handleConfirmDispatch}
         onCancel={() => setConfirmOpen(false)}
+        sendEmail={sendEmail}
+        setSendEmail={setSendEmail}
+        testRecipientEmail={testRecipientEmail}
+        setTestRecipientEmail={setTestRecipientEmail}
+        targetStudent={confirmTarget}
       />
 
       {/* Backdrop + Modal */}
@@ -476,6 +547,38 @@ export function EarlyWarningModal({ open, onClose, sectionId, sectionCode, cours
                       <CheckCircle2 size={11} /> An toàn
                     </div>
                     <div className="text-xl font-bold text-emerald-800 mt-0.5">{report.safeCount}</div>
+                  </div>
+                </div>
+
+                {/* ── Email Integration Control Bar ────────────────────────── */}
+                <div className="p-3.5 bg-indigo-50/80 border border-indigo-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-indigo-600 text-white rounded-lg shrink-0">
+                      <Mail size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 font-bold text-indigo-950">
+                        <span>Kênh Phát Hành Email Cảnh Báo (Gmail SMTP)</span>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Sẵn sàng: workspacegateos@gmail.com
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-indigo-800/80 mt-0.5">
+                        Tự động phát hành email cảnh báo học vụ HTML responsive tới sinh viên khi phát cảnh báo.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-indigo-950 select-none">
+                      <input
+                        type="checkbox"
+                        checked={sendEmail}
+                        onChange={(e) => setSendEmail(e.target.checked)}
+                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span>Đồng thời gửi Email</span>
+                    </label>
                   </div>
                 </div>
 
