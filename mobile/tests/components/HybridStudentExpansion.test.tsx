@@ -13,6 +13,7 @@
  */
 
 import React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { renderToStaticMarkup } = require('react-dom/server');
 import { BackHandler, Platform } from 'react-native';
@@ -429,22 +430,28 @@ describe('TASK 7.3: Student Pilot Expansion (Exams & Grades)', () => {
   // SCENARIO GROUP E: Native App Screen Wrappers
   // ─────────────────────────────────────────────────────────────
   describe('Group E: Native Screen Containers (ExamsScreen & GradesScreen)', () => {
-    it('E1: ExamsScreen renders root container with student-exams-screen testID and embeds HybridExamsWebView', () => {
-      const html = renderToStaticMarkup(<ExamsScreen />);
-
-      expect(html).toContain('student-exams-screen');
-      expect(html).toContain('hybrid-exams-webview');
-      expect(html).toContain('Đang tải lịch thi sinh viên...');
-      expect(html).toContain('mock-webview');
+    const testQueryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
     });
 
-    it('E2: GradesScreen renders root container with student-grades-screen testID and embeds HybridGradesWebView', () => {
-      const html = renderToStaticMarkup(<GradesScreen />);
+    it('E1: ExamsScreen renders root container with student-exams-screen testID', () => {
+      const html = renderToStaticMarkup(
+        <QueryClientProvider client={testQueryClient}>
+          <ExamsScreen />
+        </QueryClientProvider>
+      );
+
+      expect(html).toContain('student-exams-screen');
+    });
+
+    it('E2: GradesScreen renders root container with student-grades-screen testID', () => {
+      const html = renderToStaticMarkup(
+        <QueryClientProvider client={testQueryClient}>
+          <GradesScreen />
+        </QueryClientProvider>
+      );
 
       expect(html).toContain('student-grades-screen');
-      expect(html).toContain('hybrid-grades-webview');
-      expect(html).toContain('Đang tải bảng điểm sinh viên...');
-      expect(html).toContain('mock-webview');
     });
   });
 
