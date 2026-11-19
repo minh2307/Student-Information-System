@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Lock, Search, Users,
-  AlertTriangle, BookOpen, QrCode, ShieldAlert
+  AlertTriangle, BookOpen, QrCode, ShieldAlert, MessageSquare
 } from 'lucide-react'
 import { useLecturerStore } from '../store/lecturerStore'
 import { GradeRow, GradeCard } from '../components/GradeRow'
@@ -10,6 +10,7 @@ import { TableRowSkeleton, EmptyState } from '../components/Skeletons'
 import { LockConfirmModal, MissingGradesModal } from '../components/LockModals'
 import { QrAttendanceModal } from '../components/QrAttendanceModal'
 import { EarlyWarningModal } from '../components/EarlyWarningModal'
+import { SendNotificationModal } from '../components/SendNotificationModal'
 import { ToastContainer, useToast } from '../components/Toast'
 
 export function ClassStudentsPage() {
@@ -53,6 +54,8 @@ export function ClassStudentsPage() {
   const [missingStudents,  setMissingStudents]  = useState([])
   const [showQrModal,      setShowQrModal]      = useState(false)
   const [showEarlyWarningModal, setShowEarlyWarningModal] = useState(false)
+  const [showNotifyModal, setShowNotifyModal] = useState(false)
+  const [selectedStudentForNotify, setSelectedStudentForNotify] = useState(null)
 
   const isAllLocked = studentList.length > 0 && studentList.every((s) => s.isLocked)
 
@@ -82,6 +85,12 @@ export function ClassStudentsPage() {
 
     return result
   }, [sid, updateAttendance, updateGrade])
+
+  // Open notification modal for a single student or all students
+  const handleOpenNotify = useCallback((student = null) => {
+    setSelectedStudentForNotify(student)
+    setShowNotifyModal(true)
+  }, [])
 
   // Lock grades handler
   const handleLockConfirm = async () => {
@@ -142,6 +151,18 @@ export function ClassStudentsPage() {
             </p>
           )}
         </div>
+
+        {/* Send Notification Button */}
+        <button
+          id="btn-send-notification"
+          onClick={() => handleOpenNotify(null)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold
+                     bg-blue-600 text-white hover:bg-blue-700 transition-colors shrink-0 shadow-sm"
+          title="Gửi thông báo & dặn dò tới sinh viên"
+        >
+          <MessageSquare size={16} />
+          Gửi Thông Báo
+        </button>
 
         {/* QR Attendance button */}
         <button
@@ -289,6 +310,7 @@ export function ClassStudentsPage() {
                   isSaving={savingRow === s.enrollmentId}
                   onSave={handleSave}
                   onToast={addToast}
+                  onNotify={handleOpenNotify}
                 />
               ))
             )}
@@ -326,6 +348,7 @@ export function ClassStudentsPage() {
               isSaving={savingRow === s.enrollmentId}
               onSave={handleSave}
               onToast={addToast}
+              onNotify={handleOpenNotify}
             />
           ))
         )}
@@ -363,6 +386,21 @@ export function ClassStudentsPage() {
           sectionCode={section?.sectionCode ?? `#${sid}`}
           courseName={section?.courseName ?? 'Môn học'}
           onClose={() => setShowEarlyWarningModal(false)}
+        />
+      )}
+
+      {showNotifyModal && (
+        <SendNotificationModal
+          open={showNotifyModal}
+          onClose={() => setShowNotifyModal(false)}
+          sectionId={sid}
+          sectionCode={section?.sectionCode ?? `#${sid}`}
+          courseName={section?.courseName ?? 'Môn học'}
+          students={studentList}
+          initialStudent={selectedStudentForNotify}
+          onSuccess={(data) => {
+            addToast(`Đã gửi thông báo tới ${data?.sentCount || 1} sinh viên!`, 'success')
+          }}
         />
       )}
 
