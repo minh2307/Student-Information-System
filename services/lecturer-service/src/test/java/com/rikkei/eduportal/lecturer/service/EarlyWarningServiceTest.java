@@ -55,6 +55,9 @@ class EarlyWarningServiceTest {
     @Mock
     private NotificationRepository notificationRepo;
 
+    @Mock
+    private LecturerEmailService lecturerEmailService;
+
     @InjectMocks
     private EarlyWarningService earlyWarningService;
 
@@ -214,6 +217,7 @@ class EarlyWarningServiceTest {
         assertEquals("SENT", res.getStatus());
         assertEquals(1, res.getSentCount());
         assertTrue(res.getRecipientNames().get(0).contains("Nguyen Van A"));
+        verify(lecturerEmailService, times(1)).sendAcademicWarningEmail(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -237,5 +241,6 @@ class EarlyWarningServiceTest {
         assertEquals(1, res.getSentCount());
         assertEquals(1, res.getRecipientNames().size());
         assertTrue(res.getRecipientNames().get(0).contains("Nguyen Van A"));
+        verify(lecturerEmailService, times(1)).sendLecturerMessageEmail(any(), any(), any(), any(), any(), any(), any(), any());
     }
 }

@@ -33,6 +33,27 @@ public class EarlyWarningService {
     private final StudentProfileRepository studentProfileRepo;
     private final LecturerProfileRepository lecturerProfileRepo;
     private final NotificationRepository notificationRepo;
+    private final LecturerEmailService lecturerEmailService;
+
+    public EarlyWarningService(ClassSectionRepository classSectionRepo,
+                               EnrollmentRepository enrollmentRepo,
+                               AttendanceSessionRepository attendanceSessionRepo,
+                               AttendanceRecordRepository attendanceRecordRepo,
+                               GradeRepository gradeRepo,
+                               StudentProfileRepository studentProfileRepo,
+                               LecturerProfileRepository lecturerProfileRepo,
+                               NotificationRepository notificationRepo,
+                               @org.springframework.beans.factory.annotation.Autowired(required = false) LecturerEmailService lecturerEmailService) {
+        this.classSectionRepo = classSectionRepo;
+        this.enrollmentRepo = enrollmentRepo;
+        this.attendanceSessionRepo = attendanceSessionRepo;
+        this.attendanceRecordRepo = attendanceRecordRepo;
+        this.gradeRepo = gradeRepo;
+        this.studentProfileRepo = studentProfileRepo;
+        this.lecturerProfileRepo = lecturerProfileRepo;
+        this.notificationRepo = notificationRepo;
+        this.lecturerEmailService = lecturerEmailService;
+    }
 
     public EarlyWarningService(ClassSectionRepository classSectionRepo,
                                EnrollmentRepository enrollmentRepo,
@@ -42,14 +63,7 @@ public class EarlyWarningService {
                                StudentProfileRepository studentProfileRepo,
                                LecturerProfileRepository lecturerProfileRepo,
                                NotificationRepository notificationRepo) {
-        this.classSectionRepo = classSectionRepo;
-        this.enrollmentRepo = enrollmentRepo;
-        this.attendanceSessionRepo = attendanceSessionRepo;
-        this.attendanceRecordRepo = attendanceRecordRepo;
-        this.gradeRepo = gradeRepo;
-        this.studentProfileRepo = studentProfileRepo;
-        this.lecturerProfileRepo = lecturerProfileRepo;
-        this.notificationRepo = notificationRepo;
+        this(classSectionRepo, enrollmentRepo, attendanceSessionRepo, attendanceRecordRepo, gradeRepo, studentProfileRepo, lecturerProfileRepo, notificationRepo, null);
     }
 
     @Transactional(readOnly = true)
@@ -308,6 +322,23 @@ public class EarlyWarningService {
             notif.setCreatedAt(LocalDateTime.now());
             notificationRepo.save(notif);
 
+            if (lecturerEmailService != null && student.getUser() != null) {
+                try {
+                    lecturerEmailService.sendAcademicWarningEmail(
+                            student.getUser().getEmail(),
+                            student.getUser().getFullName(),
+                            student.getStudentCode(),
+                            evaluated.getSectionCode(),
+                            evaluated.getCourseName(),
+                            s.getRiskLevel(),
+                            s.getRiskReasons(),
+                            s.getSuggestions()
+                    );
+                } catch (Exception ex) {
+                    // Lỗi email không làm gián đoạn transaction lưu thông báo
+                }
+            }
+
             names.add(s.getFullName() + " (" + s.getStudentCode() + ")");
         }
 
@@ -405,6 +436,23 @@ public class EarlyWarningService {
             notif.setLinkUrl("/student/dashboard");
             notif.setCreatedAt(LocalDateTime.now());
             notificationRepo.save(notif);
+
+            if (lecturerEmailService != null) {
+                try {
+                    lecturerEmailService.sendLecturerMessageEmail(
+                            user.getEmail(),
+                            user.getFullName(),
+                            student.getStudentCode(),
+                            section.getSectionCode(),
+                            courseName,
+                            lecturerName,
+                            request.getTitle(),
+                            request.getMessage()
+                    );
+                } catch (Exception ex) {
+                    // Lỗi email không làm gián đoạn transaction
+                }
+            }
 
             recipientNames.add(user.getFullName() + " (" + student.getStudentCode() + ")");
         }
