@@ -18,7 +18,8 @@ import {
   ChevronRight,
   Bell,
   X,
-  CalendarCheck
+  CalendarCheck,
+  Smartphone
 } from 'lucide-react'
 
 export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
@@ -85,7 +86,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
               <span className="font-bold text-stone-900 text-xs tracking-tight uppercase leading-snug">
                 EDUPORTAL
               </span>
-              <span className="text-[9px] text-stone-500 tracking-wider font-mono uppercase">
+              <span className="text-[9px] text-stone-500 tracking-wider font-semibold uppercase">
                 Học viện Đào tạo
               </span>
             </div>
@@ -111,7 +112,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
           {role === 'STUDENT' && (
             <>
               <div>
-                <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+                <div className="px-3 pb-1 text-[10px] font-bold text-stone-500 uppercase tracking-wider">
                   Quản lý Đào tạo
                 </div>
                 <div className="space-y-0.5">
@@ -146,7 +147,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
               </div>
 
               <div>
-                <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+                <div className="px-3 pb-1 text-[10px] font-bold text-stone-500 uppercase tracking-wider">
                   Tài chính & Khảo thí
                 </div>
                 <div className="space-y-0.5">
@@ -167,7 +168,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
               </div>
 
               <div>
-                <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+                <div className="px-3 pb-1 text-[10px] font-bold text-stone-500 uppercase tracking-wider">
                   Thông tin chung
                 </div>
                 <div className="space-y-0.5">
@@ -186,7 +187,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
           {role === 'LECTURER' && (
             <>
               <div>
-                <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+                <div className="px-3 pb-1 text-[10px] font-bold text-stone-500 uppercase tracking-wider">
                   Giảng dạy & Học vụ
                 </div>
                 <div className="space-y-0.5">
@@ -219,7 +220,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
           {role === 'ADMIN' && (
             <>
               <div>
-                <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+                <div className="px-3 pb-1 text-[10px] font-bold text-stone-500 uppercase tracking-wider">
                   Quản trị Đào tạo
                 </div>
                 <div className="space-y-0.5">
@@ -247,7 +248,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
               </div>
 
               <div>
-                <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+                <div className="px-3 pb-1 text-[10px] font-bold text-stone-500 uppercase tracking-wider">
                   Hệ thống & Người dùng
                 </div>
                 <div className="space-y-0.5">
@@ -271,7 +272,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
 
           {/* Common Account Section */}
           <div>
-            <div className="px-3 pb-1 text-[10px] font-bold text-stone-600 uppercase tracking-widest font-mono">
+            <div className="px-3 pb-1 text-[10px] font-bold text-stone-500 uppercase tracking-wider">
               Hệ thống & Tiện ích
             </div>
             <div className="space-y-0.5">
@@ -289,6 +290,24 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
                   <span>Hồ sơ cá nhân</span>
                 </div>
               </NavLink>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onClose()
+                  window.dispatchEvent(new CustomEvent('eduportal:open-install-prompt'))
+                }}
+                className="w-full group flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-medium transition-all min-h-[42px] touch-manipulation text-stone-600 hover:text-stone-900 hover:bg-stone-100/70 active:bg-stone-200/60 cursor-pointer"
+                title="Cài đặt tệp APK cho Android hoặc ứng dụng PWA"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Smartphone size={16} className="text-stone-500 group-hover:text-red-700" />
+                  <span>Cài đặt App Mobile</span>
+                </div>
+                <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200/60 px-1.5 py-0.5 rounded">
+                  APK
+                </span>
+              </button>
             </div>
           </div>
         </nav>
@@ -310,7 +329,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
                 <p className="text-xs font-semibold text-stone-900 truncate">
                   {user?.fullName || 'Tài khoản'}
                 </p>
-                <p className="text-[10px] font-mono text-stone-600 truncate">
+                <p className="text-[10px] text-stone-500 truncate">
                   {user?.username || 'SV2024001'}
                 </p>
               </div>
@@ -320,7 +339,7 @@ export const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
                 Trực tuyến
               </span>
-              <span className="font-mono text-stone-600 font-semibold">2024-SEM2</span>
+              <span className="text-stone-600 font-semibold">2024-SEM2</span>
             </div>
           </div>
         </div>

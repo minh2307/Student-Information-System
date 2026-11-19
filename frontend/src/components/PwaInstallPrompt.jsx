@@ -17,11 +17,15 @@ const DISMISS_KEY = 'eduportal_pwa_dismissed_until'
 // Dismissal suppression period: 3 days (in milliseconds)
 const DISMISS_DURATION_MS = 3 * 24 * 60 * 60 * 1000
 
+const APK_DOWNLOAD_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ANDROID_APK_URL) || '/downloads/RikkeiEduPortal.apk'
+
 export function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [isInstallable, setIsInstallable] = useState(false)
   const [isIosDevice, setIsIosDevice] = useState(false)
+  const [isAndroidDevice, setIsAndroidDevice] = useState(false)
   const [showIosGuide, setShowIosGuide] = useState(false)
+  const [showAndroidModal, setShowAndroidModal] = useState(false)
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false)
   const [showOnlineToast, setShowOnlineToast] = useState(false)
   const [swUpdateDetails, setSwUpdateDetails] = useState(null)
@@ -57,6 +61,13 @@ export function PwaInstallPrompt() {
     return isIos && isSafari
   }, [])
 
+  // Detect Android environment
+  const detectAndroid = useCallback(() => {
+    if (typeof window === 'undefined') return false
+    const ua = window.navigator.userAgent.toLowerCase()
+    return /android/.test(ua)
+  }, [])
+
   useEffect(() => {
     // If application is already running in standalone PWA mode, never prompt for installation
     if (isStandalone()) {
@@ -64,20 +75,22 @@ export function PwaInstallPrompt() {
     }
 
     const ios = detectIosSafari()
+    const android = detectAndroid()
     setIsIosDevice(ios)
+    setIsAndroidDevice(android)
 
     // Check if dismissed before deciding to reveal prompt
     if (!isDismissedRecently()) {
       // Short delay so banner appears non-intrusively after initial render
       const timer = setTimeout(() => {
         setDismissed(false)
-        if (ios) {
+        if (ios || android) {
           setIsInstallable(true)
         }
       }, 2000)
       return () => clearTimeout(timer)
     }
-  }, [detectIosSafari, isDismissedRecently])
+  }, [detectIosSafari, detectAndroid, isDismissedRecently])
 
   useEffect(() => {
     // 1. Android Chrome / Chromium native install prompt listener
@@ -122,11 +135,26 @@ export function PwaInstallPrompt() {
       }
     }
 
+    // 5. Open install/download prompt on demand from any component (Sidebar, Header, etc.)
+    const handleOpenInstallPrompt = () => {
+      setDismissed(false)
+      const android = detectAndroid()
+      const ios = detectIosSafari()
+      if (android) {
+        setShowAndroidModal(true)
+      } else if (ios) {
+        setShowIosGuide(true)
+      } else {
+        setShowAndroidModal(true)
+      }
+    }
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.addEventListener('appinstalled', handleAppInstalled)
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     window.addEventListener('eduportal:sw-updated', handleSwUpdated)
+    window.addEventListener('eduportal:open-install-prompt', handleOpenInstallPrompt)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
@@ -134,8 +162,24 @@ export function PwaInstallPrompt() {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
       window.removeEventListener('eduportal:sw-updated', handleSwUpdated)
+      window.removeEventListener('eduportal:open-install-prompt', handleOpenInstallPrompt)
     }
-  }, [isDismissedRecently])
+  }, [detectAndroid, detectIosSafari, isDismissedRecently])
+
+  // Handle direct Android APK download trigger
+  const handleAndroidApkDownload = useCallback(() => {
+    setShowAndroidModal(true)
+    try {
+      const link = document.createElement('a')
+      link.href = APK_DOWNLOAD_URL
+      link.setAttribute('download', 'RikkeiEduPortal.apk')
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (err) {
+      console.warn('[PWA] Failed to auto-trigger APK download:', err)
+    }
+  }, [])
 
   // Handle Android Install button click
   const handleAndroidInstall = async () => {
@@ -166,6 +210,7 @@ export function PwaInstallPrompt() {
   const handleDismiss = () => {
     setDismissed(true)
     setShowIosGuide(false)
+    setShowAndroidModal(false)
     try {
       localStorage.setItem(DISMISS_KEY, String(Date.now() + DISMISS_DURATION_MS))
     } catch {}
@@ -259,18 +304,20 @@ export function PwaInstallPrompt() {
             <div className="flex-1 min-w-0 pt-0.5">
               <div className="flex items-center gap-1.5">
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400">
-                  <Sparkles size={10} className="mr-0.5" /> PWA
+                  <Sparkles size={10} className="mr-0.5" /> {isAndroidDevice ? 'Android APK' : 'PWA'}
                 </span>
                 <h4 id="pwa-prompt-title" className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                  Trải nghiệm EduPortal tốt hơn
+                  {isAndroidDevice ? 'Cài đặt EduPortal trên Android' : 'Trải nghiệm EduPortal tốt hơn'}
                 </h4>
               </div>
               <p id="pwa-prompt-desc" className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                Cài đặt ứng dụng để truy cập nhanh và sử dụng thuận tiện trên điện thoại.
+                {isAndroidDevice
+                  ? 'Tải tệp APK để cài đặt trực tiếp ứng dụng hoặc thêm vào màn hình chính.'
+                  : 'Cài đặt ứng dụng để truy cập nhanh và sử dụng thuận tiện trên điện thoại.'}
               </p>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 mt-3">
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
                 {isIosDevice ? (
                   <button
                     onClick={() => setShowIosGuide(true)}
@@ -279,6 +326,26 @@ export function PwaInstallPrompt() {
                     <Info size={13} />
                     Hướng dẫn cài đặt
                   </button>
+                ) : isAndroidDevice ? (
+                  <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+                    <button
+                      onClick={handleAndroidApkDownload}
+                      className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer"
+                    >
+                      <Download size={13} />
+                      Tải file APK
+                    </button>
+                    {deferredPrompt && (
+                      <button
+                        onClick={handleAndroidInstall}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer"
+                        title="Hoặc thêm nhanh vào màn hình chính (PWA)"
+                      >
+                        <Sparkles size={11} className="text-red-600" />
+                        PWA
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <button
                     onClick={handleAndroidInstall}
@@ -396,6 +463,136 @@ export function PwaInstallPrompt() {
                 Đã hiểu
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 6. Android APK Step-by-Step Download Modal ─────────────── */}
+      {showAndroidModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="android-modal-title"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+        >
+          <div
+            className="w-full sm:max-w-md bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in slide-in-from-bottom duration-300"
+            style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center shadow-sm">
+                  <Smartphone size={18} />
+                </div>
+                <div>
+                  <h3 id="android-modal-title" className="text-sm font-bold text-slate-900 dark:text-white">
+                    Tải Ứng Dụng Rikkei EduPortal (Android)
+                  </h3>
+                  <p className="text-[11px] text-slate-500">Tệp APK cài đặt trực tiếp cho điện thoại Android</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAndroidModal(false)}
+                aria-label="Đóng hướng dẫn tải APK"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* APK Download Card */}
+            <div className="mt-4 p-4 rounded-2xl bg-red-50/60 dark:bg-red-950/20 border border-red-200/80 dark:border-red-900/40">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span>RikkeiEduPortal.apk</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 font-bold">
+                      v1.0.0
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Tương thích Android 8.0+ • ~35 MB
+                  </p>
+                </div>
+                <a
+                  href={APK_DOWNLOAD_URL}
+                  download="RikkeiEduPortal.apk"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-red-600/20 transition shrink-0 cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span>Tải APK</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Step-by-Step Instructions */}
+            <div className="mt-5 space-y-3.5">
+              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Hướng dẫn cài đặt file APK trên Android:
+              </h4>
+
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300 font-bold text-xs flex items-center justify-center shrink-0">
+                  1
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-900 dark:text-white">
+                    Nhấn "Tải APK" để tải tệp về máy
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Tệp <code>RikkeiEduPortal.apk</code> sẽ được lưu vào thư mục Tải về (Downloads).
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300 font-bold text-xs flex items-center justify-center shrink-0">
+                  2
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-900 dark:text-white">
+                    Mở tệp và cho phép cài đặt
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Nhấn vào tệp vừa tải. Nếu Android cảnh báo <em>"Cài đặt ứng dụng không rõ nguồn"</em>, hãy chọn <strong>Cài đặt &gt; Bật Cho phép từ nguồn này</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300 font-bold text-xs flex items-center justify-center shrink-0">
+                  3
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-900 dark:text-white">
+                    Nhấn Cài đặt (Install)
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Quá trình cài đặt mất khoảng 5 - 10 giây. Sau khi xong, mở ứng dụng và đăng nhập bình thường!
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Alternative: PWA option */}
+            {deferredPrompt && (
+              <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                <span className="text-slate-500 text-[11px]">
+                  Hoặc không muốn tải tệp?
+                </span>
+                <button
+                  onClick={() => {
+                    setShowAndroidModal(false)
+                    handleAndroidInstall()
+                  }}
+                  className="font-bold text-red-600 hover:text-red-700 text-xs flex items-center gap-1 cursor-pointer"
+                >
+                  <Sparkles size={12} />
+                  Cài nhanh qua trình duyệt (PWA)
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

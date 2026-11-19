@@ -20,6 +20,16 @@
     min-height: 100dvh;
     touch-action: manipulation;
   }
+
+  /* Đồng nhất 100% phông chữ cho toàn bộ form input, select, button, textarea */
+  input, button, select, textarea, optgroup {
+    font-family: inherit;
+  }
+
+  /* Monospace chuyên dụng cho các khối mã nguồn / JSON / Terminal */
+  code, pre, kbd, samp, .font-code {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
 }
 
 /* ====================================================================

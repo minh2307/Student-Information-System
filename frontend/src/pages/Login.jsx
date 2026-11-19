@@ -22,7 +22,9 @@ import {
   ShieldCheck, 
   Building,
   FileText,
-  Clock
+  Clock,
+  Smartphone,
+  Download
 } from 'lucide-react'
 
 const CATEGORIES = ['Tất cả', 'HỌC VỤ', 'LỊCH THI', 'HỌC BỔNG', 'HOẠT ĐỘNG']
@@ -211,7 +213,7 @@ export const Login = () => {
               <h1 className="font-bold text-sm sm:text-base text-stone-900 leading-tight uppercase tracking-tight">
                 HỌC VIỆN ĐÀO TẠO RIKKEI
               </h1>
-              <p className="text-[10px] text-red-700 font-mono font-medium tracking-wide uppercase">
+              <p className="text-[10px] text-red-700 font-medium tracking-wide uppercase">
                 CỔNG THÔNG TIN ĐÀO TẠO ĐẠI HỌC (RIKKEI EDUPORTAL)
               </p>
             </div>
@@ -220,13 +222,13 @@ export const Login = () => {
           <div className="hidden md:flex items-center gap-6 text-xs text-stone-600">
             <span className="flex items-center gap-1.5">
               <Phone size={13} className="text-red-700" />
-              <span>Hotline: <strong className="text-stone-900 font-mono">(024) 7300 6886</strong></span>
+              <span>Hotline: <strong className="text-stone-900">(024) 7300 6886</strong></span>
             </span>
             <span className="flex items-center gap-1.5">
               <Mail size={13} className="text-red-700" />
-              <span>Email: <strong className="text-stone-900 font-mono">daotao@rikkei.edu.vn</strong></span>
+              <span>Email: <strong className="text-stone-900">daotao@rikkei.edu.vn</strong></span>
             </span>
-            <span className="font-mono text-stone-700 bg-stone-100/90 px-2.5 py-0.5 rounded border border-stone-200 text-[11px] font-semibold">
+            <span className="text-stone-700 bg-stone-100/90 px-2.5 py-0.5 rounded border border-stone-200 text-[11px] font-semibold">
               Niên khóa 2024 - 2025
             </span>
           </div>
@@ -242,7 +244,7 @@ export const Login = () => {
             {/* Board Title Banner */}
             <div className="bg-white p-5 rounded-2xl border border-stone-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-red-700">
                   Phòng Quản Lý Đào Tạo & Khảo Thí
                 </span>
                 <h2 className="text-base sm:text-lg font-bold text-stone-900 tracking-tight">
@@ -306,13 +308,13 @@ export const Login = () => {
                     <div className="flex items-start gap-4">
                       {/* Date Block */}
                       <div className="w-14 h-14 rounded-xl bg-stone-50 border border-stone-200 flex flex-col items-center justify-center shrink-0 group-hover:border-red-300 transition-colors">
-                        <span className="text-[10px] font-mono font-bold text-red-700 uppercase">
+                        <span className="text-[10px] font-bold text-red-700 uppercase">
                           Tháng {new Date(item.createdAt).getMonth() + 1}
                         </span>
-                        <span className="text-lg font-mono font-bold text-stone-900 leading-none">
+                        <span className="text-lg font-bold text-stone-900 leading-none">
                           {new Date(item.createdAt).getDate()}
                         </span>
-                        <span className="text-[9px] font-mono text-stone-500">
+                        <span className="text-[9px] text-stone-500">
                           {new Date(item.createdAt).getFullYear()}
                         </span>
                       </div>
@@ -320,16 +322,16 @@ export const Login = () => {
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${getCategoryBadge(item.category)}`}>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${getCategoryBadge(item.category)}`}>
                             {item.category}
                           </span>
                           {item.isPinned && (
-                            <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-stone-700 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-stone-700 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
                               <Pin size={10} className="fill-stone-600" />
                               CÔNG VĂN KHẨN
                             </span>
                           )}
-                          <span className="text-[11px] font-mono text-stone-500 ml-auto hidden sm:inline">
+                          <span className="text-[11px] text-stone-500 ml-auto hidden sm:inline">
                             Số: {100 + Number(item.id)}/TB-ĐT • {item.author || 'Phòng Đào tạo'}
                           </span>
                         </div>
@@ -343,7 +345,7 @@ export const Login = () => {
                         </p>
 
                         <div className="mt-2.5 flex items-center justify-between text-xs">
-                          <span className="text-[10px] font-mono text-stone-500">
+                          <span className="text-[10px] text-stone-500">
                             Ban hành lúc {new Date(item.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                           <span className="font-semibold text-red-700 group-hover:text-red-900 flex items-center gap-0.5 text-xs">
@@ -359,7 +361,7 @@ export const Login = () => {
 
             {/* Quick Regulations */}
             <div className="bg-stone-50 rounded-2xl p-5 border border-stone-200/90">
-              <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-stone-900 flex items-center gap-2 mb-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-stone-900 flex items-center gap-2 mb-3">
                 <BookOpen size={14} className="text-red-700" />
                 Văn Bản Quy Định Dành Cho Sinh Viên
               </h4>
@@ -436,7 +438,7 @@ export const Login = () => {
                     <GraduationCap size={28} className="text-white" />
                   </div>
                   <h2 className="text-lg font-bold tracking-tight">Đăng Nhập Cổng Đào Tạo</h2>
-                  <p className="text-xs text-red-100 font-mono mt-0.5">
+                  <p className="text-xs text-red-100 mt-0.5">
                     Xác thực danh tính học vụ điện tử
                   </p>
                 </div>
@@ -452,7 +454,7 @@ export const Login = () => {
                 )}
 
                 <div>
-                  <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1.5 uppercase">
+                  <label className="block text-[11px] font-bold text-stone-700 mb-1.5 uppercase">
                     Tên đăng nhập / Mã SV / Mã GV
                   </label>
                   <div className="relative">
@@ -467,7 +469,7 @@ export const Login = () => {
                         if (usernameError) setUsernameError('')
                       }}
                       placeholder="sv2024001, gv001, admin..."
-                      className={`w-full pl-8 pr-3 py-2 bg-stone-50 border rounded-lg text-xs font-mono focus:outline-none focus:bg-white transition ${
+                      className={`w-full pl-8 pr-3 py-2 bg-stone-50 border rounded-lg text-xs focus:outline-none focus:bg-white transition ${
                         usernameError ? 'border-red-600 focus:border-red-700 ring-1 ring-red-500/20' : 'border-stone-200 focus:border-red-700'
                       }`}
                     />
@@ -481,7 +483,7 @@ export const Login = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1.5 uppercase">
+                  <label className="block text-[11px] font-bold text-stone-700 mb-1.5 uppercase">
                     Mật khẩu bảo mật
                   </label>
                   <div className="relative">
@@ -551,8 +553,18 @@ export const Login = () => {
                 </button>
 
 
-                <div className="pt-2 text-center">
-                  <p className="text-[10px] font-mono text-stone-500 flex items-center justify-center gap-1 font-medium">
+                <div className="pt-2 text-center space-y-2">
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent('eduportal:open-install-prompt'))}
+                      className="inline-flex items-center gap-1.5 text-xs text-red-700 hover:text-red-800 font-semibold cursor-pointer py-1 px-2.5 rounded-lg hover:bg-red-50 transition border border-transparent hover:border-red-200"
+                    >
+                      <Smartphone size={13} />
+                      <span>Cài đặt ứng dụng Mobile (Android APK)</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-stone-500 flex items-center justify-center gap-1 font-medium">
                     <ShieldCheck size={13} className="text-emerald-700" />
                     Bảo mật chuẩn JWT SSO 256-bit
                   </p>
@@ -566,7 +578,7 @@ export const Login = () => {
       {/* 3. Footer */}
       <footer className="bg-white/90 backdrop-blur-md border-t border-stone-200/90 py-4 text-center text-xs text-stone-500 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span className="font-mono text-[11px]">© 2026 Học viện Công nghệ Rikkei. Rikkei EduPortal v1.2</span>
+          <span className="text-[11px]">© 2026 Học viện Công nghệ Rikkei. Rikkei EduPortal v1.2</span>
           <span className="text-[11px]">Bản quyền thuộc về Phòng Quản lý Đào tạo & Khảo thí</span>
         </div>
       </footer>
@@ -577,11 +589,11 @@ export const Login = () => {
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-stone-200 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100">
               <div className="flex items-center gap-2">
-                <span className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-bold uppercase ${getCategoryBadge(selectedArticle.category)}`}>
+                <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase ${getCategoryBadge(selectedArticle.category)}`}>
                   {selectedArticle.category}
                 </span>
                 {selectedArticle.isPinned && (
-                  <span className="text-xs font-mono font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded flex items-center gap-1 border border-stone-200">
+                  <span className="text-xs font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded flex items-center gap-1 border border-stone-200">
                     <Pin size={11} className="fill-stone-600" /> Công văn khẩn
                   </span>
                 )}
@@ -599,7 +611,7 @@ export const Login = () => {
                 {selectedArticle.title}
               </h2>
 
-              <div className="flex items-center gap-4 text-xs text-stone-500 border-b border-stone-100 pb-3 font-mono">
+              <div className="flex items-center gap-4 text-xs text-stone-500 border-b border-stone-100 pb-3">
                 <span>Ban hành: <strong className="text-stone-800">{selectedArticle.author || 'Phòng Đào tạo'}</strong></span>
                 <span>•</span>
                 <span>Ngày: <strong className="text-stone-800">{new Date(selectedArticle.createdAt).toLocaleString('vi-VN')}</strong></span>
