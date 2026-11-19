@@ -26,6 +26,7 @@ export const apiClient: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
+  validateStatus: (status) => (status >= 200 && status < 300) || status === 304,
 });
 
 // Attach mutex-protected auth interceptor

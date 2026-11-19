@@ -7,6 +7,8 @@ import com.rikkei.eduportal.lecturer.dto.request.StartAttendanceSessionRequest;
 import com.rikkei.eduportal.lecturer.dto.response.AttendanceCheckInResponse;
 import com.rikkei.eduportal.lecturer.dto.response.AttendanceSessionResponse;
 import com.rikkei.eduportal.lecturer.dto.response.DynamicQrResponse;
+import com.rikkei.eduportal.lecturer.dto.response.StudentAttendanceHistoryResponse;
+import com.rikkei.eduportal.lecturer.dto.response.StudentAttendanceRecordDto;
 import com.rikkei.eduportal.lecturer.exception.AccessDeniedException;
 import com.rikkei.eduportal.lecturer.exception.AttendanceAlreadyCheckedInException;
 import com.rikkei.eduportal.lecturer.exception.GlobalExceptionHandler;
@@ -236,5 +238,48 @@ class QrAttendanceControllerTest {
     void studentCheckIn_GetWithToken_RedirectsToTimetable() throws Exception {
         mockMvc.perform(get("/attendance/check-in?checkInToken=10.88.123456.hash"))
                 .andExpect(status().isFound());
+    }
+
+    @Test
+    @WithMockUser(username = "sv2024001", roles = {"STUDENT"})
+    @DisplayName("HTTP-11: Sinh viên lấy lịch sử điểm danh của chính mình → HTTP 200 OK kèm danh sách và phân trang")
+    void getAttendanceHistory_Student_ReturnsHttp200() throws Exception {
+        StudentAttendanceRecordDto record = new StudentAttendanceRecordDto(
+                1L, 10L, "Buổi 1: Giới thiệu Microservices",
+                88L, "IT4409-01", "CS201", "Kiến trúc Vi dịch vụ",
+                "Học kỳ 1 2026", "A1-402", "Thứ 2", "07:30 - 11:30",
+                LocalDateTime.now(), "PRESENT", "Pixel 7 Android"
+        );
+        StudentAttendanceHistoryResponse history = new StudentAttendanceHistoryResponse(
+                4L, "sv2024001", "Nguyễn Văn C",
+                1L, 1, 0, 20,
+                List.of(record)
+        );
+
+        when(qrAttendanceService.getStudentAttendanceHistory(eq("sv2024001"), isNull(), isNull(), eq(0), eq(20)))
+                .thenReturn(history);
+
+        mockMvc.perform(get("/api/v1/student/attendance/history"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data.studentCode").value("sv2024001"))
+                .andExpect(jsonPath("$.data.totalRecords").value(1))
+                .andExpect(jsonPath("$.data.records[0].courseCode").value("CS201"))
+                .andExpect(jsonPath("$.data.records[0].status").value("PRESENT"));
+    }
+
+    @Test
+    @WithMockUser(username = "gv_hung", roles = {"LECTURER"})
+    @DisplayName("HTTP-12: Giảng viên gọi nhầm API lịch sử điểm danh của sinh viên → HTTP 403 Forbidden")
+    void getAttendanceHistory_Lecturer_ReturnsHttp403() throws Exception {
+        mockMvc.perform(get("/api/v1/student/attendance/history"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("HTTP-13: Chưa đăng nhập gọi API lịch sử điểm danh → HTTP 401/403 Unauthorized")
+    void getAttendanceHistory_Unauthenticated_ReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/student/attendance/history"))
+                .andExpect(status().isUnauthorized());
     }
 }

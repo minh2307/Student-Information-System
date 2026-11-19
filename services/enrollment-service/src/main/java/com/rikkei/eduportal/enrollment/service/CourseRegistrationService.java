@@ -271,6 +271,16 @@ public class CourseRegistrationService {
                             throw new BusinessException(String.format("Bạn đã chốt danh sách đăng ký tín chỉ cho học kỳ %s. Nếu muốn đăng ký thêm môn, vui lòng vào trang Học phí hủy chốt để mở lại đăng ký.", semName));
                         }
                     });
+
+            // Rule 0.2: Chặn đăng ký nếu sinh viên còn nợ học phí từ các học kỳ trước (B-04.3)
+            List<TuitionFee> pastTuitions = tuitionFeeRepository.findByStudentIdOrderByCreatedAtDesc(student.getId());
+            boolean hasUnpaidPriorDebt = pastTuitions.stream()
+                    .anyMatch(tf -> !Objects.equals(tf.getSemesterName(), section.getSemesterName())
+                            && ("UNPAID".equalsIgnoreCase(tf.getStatus()) || "OVERDUE".equalsIgnoreCase(tf.getStatus()))
+                            && tf.getTotalAmount() != null && tf.getTotalAmount().compareTo(BigDecimal.ZERO) > 0);
+            if (hasUnpaidPriorDebt) {
+                throw new BusinessException("Không đủ điều kiện đăng ký học phần: Bạn còn nợ học phí từ các học kỳ trước chưa thanh toán. Vui lòng hoàn tất học phí trước khi đăng ký.");
+            }
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -409,7 +419,19 @@ public class CourseRegistrationService {
         realtimeSeatService.markCommitted(student.getId(), section.getId());
         realtimeSeatService.broadcastSeatUpdate(section.getId());
 
-        return new EnrollmentResponse(
+        // Rule 5: Cảnh báo học vụ nếu tổng tín chỉ đăng ký trong kỳ < 12 tín chỉ (Advisory Warning - B-04.3)
+        int totalCreditsAfterEnroll = currentCredits + newCredits;
+        String creditWarning = null;
+        if (totalCreditsAfterEnroll < 12) {
+            creditWarning = String.format(
+                    "Cảnh báo học vụ: Bạn hiện đăng ký %d tín chỉ trong học kỳ %s, dưới ngưỡng khuyến nghị tối thiểu 12 tín chỉ.",
+                    totalCreditsAfterEnroll, section.getSemesterName()
+            );
+            log.info("Student {} registered with {} credits in semester {} (below 12-credit advisory threshold)",
+                    student.getStudentCode(), totalCreditsAfterEnroll, section.getSemesterName());
+        }
+
+        EnrollmentResponse response = new EnrollmentResponse(
                 saved.getId(),
                 section.getId(),
                 section.getSectionCode(),
@@ -420,6 +442,8 @@ public class CourseRegistrationService {
                 saved.getHasConflict(),
                 saved.getRegisteredAt()
         );
+        response.setCreditWarning(creditWarning);
+        return response;
     }
 
     /**

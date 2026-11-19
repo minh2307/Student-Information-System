@@ -61,7 +61,26 @@ export function resolveNotificationRoute(
     };
   }
 
-  const cleanPath = linkUrl.trim();
+  let cleanPath = linkUrl.trim();
+
+  // Normalize common route aliases
+  if (cleanPath === '/student/register' || cleanPath === '/student/registration' || cleanPath === '/(student)/register') {
+    cleanPath = '/(student)/registration';
+  } else if (cleanPath === '/student/grades' || cleanPath === '/(student)/grades') {
+    cleanPath = '/(student)/grades';
+  } else if (cleanPath === '/student/exams' || cleanPath === '/(student)/exams') {
+    cleanPath = '/(student)/exams';
+  } else if (cleanPath === '/student/tuition' || cleanPath === '/(student)/tuition') {
+    cleanPath = '/(student)/tuition';
+  } else if (cleanPath === '/student/timetable' || cleanPath === '/(student)/timetable') {
+    cleanPath = '/(student)/timetable';
+  } else if (cleanPath === '/student/dashboard' || cleanPath === '/(student)/dashboard') {
+    cleanPath = '/(student)/dashboard';
+  } else if (cleanPath === '/student/calendar-sync' || cleanPath === '/(student)/calendar-sync') {
+    cleanPath = '/(student)/calendar-sync';
+  } else if (cleanPath === '/student/ai-advisor' || cleanPath === '/(student)/ai-advisor') {
+    cleanPath = '/(student)/ai-advisor';
+  }
 
   // 3. Student RBAC Validation
   if (userRole === 'STUDENT') {

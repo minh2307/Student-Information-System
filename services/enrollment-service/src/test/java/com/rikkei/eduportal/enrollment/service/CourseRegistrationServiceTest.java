@@ -55,6 +55,9 @@ class CourseRegistrationServiceTest {
     @Mock
     private SemesterRepository semesterRepository;
 
+    @Mock
+    private TuitionFeeRepository tuitionFeeRepository;
+
     @InjectMocks
     private CourseRegistrationService registrationService;
 
@@ -257,5 +260,58 @@ class CourseRegistrationServiceTest {
         // max 40 - enrolled 10 - reserved 3 = 27
         assertEquals(27, dto.getAvailableSeats());
         assertFalse(dto.getIsReservedByMe());
+    }
+
+    @Test
+    @DisplayName("B-04.3: Chặn đăng ký khi sinh viên còn nợ học phí từ các học kỳ trước")
+    void testEnroll_FailsWhenStudentHasUnpaidPriorTuitionDebt() {
+        when(dashboardService.resolveStudent("SV2024001")).thenReturn(student);
+        when(classSectionRepository.findByIdWithLock(100L)).thenReturn(Optional.of(section));
+
+        TuitionFee priorDebt = new TuitionFee();
+        priorDebt.setSemesterName("2024-25_SEM1");
+        priorDebt.setStatus("UNPAID");
+        priorDebt.setTotalAmount(new java.math.BigDecimal("5000000.00"));
+
+        when(tuitionFeeRepository.findByStudentIdOrderByCreatedAtDesc(1L))
+                .thenReturn(List.of(priorDebt));
+
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                registrationService.enroll("SV2024001", 100L)
+        );
+
+        assertTrue(ex.getMessage().contains("nợ học phí từ các học kỳ trước"));
+        verify(enrollmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("B-04.3: Đăng ký thành công nhưng kèm cảnh báo học vụ khi tổng tín chỉ < 12")
+    void testEnroll_SuccessWithUnder12CreditsAdvisoryWarning() {
+        when(dashboardService.resolveStudent("SV2024001")).thenReturn(student);
+        when(classSectionRepository.findByIdWithLock(100L)).thenReturn(Optional.of(section));
+        when(enrollmentRepository.findByStudentIdAndClassSectionId(1L, 100L)).thenReturn(Optional.empty());
+        when(enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(1L, "2024-25_SEM2"))
+                .thenReturn(Collections.emptyList());
+        when(reservationRepository.findFirstByStudentIdAndClassSectionIdAndStatus(eq(1L), eq(100L), eq("ACTIVE")))
+                .thenReturn(Optional.empty());
+        when(reservationRepository.countActiveReservations(eq(100L), any(LocalDateTime.class))).thenReturn(0L);
+
+        Enrollment savedEnrollment = new Enrollment();
+        savedEnrollment.setId(505L);
+        savedEnrollment.setStudent(student);
+        savedEnrollment.setClassSection(section);
+        savedEnrollment.setStatus("REGISTERED");
+        savedEnrollment.setHasConflict(false);
+
+        when(enrollmentRepository.save(any(Enrollment.class))).thenReturn(savedEnrollment);
+
+        EnrollmentResponse response = registrationService.enroll("SV2024001", 100L);
+
+        assertNotNull(response);
+        assertEquals(505L, response.getEnrollmentId());
+        assertEquals("REGISTERED", response.getStatus());
+        // Verify advisory warning exists (3 credits < 12 credits threshold)
+        assertNotNull(response.getCreditWarning());
+        assertTrue(response.getCreditWarning().contains("dưới ngưỡng khuyến nghị tối thiểu 12 tín chỉ"));
     }
 }

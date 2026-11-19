@@ -103,10 +103,15 @@ public class CalendarSyncController {
         String studentCode = student.getStudentCode();
         String token = calendarSyncService.generateCalendarFeedToken(studentCode);
 
-        // Lấy scheme và host hiện tại từ request header
-        String scheme = request.getScheme();
-        String host = request.getHeader("Host");
-        if (host == null) host = "localhost:8080";
+        // Lấy scheme và host hiện tại từ request header (ưu tiên X-Forwarded khi đứng sau API Gateway)
+        String forwardedProto = request.getHeader("X-Forwarded-Proto");
+        String scheme = (forwardedProto != null && !forwardedProto.isBlank())
+                ? forwardedProto.trim() : request.getScheme();
+
+        String forwardedHost = request.getHeader("X-Forwarded-Host");
+        String host = (forwardedHost != null && !forwardedHost.isBlank())
+                ? forwardedHost.trim() : request.getHeader("Host");
+        if (host == null || host.isBlank()) host = "localhost:8080";
 
         String feedUrl = scheme + "://" + host + "/api/v1/student/calendar/feed/" + studentCode + "?token=" + token;
         String webcalUrl = "webcal://" + host + "/api/v1/student/calendar/feed/" + studentCode + "?token=" + token;

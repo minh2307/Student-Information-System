@@ -62,10 +62,13 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/actuator/**", "/error").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
-                        "/api/v1/attendance/**",
-                        "/api/v1/student/attendance/**",
-                        "/api/v1/lecturer/attendance/**",
-                        "/attendance/**").permitAll()
+                        "/api/v1/attendance/check-in",
+                        "/api/v1/student/attendance/check-in",
+                        "/api/v1/lecturer/attendance/check-in",
+                        "/attendance/check-in").permitAll()
+                .requestMatchers(
+                        "/api/v1/student/attendance/history",
+                        "/api/v1/attendance/history").hasRole("STUDENT")
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers(
                         "/api/v1/attendance/**",

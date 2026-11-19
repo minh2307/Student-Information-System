@@ -24,6 +24,7 @@ import {
   useStudentExams,
   useStudentGrades,
   useStudentTuition,
+  useStudentAcademicContext,
 } from '@/features/student/hooks';
 import { useProfile } from '@/features/auth/hooks/useProfile';
 
@@ -34,6 +35,33 @@ jest.mock('@/features/student/hooks', () => ({
   useStudentExams: jest.fn(),
   useStudentGrades: jest.fn(),
   useStudentTuition: jest.fn(),
+  usePayOSPayment: jest.fn(() => ({
+    state: { status: 'idle', paymentData: null, verifiedTuition: null, errorMessage: null },
+    isCreating: false,
+    isCheckoutReady: false,
+    isVerifying: false,
+    isSuccess: false,
+    initiateCheckout: jest.fn(),
+    verifyPaymentWithBackend: jest.fn(),
+    resetCheckout: jest.fn(),
+    reset: jest.fn(),
+  })),
+  useStudentAttendanceHistory: jest.fn(() => ({ data: { records: [] }, isLoading: false, isError: false })),
+  useStudentAcademicContext: jest.fn(() => ({
+    data: {
+      studentCode: 'SV2026001',
+      fullName: 'Nguyễn Văn A',
+      major: 'Công nghệ thông tin',
+      currentCgpa: 3.45,
+      completedCredits: 84,
+      totalRequiredCredits: 130,
+      academicStanding: 'Giỏi',
+    },
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn(),
+    isRefetching: false,
+  })),
 }));
 
 // Mock auth hook
@@ -280,20 +308,73 @@ describe('Student Screens Rendering & UX Tests', () => {
   });
 
   describe('ExamsScreen', () => {
-    it('renders hybrid exams webview container', () => {
+    it('renders native exam schedule with upcoming banner and venue details', () => {
+      const mockExams = [
+        {
+          id: 1,
+          courseCode: 'CS101',
+          courseName: 'Lập trình Java căn bản',
+          sectionCode: 'CS101-01',
+          credits: 3,
+          examDate: '2026-12-20',
+          startTime: '08:00',
+          endTime: '09:30',
+          roomName: 'P.302 - Nhà A1',
+          examType: 'Trắc nghiệm máy',
+          lecturerName: 'TS. Nguyễn Văn A',
+        },
+      ];
+
+      (useStudentExams as jest.Mock).mockReturnValue({
+        data: mockExams,
+        isLoading: false,
+        isError: false,
+        refetch: jest.fn(),
+        isRefetching: false,
+      });
+
       const html = renderWithProviders(<ExamsScreen />);
       expect(html).toContain('student-exams-screen');
-      expect(html).toContain('hybrid-exams-webview');
-      expect(html).toContain('mock-webview');
+      expect(html).toContain('exams-hero-banner');
+      expect(html).toContain('Lập trình Java căn bản');
+      expect(html).toContain('P.302 - Nhà A1');
+      expect(html).toContain('Trắc nghiệm máy');
     });
   });
 
   describe('GradesScreen', () => {
-    it('renders hybrid grades webview container', () => {
+    it('renders native grades screen with GPA summary and course grades', () => {
+      const mockGrades = [
+        {
+          enrollmentId: 101,
+          courseCode: 'CS101',
+          courseName: 'Lập trình Java căn bản',
+          credits: 3,
+          semesterName: 'Học kỳ 1 2026-2027',
+          attendanceScore: 9.0,
+          midtermScore: 8.5,
+          finalScore: 8.0,
+          totalScore: 8.3,
+          letterGrade: 'B+',
+          isLocked: true,
+        },
+      ];
+
+      (useStudentGrades as jest.Mock).mockReturnValue({
+        data: mockGrades,
+        isLoading: false,
+        isError: false,
+        refetch: jest.fn(),
+        isRefetching: false,
+      });
+
       const html = renderWithProviders(<GradesScreen />);
       expect(html).toContain('student-grades-screen');
-      expect(html).toContain('hybrid-grades-webview');
-      expect(html).toContain('mock-webview');
+      expect(html).toContain('grades-summary-card');
+      expect(html).toContain('Lập trình Java căn bản');
+      expect(html).toContain('CS101');
+      expect(html).toContain('B+');
+      expect(html).toContain('ĐẠT');
     });
   });
 

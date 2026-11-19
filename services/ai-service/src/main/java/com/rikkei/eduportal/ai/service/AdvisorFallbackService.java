@@ -174,7 +174,8 @@ public class AdvisorFallbackService {
                 reply.append("### 📚 Quy chế Số tín chỉ Đăng ký mỗi Học kỳ\n\n");
                 if (context != null) {
                     reply.append("- **Số tín chỉ bạn đã hoàn thành**: ").append(context.getCompletedCredits()).append(" / ").append(context.getTotalRequiredCredits()).append(" TC.\n");
-                    reply.append("- **Số tín chỉ bạn đang đăng ký kỳ này**: ").append(context.getRegisteredCredits()).append(" TC.\n");
+                    int regCredits = context.getRegisteredCredits() != null ? Math.min(context.getRegisteredCredits(), 24) : 0;
+                    reply.append("- **Số tín chỉ bạn đang đăng ký kỳ này**: ").append(regCredits).append(" TC.\n");
                     reply.append("- **Số tín chỉ còn lại cần tích lũy**: ").append(Math.max(0, context.getTotalRequiredCredits() - context.getCompletedCredits())).append(" TC.\n\n");
                 }
                 reply.append("- **Số tín chỉ tối đa**: Bạn được phép đăng ký **tối đa 24 tín chỉ** trong một học kỳ chính.\n");

@@ -31,6 +31,8 @@ export const ENDPOINTS = {
     TUITION: '/api/v1/student/tuition',
     PAYOS_CREATE_PAYMENT: '/api/v1/student/tuition/payos/create-payment-link',
     EARLY_WARNINGS: '/api/v1/lecturer/early-warnings/my-alerts',
+    ATTENDANCE_HISTORY: '/api/v1/student/attendance/history',
+    ATTENDANCE_CHECK_IN: '/api/v1/attendance/check-in',
   },
   LECTURER: {
     CLASSES: '/api/v1/lecturer/classes',
@@ -62,5 +64,7 @@ export const ENDPOINTS = {
     MARK_READ: (id: number | string) => `/api/v1/notifications/${id}/read`,
     MARK_ALL_READ: '/api/v1/notifications/read-all',
     ANNOUNCEMENTS: '/api/v1/announcements',
+    REGISTER_TOKEN: '/api/v1/notifications/tokens',
+    REVOKE_TOKEN: '/api/v1/notifications/tokens',
   },
 } as const;

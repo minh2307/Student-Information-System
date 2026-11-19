@@ -1,3 +1,5 @@
+name: eduportal-staging
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -219,6 +221,52 @@ services:
     networks:
       - staging-network
 
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    image: ${IMAGE_PREFIX:-}staging-api-gateway:${IMAGE_TAG:-latest}
+    container_name: eduportal-gateway-staging
+    restart: unless-stopped
+    ports:
+      # Secure Loopback Binding: Port 18080 (tránh xung đột với 8080)
+      - "127.0.0.1:${GATEWAY_PORT:-18080}:8080"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8081
+      COURSE_SERVICE_URL: http://course-service:8082
+      ENROLLMENT_SERVICE_URL: http://enrollment-service:8083
+      LECTURER_SERVICE_URL: http://lecturer-service:8085
+      AI_SERVICE_URL: http://ai-service:8084
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      SPRING_PROFILES_ACTIVE: staging
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      course-service:
+        condition: service_healthy
+      enrollment-service:
+        condition: service_healthy
+      lecturer-service:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/actuator/health 2>/dev/null || wget -q --spider http://127.0.0.1:8080/api/v1/auth/login 2>/dev/null || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.80'
+          memory: 200M
+        reservations:
+          memory: 64M
+    networks:
+      - staging-network
+
   frontend:
     build:
       context: ./frontend
@@ -227,9 +275,11 @@ services:
     container_name: eduportal-frontend-staging
     restart: unless-stopped
     ports:
-      # Secure Loopback Binding: Chỉ bind 127.0.0.1 để Newman trên VPS gọi nội bộ
-      - "${FRONTEND_BIND_IP:-127.0.0.1}:${FRONTEND_PORT:-8080}:80"
+      # Secure Loopback Binding: Chuyển sang 13000 để tránh xung đột cổng 8080
+      - "${FRONTEND_BIND_IP:-127.0.0.1}:${FRONTEND_PORT:-13000}:80"
     depends_on:
+      api-gateway:
+        condition: service_healthy
       auth-service:
         condition: service_started
       course-service:

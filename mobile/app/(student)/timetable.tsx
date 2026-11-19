@@ -15,7 +15,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '@/theme';
-import { useStudentTimetable } from '@/features/student';
+import { useRouter } from 'expo-router';
+import {
+  useStudentTimetable,
+  StudentAttendanceHistoryModal,
+  StudentQrScannerModal,
+} from '@/features/student';
 import { AppCard } from '@/components/primitives/AppCard';
 import { AppText } from '@/components/primitives/AppText';
 import { AppBadge } from '@/components/feedback/AppBadge';
@@ -62,7 +67,10 @@ const getAcademicPaletteForCourse = (courseCode: string) => {
 };
 
 export default function TimetableScreen() {
+  const router = useRouter();
   const [selectedDay, setSelectedDay] = useState<string>('ALL');
+  const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
+  const [isQrScannerVisible, setIsQrScannerVisible] = useState(false);
   const {
     data: timetable = [],
     isLoading,
@@ -92,6 +100,51 @@ export default function TimetableScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Top Action Header with Attendance History Link & Check-In */}
+      <View style={styles.topActionBar}>
+        <AppText variant="captionBold" color="secondary">
+          HỌC KỲ HIỆN TẠI
+        </AppText>
+        <View style={styles.topActionButtonsGroup}>
+          <Pressable
+            onPress={() => setIsQrScannerVisible(true)}
+            style={({ pressed }) => [styles.checkInTopButton, pressed && styles.historyButtonPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Quét mã QR điểm danh"
+            testID="timetable-checkin-button"
+          >
+            <Ionicons name="qr-code-outline" size={16} color="#FFFFFF" />
+            <AppText variant="captionBold" style={styles.checkInTopButtonText}>
+              Quét điểm danh
+            </AppText>
+          </Pressable>
+          <Pressable
+            onPress={() => setIsHistoryModalVisible(true)}
+            style={({ pressed }) => [styles.historyButton, pressed && styles.historyButtonPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Xem lịch sử điểm danh"
+            testID="timetable-history-button"
+          >
+            <Ionicons name="time-outline" size={16} color={tokens.brand.burgundy} />
+            <AppText variant="captionBold" style={styles.historyButtonText}>
+              Lịch sử
+            </AppText>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/(student)/calendar-sync' as any)}
+            style={({ pressed }) => [styles.historyButton, pressed && styles.historyButtonPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Đồng bộ lịch học"
+            testID="timetable-calendar-sync-button"
+          >
+            <Ionicons name="sync-outline" size={16} color={tokens.brand.burgundy} />
+            <AppText variant="captionBold" style={styles.historyButtonText}>
+              Đồng bộ
+            </AppText>
+          </Pressable>
+        </View>
+      </View>
+
       {/* Weekday Selector Bar (Touch Target >= 48dp, Accessible Ripple) */}
       <View style={styles.selectorWrapper}>
         <ScrollView
@@ -293,6 +346,18 @@ export default function TimetableScreen() {
           })
         )}
       </ScrollView>
+
+      {/* Student Attendance History Modal */}
+      <StudentAttendanceHistoryModal
+        visible={isHistoryModalVisible}
+        onClose={() => setIsHistoryModalVisible(false)}
+      />
+
+      {/* Student QR Attendance Scanner Modal */}
+      <StudentQrScannerModal
+        visible={isQrScannerVisible}
+        onClose={() => setIsQrScannerVisible(false)}
+      />
     </View>
   );
 }
@@ -301,6 +366,53 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: tokens.surface.canvas,
+  },
+  topActionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: tokens.spacing.lg,
+    paddingTop: tokens.spacing.sm,
+    paddingBottom: tokens.spacing.xs,
+    backgroundColor: tokens.surface.card,
+  },
+  topActionButtonsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: tokens.spacing.xs,
+  },
+  checkInTopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: tokens.spacing.xs,
+    paddingHorizontal: tokens.spacing.sm,
+    backgroundColor: tokens.brand.burgundy,
+    borderRadius: tokens.radius.full,
+    minHeight: 48,
+  },
+  checkInTopButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+  },
+  historyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: tokens.spacing.xs,
+    paddingHorizontal: tokens.spacing.sm,
+    backgroundColor: tokens.brand.crimsonLight,
+    borderRadius: tokens.radius.full,
+    borderWidth: 1,
+    borderColor: tokens.brand.burgundy,
+    minHeight: 48,
+  },
+  historyButtonPressed: {
+    opacity: 0.7,
+  },
+  historyButtonText: {
+    color: tokens.brand.burgundy,
+    fontSize: 12,
   },
   selectorWrapper: {
     backgroundColor: tokens.surface.card,

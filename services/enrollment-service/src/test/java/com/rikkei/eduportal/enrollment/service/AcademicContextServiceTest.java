@@ -185,4 +185,52 @@ class AcademicContextServiceTest {
         assertFalse(cs401Opt.get().getPrerequisiteSatisfied()); // CS201 not yet in completedCourses
         assertTrue(cs401Opt.get().getHasScheduleConflict()); // section3 overlaps with active section1
     }
+
+    @Test
+    @DisplayName("Should filter active enrollments by current semester, deduplicate courses, and enforce max 24 credits limit")
+    void getStudentAcademicContext_semesterFilterAndCreditsLimit() {
+        when(dashboardService.resolveStudent("SV2024001")).thenReturn(student);
+        when(gradeRepository.findByStudentId(10L)).thenReturn(Collections.emptyList());
+        when(enrollmentRepository.findAllByStudentId(10L)).thenReturn(Collections.emptyList());
+        when(courseRepository.findAll()).thenReturn(Collections.emptyList());
+        when(classSectionRepository.searchSections(null, null)).thenReturn(Collections.emptyList());
+
+        // Semester 1 old enrollment (3 credits) - should be excluded from current semester calculations
+        ClassSection oldSection = new ClassSection();
+        oldSection.setId(901L);
+        oldSection.setCourse(course1);
+        oldSection.setSemesterName("2024-25_SEM1");
+        Enrollment oldEnr = new Enrollment();
+        oldEnr.setId(901L);
+        oldEnr.setStudent(student);
+        oldEnr.setClassSection(oldSection);
+        oldEnr.setStatus("REGISTERED");
+
+        // Current semester section 1 (CS201 - 3 credits)
+        Enrollment curEnr1 = new Enrollment();
+        curEnr1.setId(1001L);
+        curEnr1.setStudent(student);
+        curEnr1.setClassSection(section1);
+        curEnr1.setStatus("REGISTERED");
+
+        // Current semester duplicate section of CS201 (3 credits) - should be deduplicated
+        ClassSection section1Dup = new ClassSection();
+        section1Dup.setId(1002L);
+        section1Dup.setCourse(course2);
+        section1Dup.setSemesterName("2024-25_SEM2");
+        Enrollment curEnrDup = new Enrollment();
+        curEnrDup.setId(1002L);
+        curEnrDup.setStudent(student);
+        curEnrDup.setClassSection(section1Dup);
+        curEnrDup.setStatus("REGISTERED");
+
+        when(enrollmentRepository.findActiveEnrollmentsByStudent(10L)).thenReturn(List.of(oldEnr, curEnr1, curEnrDup));
+
+        StudentAcademicContextDto context = academicContextService.getStudentAcademicContext("SV2024001");
+
+        assertNotNull(context);
+        // CS201 should only be counted once (3 TC), old semester CS101 (3 TC) should be excluded
+        assertEquals(3, context.getRegisteredCredits());
+        assertTrue(context.getRegisteredCredits() <= 24);
+    }
 }

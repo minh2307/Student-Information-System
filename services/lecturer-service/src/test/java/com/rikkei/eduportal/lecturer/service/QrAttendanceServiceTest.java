@@ -6,10 +6,13 @@ import com.rikkei.eduportal.lecturer.dto.request.StartAttendanceSessionRequest;
 import com.rikkei.eduportal.lecturer.dto.response.AttendanceCheckInResponse;
 import com.rikkei.eduportal.lecturer.dto.response.AttendanceSessionResponse;
 import com.rikkei.eduportal.lecturer.dto.response.DynamicQrResponse;
+import com.rikkei.eduportal.lecturer.dto.response.StudentAttendanceHistoryResponse;
+import com.rikkei.eduportal.lecturer.dto.response.StudentAttendanceRecordDto;
 import com.rikkei.eduportal.lecturer.entity.*;
 import com.rikkei.eduportal.lecturer.exception.AccessDeniedException;
 import com.rikkei.eduportal.lecturer.exception.AttendanceAlreadyCheckedInException;
 import com.rikkei.eduportal.lecturer.exception.InvalidQrException;
+import com.rikkei.eduportal.lecturer.exception.ResourceNotFoundException;
 import com.rikkei.eduportal.lecturer.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,6 +21,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -519,5 +525,88 @@ class QrAttendanceServiceTest {
         assertThatThrownBy(() -> qrAttendanceService.studentCheckIn("sv20210001", request))
                 .isInstanceOf(AttendanceAlreadyCheckedInException.class)
                 .hasMessageContaining("Bạn đã điểm danh thành công phiên học này rồi");
+    }
+
+    @Test
+    @DisplayName("TC-QR-16: Sinh viên có lịch sử điểm danh → Trả về danh sách đầy đủ thông tin môn học, ca học và trạng thái PRESENT")
+    void testGetStudentAttendanceHistory_success() {
+        AttendanceRecord record = new AttendanceRecord(mockSession, mockEnrollment, mockStudent, "Pixel 7 Pro");
+        record.setId(101L);
+
+        when(studentProfileRepo.findByUserUsername("sv20210001")).thenReturn(Optional.of(mockStudent));
+        when(recordRepo.findStudentAttendanceHistory(eq(20L), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(record), PageRequest.of(0, 20), 1L));
+
+        StudentAttendanceHistoryResponse history = qrAttendanceService.getStudentAttendanceHistory(
+                "sv20210001", null, null, 0, 20);
+
+        assertThat(history).isNotNull();
+        assertThat(history.studentId()).isEqualTo(20L);
+        assertThat(history.studentCode()).isEqualTo("20210001");
+        assertThat(history.studentName()).isEqualTo("Trần Sinh Viên");
+        assertThat(history.totalRecords()).isEqualTo(1L);
+        assertThat(history.records()).hasSize(1);
+
+        StudentAttendanceRecordDto item = history.records().get(0);
+        assertThat(item.recordId()).isEqualTo(101L);
+        assertThat(item.sectionCode()).isEqualTo("IT3010-01");
+        assertThat(item.courseCode()).isEqualTo("IT3010");
+        assertThat(item.courseName()).isEqualTo("Lập trình nâng cao");
+        assertThat(item.status()).isEqualTo("PRESENT");
+        assertThat(item.deviceInfo()).isEqualTo("Pixel 7 Pro");
+    }
+
+    @Test
+    @DisplayName("TC-QR-17: Sinh viên chưa từng điểm danh → Trả về danh sách rỗng an toàn, totalRecords=0")
+    void testGetStudentAttendanceHistory_empty() {
+        when(studentProfileRepo.findByUserUsername("sv20210001")).thenReturn(Optional.of(mockStudent));
+        when(recordRepo.findStudentAttendanceHistory(eq(20L), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0L));
+
+        StudentAttendanceHistoryResponse history = qrAttendanceService.getStudentAttendanceHistory(
+                "sv20210001", null, null, 0, 20);
+
+        assertThat(history).isNotNull();
+        assertThat(history.totalRecords()).isEqualTo(0L);
+        assertThat(history.records()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("TC-QR-18: Truy vấn với bộ lọc sectionId và semesterName → Truyền đúng tham số lọc xuống repository")
+    void testGetStudentAttendanceHistory_withFilters() {
+        when(studentProfileRepo.findByUserUsername("sv20210001")).thenReturn(Optional.of(mockStudent));
+        when(recordRepo.findStudentAttendanceHistory(eq(20L), eq(50L), eq("Học kỳ 1 2026"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0L));
+
+        StudentAttendanceHistoryResponse history = qrAttendanceService.getStudentAttendanceHistory(
+                "sv20210001", 50L, "Học kỳ 1 2026", 0, 10);
+
+        assertThat(history).isNotNull();
+        verify(recordRepo).findStudentAttendanceHistory(eq(20L), eq(50L), eq("Học kỳ 1 2026"), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("TC-QR-19: Tài khoản sinh viên không tồn tại trong hệ thống → Ném ResourceNotFoundException")
+    void testGetStudentAttendanceHistory_unknownStudent_throwsNotFound() {
+        when(studentProfileRepo.findByUserUsername("unknown_student")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> qrAttendanceService.getStudentAttendanceHistory(
+                "unknown_student", null, null, 0, 20))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Không tìm thấy hồ sơ sinh viên");
+    }
+
+    @Test
+    @DisplayName("TC-QR-20: Tên đăng nhập sinh viên rỗng hoặc null → Ném AccessDeniedException")
+    void testGetStudentAttendanceHistory_nullUsername_throwsAccessDenied() {
+        assertThatThrownBy(() -> qrAttendanceService.getStudentAttendanceHistory(
+                null, null, null, 0, 20))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Yêu cầu xác thực");
+
+        assertThatThrownBy(() -> qrAttendanceService.getStudentAttendanceHistory(
+                "   ", null, null, 0, 20))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Yêu cầu xác thực");
     }
 }

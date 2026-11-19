@@ -15,6 +15,13 @@ import { notificationApi } from '@/features/notifications/services/notificationA
 import { resolveNotificationRoute } from '@/features/notifications/utils/notificationDeepLink';
 import { NotificationBellButton } from '@/features/notifications/components/NotificationBellButton';
 import { NotificationCenterModal } from '@/features/notifications/components/NotificationCenterModal';
+import {
+  useNotificationPermission,
+  setupPushTokenRotationListener,
+  syncPushTokenWithBackend,
+} from '@/features/notifications/hooks/useNotificationPermission';
+import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '@/api/client';
 import { useAuthStore } from '@/stores/authStore';
 import { OfflineProvider } from '@/features/offline';
@@ -29,6 +36,7 @@ jest.mock('@/api/client', () => ({
     get: jest.fn(),
     put: jest.fn(),
     post: jest.fn(),
+    delete: jest.fn(),
   },
   extractData: jest.fn((res) => res.data.data),
 }));
@@ -89,11 +97,61 @@ describe('Notification Subsystem & Deep Link RBAC Routing', () => {
       expect(apiClient.put).toHaveBeenCalledWith('/api/v1/notifications/read-all');
     });
 
-    it('registerPushTokenWithBackend records BLOCKED_BY_BACKEND status without pretending success', async () => {
-      const result = await notificationApi.registerPushTokenWithBackend('ExponentPushToken[xyz]');
-      expect(result.status).toBe('BLOCKED_BY_BACKEND');
+    it('registerPushTokenWithBackend sends POST /api/v1/notifications/tokens and returns REGISTERED on success', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: {
+          success: true,
+          status: 200,
+          message: 'Đăng ký device token thành công',
+          data: {
+            id: 1,
+            userId: 4,
+            token: 'ExponentPushToken[xyz]',
+            platform: 'ANDROID',
+            deviceId: 'pixel-7',
+            isActive: true,
+            lastSeenAt: '2026-11-17T10:00:00',
+            createdAt: '2026-11-17T10:00:00',
+            updatedAt: '2026-11-17T10:00:00',
+          },
+        },
+      });
+
+      const result = await notificationApi.registerPushTokenWithBackend(
+        'ExponentPushToken[xyz]',
+        'ANDROID',
+        'pixel-7'
+      );
+      expect(apiClient.post).toHaveBeenCalledWith('/api/v1/notifications/tokens', {
+        token: 'ExponentPushToken[xyz]',
+        platform: 'ANDROID',
+        deviceId: 'pixel-7',
+      });
+      expect(result.status).toBe('REGISTERED');
       expect(result.token).toBe('ExponentPushToken[xyz]');
-      expect(result.message).toContain('Backend chưa hỗ trợ');
+      expect(result.message).toContain('thành công');
+    });
+
+    it('registerPushTokenWithBackend handles error gracefully when network fails', async () => {
+      (apiClient.post as jest.Mock).mockRejectedValueOnce(new Error('Network Error'));
+
+      const result = await notificationApi.registerPushTokenWithBackend('ExponentPushToken[xyz]');
+      expect(result.status).toBe('ERROR');
+      expect(result.token).toBe('ExponentPushToken[xyz]');
+      expect(result.message).toBe('Network Error');
+    });
+
+    it('revokePushTokenWithBackend sends DELETE /api/v1/notifications/tokens and returns REVOKED on success', async () => {
+      (apiClient.delete as jest.Mock).mockResolvedValueOnce({
+        data: { success: true, status: 200, message: 'Thu hồi device token thành công' },
+      });
+
+      const result = await notificationApi.revokePushTokenWithBackend('ExponentPushToken[xyz]');
+      expect(apiClient.delete).toHaveBeenCalledWith('/api/v1/notifications/tokens', {
+        data: { token: 'ExponentPushToken[xyz]' },
+      });
+      expect(result.status).toBe('REVOKED');
+      expect(result.token).toBeNull();
     });
   });
 
@@ -195,6 +253,154 @@ describe('Notification Subsystem & Deep Link RBAC Routing', () => {
       expect(html).toContain('Học phí kỳ 2');
       expect(html).toContain('Hạn thanh toán 05/12/2026');
       expect(html).toContain('Chi tiết');
+    });
+  });
+
+  describe('4. Native Push Token & Permission Lifecycle', () => {
+    it('requests permission and extracts native FCM device token via getDevicePushTokenAsync', async () => {
+      let hookResult: ReturnType<typeof useNotificationPermission> = null as any;
+      function Harness() {
+        hookResult = useNotificationPermission();
+        return null;
+      }
+
+      (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({
+        status: 'granted',
+        granted: true,
+        canAskAgain: true,
+      });
+
+      (Notifications.getDevicePushTokenAsync as jest.Mock).mockResolvedValueOnce({
+        type: 'fcm',
+        data: 'fcm_native_device_token_xyz',
+      });
+
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: {
+          success: true,
+          status: 200,
+          message: 'Đăng ký device token thành công',
+          data: {
+            id: 1,
+            userId: 4,
+            token: 'fcm_native_device_token_xyz',
+            platform: 'ANDROID',
+            isActive: true,
+          },
+        },
+      });
+
+      renderToStaticMarkup(<Harness />);
+
+      const granted = await hookResult.requestPermission();
+      expect(granted).toBe(true);
+      expect(Notifications.getDevicePushTokenAsync).toHaveBeenCalled();
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/api/v1/notifications/tokens',
+        expect.objectContaining({
+          token: 'fcm_native_device_token_xyz',
+        })
+      );
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'rikkei_eduportal_push_token',
+        'fcm_native_device_token_xyz'
+      );
+    });
+
+    it('falls back to getExpoPushTokenAsync if getDevicePushTokenAsync fails', async () => {
+      let hookResult: ReturnType<typeof useNotificationPermission> = null as any;
+      function Harness() {
+        hookResult = useNotificationPermission();
+        return null;
+      }
+
+      (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValueOnce({
+        status: 'granted',
+        granted: true,
+        canAskAgain: true,
+      });
+
+      (Notifications.getDevicePushTokenAsync as jest.Mock).mockRejectedValueOnce(
+        new Error('Device token unavailable in simulator')
+      );
+
+      (Notifications.getExpoPushTokenAsync as jest.Mock).mockResolvedValueOnce({
+        data: 'ExponentPushToken[fallback_token_123]',
+      });
+
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: {
+          success: true,
+          status: 200,
+          message: 'Đăng ký device token thành công',
+          data: {
+            id: 2,
+            token: 'ExponentPushToken[fallback_token_123]',
+            platform: 'ANDROID',
+            isActive: true,
+          },
+        },
+      });
+
+      renderToStaticMarkup(<Harness />);
+
+      const granted = await hookResult.requestPermission();
+      expect(granted).toBe(true);
+      expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalled();
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/api/v1/notifications/tokens',
+        expect.objectContaining({
+          token: 'ExponentPushToken[fallback_token_123]',
+        })
+      );
+    });
+
+    it('registers token rotation listener and synchronizes rotated token with backend', async () => {
+      let rotationHandler: ((token: any) => Promise<void>) | null = null;
+      (Notifications.addPushTokenListener as jest.Mock).mockImplementationOnce((cb: any) => {
+        rotationHandler = cb;
+        return { remove: jest.fn() };
+      });
+
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: {
+          success: true,
+          status: 200,
+          message: 'Đăng ký device token thành công',
+          data: {
+            id: 3,
+            token: 'fcm_rotated_token_999',
+            platform: 'ANDROID',
+            isActive: true,
+          },
+        },
+      });
+
+      const onRotatedMock = jest.fn();
+      const subscription = setupPushTokenRotationListener(onRotatedMock);
+
+      expect(Notifications.addPushTokenListener).toHaveBeenCalled();
+      expect(rotationHandler).not.toBeNull();
+
+      if (rotationHandler) {
+        await (rotationHandler as (t: any) => Promise<void>)({ data: 'fcm_rotated_token_999', type: 'fcm' });
+      }
+
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/api/v1/notifications/tokens',
+        expect.objectContaining({
+          token: 'fcm_rotated_token_999',
+        })
+      );
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'rikkei_eduportal_push_token',
+        'fcm_rotated_token_999'
+      );
+      expect(onRotatedMock).toHaveBeenCalledWith(
+        'fcm_rotated_token_999',
+        expect.objectContaining({ status: 'REGISTERED' })
+      );
+      expect(subscription?.remove).toBeDefined();
     });
   });
 });

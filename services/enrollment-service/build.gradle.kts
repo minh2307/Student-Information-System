@@ -18,6 +18,9 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
 
+    // Firebase Cloud Messaging (FCM) Admin SDK - Task B-02
+    implementation("com.google.firebase:firebase-admin:9.4.3")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

@@ -55,6 +55,7 @@ export default function LecturerLayout() {
           name="schedule"
           options={{
             title: 'Lịch giảng dạy',
+            headerShown: false,
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="calendar-outline" size={size} color={String(color || colors.primary[800])} />
             ),

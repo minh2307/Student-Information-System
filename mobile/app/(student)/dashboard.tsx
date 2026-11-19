@@ -12,8 +12,10 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -22,6 +24,8 @@ import {
   DashboardQuickActions,
   BentoKpiGrid,
   NextClassWidget,
+  StudentAttendanceHistoryModal,
+  StudentQrScannerModal,
 } from '@/features/student';
 import { AppNotificationHeader } from '@/features/notifications';
 import { ConnectedOfflineBanner, LastSyncedIndicator } from '@/features/offline';
@@ -34,6 +38,8 @@ export default function DashboardScreen() {
   const user = useAuthStore((state) => state.user);
   const profile = useAuthStore((state) => state.studentProfile);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [isAttendanceModalVisible, setIsAttendanceModalVisible] = useState(false);
+  const [isQrScannerVisible, setIsQrScannerVisible] = useState(false);
 
   const {
     data,
@@ -88,6 +94,29 @@ export default function DashboardScreen() {
           testID="student-id-card"
         />
 
+        {/* 4.5. QR Attendance Check-In Action Card */}
+        <Pressable
+          style={({ pressed }) => [styles.checkInCta, pressed && styles.checkInCtaPressed]}
+          onPress={() => setIsQrScannerVisible(true)}
+          android_ripple={{ color: 'rgba(255, 255, 255, 0.2)', borderless: false }}
+          accessibilityRole="button"
+          accessibilityLabel="Quét mã QR điểm danh buổi học"
+          testID="quick-action-checkin"
+        >
+          <View style={styles.checkInIconWrapper}>
+            <Ionicons name="qr-code" size={24} color="#FFFFFF" />
+          </View>
+          <View style={styles.checkInTextCol}>
+            <AppText variant="bodyBold" style={styles.checkInTitle}>
+              Quét mã QR điểm danh
+            </AppText>
+            <AppText variant="caption" style={styles.checkInSubtitle}>
+              Điểm danh buổi học bằng mã QR xoay vòng trên máy chiếu
+            </AppText>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.8)" />
+        </Pressable>
+
         {/* 5. Quick Navigation Tiles (Touch Targets >= 48dp) */}
         <DashboardQuickActions onNavigate={(route) => router.push(route as any)} />
 
@@ -113,7 +142,11 @@ export default function DashboardScreen() {
         ) : (
           <>
             {/* 7. Bento KPI Metrics Grid */}
-            <BentoKpiGrid stats={stats} progress={progress} />
+            <BentoKpiGrid
+              stats={stats}
+              progress={progress}
+              onPressAttendance={() => setIsAttendanceModalVisible(true)}
+            />
 
             {/* 8. Next Class Widget */}
             <NextClassWidget
@@ -130,6 +163,18 @@ export default function DashboardScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Student Attendance History Modal */}
+      <StudentAttendanceHistoryModal
+        visible={isAttendanceModalVisible}
+        onClose={() => setIsAttendanceModalVisible(false)}
+      />
+
+      {/* Student QR Attendance Scanner Modal */}
+      <StudentQrScannerModal
+        visible={isQrScannerVisible}
+        onClose={() => setIsQrScannerVisible(false)}
+      />
     </View>
   );
 }
@@ -147,6 +192,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.lg,
     paddingVertical: tokens.spacing.md,
     paddingBottom: tokens.spacing.xxxl,
+  },
+  checkInCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: tokens.brand.burgundy,
+    borderRadius: tokens.radius.lg,
+    paddingVertical: tokens.spacing.sm,
+    paddingHorizontal: tokens.spacing.md,
+    marginBottom: tokens.spacing.md,
+    ...tokens.elevation.md,
+  },
+  checkInCtaPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }],
+  },
+  checkInIconWrapper: {
+    width: 42,
+    height: 42,
+    borderRadius: tokens.radius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: tokens.spacing.sm,
+  },
+  checkInTextCol: {
+    flex: 1,
+  },
+  checkInTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  checkInSubtitle: {
+    color: '#FECACA',
+    fontSize: 11,
+    marginTop: 1,
   },
   loadingContainer: {
     alignItems: 'center',

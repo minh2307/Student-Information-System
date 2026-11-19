@@ -68,7 +68,8 @@ public class AdvisorPromptBuilder {
             sb.append("   - Chuyên ngành: ").append(context.getMajor() != null ? context.getMajor() : "Công nghệ Thông tin").append("\n");
             sb.append("   - Học kỳ hiện tại: Kỳ ").append(context.getCurrentSemester() != null ? context.getCurrentSemester() : 1).append("\n");
             sb.append("   - Tín chỉ tích lũy: ").append(context.getCompletedCredits()).append("/").append(context.getTotalRequiredCredits()).append(" tín chỉ\n");
-            sb.append("   - Tín chỉ đang đăng ký kỳ này: ").append(context.getRegisteredCredits()).append(" tín chỉ\n");
+            int regCredits = context.getRegisteredCredits() != null ? Math.min(context.getRegisteredCredits(), 24) : 0;
+            sb.append("   - Tín chỉ đang đăng ký kỳ này: ").append(regCredits).append(" tín chỉ\n");
             int remaining = Math.max(0, (context.getTotalRequiredCredits() != null ? context.getTotalRequiredCredits() : 160) - (context.getCompletedCredits() != null ? context.getCompletedCredits() : 0));
             sb.append("   - Tín chỉ còn lại cần để tốt nghiệp: ").append(remaining).append(" tín chỉ\n");
             sb.append("   - Điểm C-GPA tích lũy: ").append(context.getCurrentCgpa() != null ? context.getCurrentCgpa() : "Chưa có").append("/10.0\n");

@@ -179,43 +179,45 @@ export const useAdvisorStore = create((set, get) => ({
         major: userContext?.major || 'Công nghệ Thông tin',
       })
 
+      const data = res.data?.data
       const reply =
-        res.data?.data?.reply ||
-        'Tôi đã nhận được câu hỏi của bạn. Vui lòng kiểm tra lại quy chế đào tạo nhé!'
+        data?.reply ||
+        'Tôi đã tiếp nhận câu hỏi của bạn nhưng máy chủ chưa trả lời. Vui lòng thử lại sau.'
 
-      if (res.data?.data?.suggestions && res.data.data.suggestions.length > 0) {
-        set({ suggestions: res.data.data.suggestions })
+      if (data?.suggestions && data.suggestions.length > 0) {
+        set({ suggestions: data.suggestions })
       }
 
       set({ loading: false })
-      get().startTypewriter(reply)
+      get().startTypewriter(reply, {
+        mode: data?.mode,
+        provider: data?.provider,
+        model: data?.model,
+        fallbackUsed: data?.fallbackUsed,
+        recommendations: data?.recommendations,
+      })
     } catch (err) {
       console.error('Advisor API call error:', err)
       set({ loading: false })
 
-      let fallbackReply =
-        'Theo quy chế đào tạo tín chỉ, bạn được phép đăng ký tối đa 24 tín chỉ trong một học kỳ chính và tối thiểu 12 tín chỉ. Bạn nên ưu tiên hoàn thành các môn tiên quyết để đảm bảo lộ trình chuẩn nhé!'
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Dịch vụ Cố vấn AI hiện không khả dụng. Vui lòng kiểm tra kết nối mạng và thử lại.'
 
-      const lower = query.toLowerCase()
-      if (lower.includes('trùng') || lower.includes('lịch') || lower.includes('conflict')) {
-        fallbackReply =
-          '**Xử lý trùng thời khóa biểu:**\n1. Kiểm tra và chuyển sang Section khác của môn học mở ở thứ/khung giờ khác.\n2. Ưu tiên giữ môn học tiên quyết trước.\n3. Đổi sang môn tự chọn tương đương hoặc hoãn sang kỳ tiếp theo/kỳ hè.'
-      } else if (lower.includes('tiên quyết') || lower.includes('cs401')) {
-        fallbackReply =
-          'Môn `CS401 (Phát triển ứng dụng Web)` yêu cầu điều kiện tiên quyết là phải tích lũy và đạt môn `CS201 (Cấu trúc dữ liệu và giải thuật)` (điểm >= D / 4.0).'
-      }
-
-      get().startTypewriter(fallbackReply)
+      const errorReply = `⚠️ **Lỗi kết nối Cố vấn AI:** ${errorMsg}\n\n*Hệ thống không thể kết nối tới mô hình AI vào lúc này. Vui lòng nhấn gửi lại hoặc kiểm tra cấu hình mạng.*`
+      get().startTypewriter(errorReply, { isError: true })
     }
   },
 
-  startTypewriter: (fullReply) => {
+  startTypewriter: (fullReply, metadata = {}) => {
     if (streamInterval) clearInterval(streamInterval)
 
     set({
       isStreaming: true,
       streamingText: '',
       streamingFullText: fullReply,
+      streamingMeta: metadata,
     })
 
     let index = 0
@@ -234,6 +236,7 @@ export const useAdvisorStore = create((set, get) => ({
           role: 'assistant',
           content: fullReply,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          ...metadata,
         }
         const newMessages = [...get().messages, assistantMsg]
         set({
@@ -241,6 +244,7 @@ export const useAdvisorStore = create((set, get) => ({
           isStreaming: false,
           streamingText: '',
           streamingFullText: '',
+          streamingMeta: null,
         })
         saveMessagesForUser(get().currentUserId, newMessages)
       } else {
@@ -256,11 +260,13 @@ export const useAdvisorStore = create((set, get) => ({
       streamInterval = null
     }
     const full = get().streamingFullText
+    const meta = get().streamingMeta || {}
     const assistantMsg = {
       id: String(Date.now()),
       role: 'assistant',
       content: full,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      ...meta,
     }
     const newMessages = [...get().messages, assistantMsg]
     set({
@@ -268,6 +274,7 @@ export const useAdvisorStore = create((set, get) => ({
       isStreaming: false,
       streamingText: '',
       streamingFullText: '',
+      streamingMeta: null,
     })
     saveMessagesForUser(get().currentUserId, newMessages)
   },

@@ -64,6 +64,14 @@ jest.mock('@react-native-community/netinfo', () => {
 
 // Mock expo-notifications
 jest.mock('expo-notifications', () => ({
+  AndroidImportance: {
+    MAX: 5,
+    HIGH: 4,
+    DEFAULT: 3,
+    LOW: 2,
+    MIN: 1,
+    NONE: 0,
+  },
   getPermissionsAsync: jest.fn(async () => ({
     status: 'granted',
     granted: true,
@@ -77,6 +85,12 @@ jest.mock('expo-notifications', () => ({
   getExpoPushTokenAsync: jest.fn(async () => ({
     data: 'ExponentPushToken[mock-token-12345]',
   })),
+  getDevicePushTokenAsync: jest.fn(async () => ({
+    type: 'fcm',
+    data: 'mock-fcm-device-token-12345',
+  })),
+  addPushTokenListener: jest.fn(() => ({ remove: jest.fn() })),
+  getLastNotificationResponseAsync: jest.fn(async () => null),
   setNotificationHandler: jest.fn(),
   setNotificationChannelAsync: jest.fn(),
   addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),

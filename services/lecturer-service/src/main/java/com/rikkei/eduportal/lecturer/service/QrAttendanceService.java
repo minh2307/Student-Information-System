@@ -12,6 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
 
 /**
@@ -499,5 +503,71 @@ public class QrAttendanceService {
         } catch (Exception e) {
             throw new RuntimeException("Error computing HMAC-SHA256", e);
         }
+    }
+
+    /**
+     * Lấy lịch sử điểm danh của sinh viên theo định danh xác thực (JWT subject).
+     * Tuyệt đối không nhận studentId/username từ request body hay client params để chống IDOR.
+     */
+    public StudentAttendanceHistoryResponse getStudentAttendanceHistory(
+            String studentUsername,
+            Long sectionId,
+            String semesterName,
+            int page,
+            int size) {
+
+        if (studentUsername == null || studentUsername.isBlank()) {
+            throw new AccessDeniedException("Yêu cầu xác thực: Định danh sinh viên không hợp lệ.");
+        }
+
+        StudentProfile student = studentProfileRepo.findByUserUsername(studentUsername.trim())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ sinh viên cho tài khoản: " + studentUsername));
+
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(100, size));
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+
+        Page<AttendanceRecord> recordPage = recordRepo.findStudentAttendanceHistory(
+                student.getId(),
+                sectionId,
+                semesterName,
+                pageable
+        );
+
+        List<StudentAttendanceRecordDto> records = recordPage.getContent().stream()
+                .map(r -> {
+                    ClassSection cs = r.getSession().getClassSection();
+                    String slotTime = (cs.getStartTime() != null && cs.getEndTime() != null)
+                            ? cs.getStartTime() + " - " + cs.getEndTime()
+                            : "N/A";
+                    return new StudentAttendanceRecordDto(
+                            r.getId(),
+                            r.getSession().getId(),
+                            r.getSession().getSessionName(),
+                            cs.getId(),
+                            cs.getSectionCode(),
+                            cs.getCourse() != null ? cs.getCourse().getCourseCode() : "N/A",
+                            cs.getCourse() != null ? cs.getCourse().getName() : "N/A",
+                            cs.getSemesterName(),
+                            cs.getRoomName(),
+                            cs.getDayOfWeek(),
+                            slotTime,
+                            r.getCheckInTime(),
+                            "PRESENT",
+                            r.getDeviceInfo()
+                    );
+                })
+                .collect(Collectors.toList());
+
+        return new StudentAttendanceHistoryResponse(
+                student.getId(),
+                student.getStudentCode(),
+                student.getUser().getFullName(),
+                recordPage.getTotalElements(),
+                recordPage.getTotalPages(),
+                recordPage.getNumber(),
+                recordPage.getSize(),
+                records
+        );
     }
 }

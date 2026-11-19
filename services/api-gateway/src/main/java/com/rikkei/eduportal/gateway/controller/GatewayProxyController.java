@@ -64,6 +64,14 @@ public class GatewayProxyController {
     }
 
     /**
+     * Gateway Health Endpoint for Docker & Orchestration healthchecks
+     */
+    @GetMapping({"/actuator/health", "/health"})
+    public ResponseEntity<?> health() {
+        return ResponseEntity.ok(Collections.singletonMap("status", "UP"));
+    }
+
+    /**
      * Non-blocking SSE stream proxy for live seats counter to prevent RestTemplate thread pool starvation.
      */
     @GetMapping(value = "/api/v1/student/class-sections/live-seats", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -152,6 +160,25 @@ public class GatewayProxyController {
             headers.put(headerName, values);
         }
 
+        // Forward Host and Scheme for correct reverse-proxy downstream link generation
+        String incomingHost = request.getHeader("Host");
+        if (incomingHost != null && !incomingHost.isBlank()) {
+            headers.set("X-Forwarded-Host", incomingHost);
+        }
+        String incomingScheme = request.getScheme();
+        if (incomingScheme != null && !incomingScheme.isBlank()) {
+            headers.set("X-Forwarded-Proto", incomingScheme);
+        }
+
+        // Forward Correlation ID to downstream services
+        String correlationId = (String) request.getAttribute("X-Correlation-Id");
+        if (correlationId == null || correlationId.isBlank()) {
+            correlationId = request.getHeader("X-Correlation-Id");
+        }
+        if (correlationId != null && !correlationId.isBlank()) {
+            headers.set("X-Correlation-Id", correlationId);
+        }
+
         // Inject verified identity headers from signed JWT claims
         if (claims != null) {
             headers.set("X-User-Username", claims.getSubject());
@@ -168,8 +195,18 @@ public class GatewayProxyController {
         try {
             HttpMethod httpMethod = HttpMethod.valueOf(method);
             ResponseEntity<byte[]> response = restTemplate.exchange(URI.create(targetUrl), httpMethod, entity, byte[].class);
+            HttpHeaders cleanedHeaders = cleanResponseHeaders(response.getHeaders());
+            if (correlationId != null && !cleanedHeaders.containsKey("X-Correlation-Id")) {
+                cleanedHeaders.set("X-Correlation-Id", correlationId);
+            }
+            // Ensure Cache-Control: private, no-cache for private user endpoints (B-04.1)
+            if (claims != null || path.startsWith("/api/v1/student") || path.startsWith("/api/v1/lecturer") || path.startsWith("/api/v1/profile")) {
+                if (!cleanedHeaders.containsKey(HttpHeaders.CACHE_CONTROL)) {
+                    cleanedHeaders.set(HttpHeaders.CACHE_CONTROL, "private, no-cache");
+                }
+            }
             return ResponseEntity.status(response.getStatusCode())
-                    .headers(cleanResponseHeaders(response.getHeaders()))
+                    .headers(cleanedHeaders)
                     .body(response.getBody());
         } catch (HttpStatusCodeException ex) {
             log.error("Downstream service error: {} on {}, body: '{}'", ex.getStatusCode(), targetUrl, ex.getResponseBodyAsString());
@@ -179,18 +216,33 @@ public class GatewayProxyController {
                     (ex.getStatusCode().value() == 401 ? "Tên đăng nhập hoặc mật khẩu không chính xác" : ex.getStatusText()) + "\"}";
                 body = fallbackJson.getBytes(StandardCharsets.UTF_8);
             }
+            HttpHeaders errHeaders = new HttpHeaders();
+            errHeaders.setContentType(MediaType.APPLICATION_JSON);
+            if (correlationId != null) {
+                errHeaders.set("X-Correlation-Id", correlationId);
+            }
             return ResponseEntity.status(ex.getStatusCode())
-                    .contentType(MediaType.APPLICATION_JSON)
+                    .headers(errHeaders)
                     .body(body);
         } catch (ResourceAccessException ex) {
             log.error("Downstream service unreachable: {} - {}", targetUrl, ex.getMessage());
+            HttpHeaders errHeaders = new HttpHeaders();
+            errHeaders.setContentType(MediaType.APPLICATION_JSON);
+            if (correlationId != null) {
+                errHeaders.set("X-Correlation-Id", correlationId);
+            }
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .contentType(MediaType.APPLICATION_JSON)
+                    .headers(errHeaders)
                     .body("{\"status\": 503, \"message\": \"Downstream service is currently unavailable: " + targetBaseUrl + "\"}".getBytes());
         } catch (Exception ex) {
             log.error("Internal gateway error while calling: {}", targetUrl, ex);
+            HttpHeaders errHeaders = new HttpHeaders();
+            errHeaders.setContentType(MediaType.APPLICATION_JSON);
+            if (correlationId != null) {
+                errHeaders.set("X-Correlation-Id", correlationId);
+            }
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .contentType(MediaType.APPLICATION_JSON)
+                    .headers(errHeaders)
                     .body(("{\"status\": 500, \"message\": \"Gateway error: " + ex.getMessage() + "\"}").getBytes());
         }
     }

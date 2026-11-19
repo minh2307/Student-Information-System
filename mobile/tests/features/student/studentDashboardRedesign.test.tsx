@@ -17,6 +17,7 @@ import { useOffline } from '@/features/offline/OfflineContext';
 // Mock student dashboard hook
 jest.mock('@/features/student/hooks', () => ({
   useStudentDashboard: jest.fn(),
+  useStudentAttendanceHistory: jest.fn(() => ({ data: { records: [] }, isLoading: false, isError: false })),
 }));
 
 // Mock offline context hook

@@ -6,6 +6,7 @@ import com.rikkei.eduportal.common.ApiResponse;
 import com.rikkei.eduportal.enrollment.dto.PayOSPaymentLinkResponse;
 import com.rikkei.eduportal.enrollment.dto.TuitionDto;
 import com.rikkei.eduportal.enrollment.exception.UnauthorizedException;
+import com.rikkei.eduportal.enrollment.security.JwtTokenProvider;
 import com.rikkei.eduportal.enrollment.service.PayOSService;
 import com.rikkei.eduportal.enrollment.service.TuitionService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,11 +23,14 @@ public class TuitionController {
 
     private final TuitionService tuitionService;
     private final PayOSService payOSService;
+    private final JwtTokenProvider jwtTokenProvider;
     private final ObjectMapper objectMapper;
 
-    public TuitionController(TuitionService tuitionService, PayOSService payOSService) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public TuitionController(TuitionService tuitionService, PayOSService payOSService, JwtTokenProvider jwtTokenProvider) {
         this.tuitionService = tuitionService;
         this.payOSService = payOSService;
+        this.jwtTokenProvider = jwtTokenProvider;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -106,17 +110,14 @@ public class TuitionController {
     }
 
     private String extractUser(HttpServletRequest request) {
-        String usernameHeader = request.getHeader("X-User-Username");
-        if (usernameHeader != null && !usernameHeader.trim().isEmpty()) {
-            return usernameHeader.trim();
-        }
-        String studentCodeHeader = request.getHeader("X-Student-Code");
-        if (studentCodeHeader != null && !studentCodeHeader.trim().isEmpty()) {
-            return studentCodeHeader.trim();
-        }
+        // 1. Cryptographic JWT Bearer Token verification (Primary active defense)
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7).trim();
+            if (jwtTokenProvider != null) {
+                return jwtTokenProvider.validateAndGetSubject(token);
+            }
+            // Fallback only if jwtTokenProvider is null (e.g. legacy unit test without bean)
             String[] parts = token.split("\\.");
             if (parts.length >= 2) {
                 try {
@@ -127,6 +128,17 @@ public class TuitionController {
                 } catch (Exception ignored) {}
             }
         }
+
+        // 2. Gateway-forwarded header fallback (only if forwarded by trusted Gateway)
+        String usernameHeader = request.getHeader("X-User-Username");
+        if (usernameHeader != null && !usernameHeader.trim().isEmpty()) {
+            return usernameHeader.trim();
+        }
+        String studentCodeHeader = request.getHeader("X-Student-Code");
+        if (studentCodeHeader != null && !studentCodeHeader.trim().isEmpty()) {
+            return studentCodeHeader.trim();
+        }
+
         throw new UnauthorizedException("Yêu cầu xác thực tài khoản sinh viên hợp lệ để truy cập thông tin học phí.");
     }
 }

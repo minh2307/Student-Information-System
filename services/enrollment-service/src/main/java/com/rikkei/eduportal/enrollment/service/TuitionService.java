@@ -77,7 +77,35 @@ public class TuitionService {
     @Transactional
     public TuitionDto getStudentTuition(String studentIdentifier, String semester, String requestedBankBin) {
         StudentProfile student = dashboardService.resolveStudent(studentIdentifier);
-        String activeSemester = (semester != null && !semester.trim().isEmpty()) ? semester.trim() : "2024-25_SEM2";
+        
+        // Chuẩn hóa và phân giải mã học kỳ canonical từ semesterCode, semesterName hoặc ID
+        String activeSemester = "2024-25_SEM2";
+        if (semester != null && !semester.trim().isEmpty()) {
+            String semParam = semester.trim();
+            if (semesterRepository != null) {
+                try {
+                    Long semId = Long.parseLong(semParam);
+                    java.util.Optional<com.rikkei.eduportal.enrollment.entity.Semester> byId = semesterRepository.findById(semId);
+                    if (byId.isPresent()) {
+                        semParam = byId.get().getSemesterCode();
+                    }
+                } catch (NumberFormatException ignored) {}
+
+                java.util.Optional<com.rikkei.eduportal.enrollment.entity.Semester> byCodeOrName =
+                        semesterRepository.findFirstBySemesterCodeOrSemesterName(semParam, semParam);
+                if (byCodeOrName.isPresent()) {
+                    activeSemester = byCodeOrName.get().getSemesterCode();
+                } else {
+                    activeSemester = semParam;
+                }
+            } else {
+                activeSemester = semParam;
+            }
+        } else if (semesterRepository != null) {
+            activeSemester = semesterRepository.findByIsActiveTrue()
+                    .map(com.rikkei.eduportal.enrollment.entity.Semester::getSemesterCode)
+                    .orElse("2024-25_SEM2");
+        }
 
         // Lấy danh sách lớp học phần sinh viên đang theo học hợp lệ trong kỳ
         List<Enrollment> enrollments = enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(student.getId(), activeSemester);

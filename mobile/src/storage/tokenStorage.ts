@@ -55,6 +55,10 @@ const isSecureStoreAvailable = (): boolean => {
   return Platform.OS === 'android' || Platform.OS === 'ios';
 };
 
+const isWeb = (): boolean => {
+  return Platform.OS === 'web' && typeof window !== 'undefined' && !!window.localStorage;
+};
+
 /**
  * Shared FIFO Mutex for serializing writes to SecureStore and Manifest
  */
@@ -151,6 +155,28 @@ export const tokenStorage = {
             saveError
           );
         }
+      } else if (isWeb()) {
+        try {
+          window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+          if (refreshToken) {
+            window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+          } else {
+            window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+          }
+          window.localStorage.setItem(TX_ID_KEY, effectiveTxId);
+        } catch (saveError) {
+          try {
+            window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+            window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+            window.localStorage.removeItem(TX_ID_KEY);
+          } catch {}
+          throw new StoragePersistenceError(
+            `Failed to safely persist tokens in web storage: ${
+              saveError instanceof Error ? saveError.message : String(saveError)
+            }`,
+            saveError
+          );
+        }
       } else {
         try {
           memoryStore[ACCESS_TOKEN_KEY] = accessToken;
@@ -195,6 +221,9 @@ export const tokenStorage = {
     if (isSecureStoreAvailable()) {
       return await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
     }
+    if (isWeb()) {
+      return window.localStorage.getItem(ACCESS_TOKEN_KEY);
+    }
     return memoryStore[ACCESS_TOKEN_KEY] ?? null;
   },
 
@@ -205,6 +234,9 @@ export const tokenStorage = {
     if (isSecureStoreAvailable()) {
       return await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
     }
+    if (isWeb()) {
+      return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+    }
     return memoryStore[REFRESH_TOKEN_KEY] ?? null;
   },
 
@@ -214,6 +246,9 @@ export const tokenStorage = {
   async getTransactionId(): Promise<string | null> {
     if (isSecureStoreAvailable()) {
       return await SecureStore.getItemAsync(TX_ID_KEY);
+    }
+    if (isWeb()) {
+      return window.localStorage.getItem(TX_ID_KEY);
     }
     return memoryStore[TX_ID_KEY] ?? null;
   },
@@ -238,6 +273,14 @@ export const tokenStorage = {
         }
         try {
           await SecureStore.deleteItemAsync(TX_ID_KEY);
+        } catch (err) {
+          errors.push(err);
+        }
+      } else if (isWeb()) {
+        try {
+          window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+          window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+          window.localStorage.removeItem(TX_ID_KEY);
         } catch (err) {
           errors.push(err);
         }

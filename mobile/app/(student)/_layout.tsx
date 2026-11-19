@@ -96,6 +96,38 @@ export default function StudentLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="scan-attendance"
+          options={{
+            tabBarItemStyle: { display: 'none' },
+            tabBarButton: () => null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="registration"
+          options={{
+            tabBarItemStyle: { display: 'none' },
+            tabBarButton: () => null,
+            title: 'Đăng ký học phần',
+          }}
+        />
+        <Tabs.Screen
+          name="calendar-sync"
+          options={{
+            tabBarItemStyle: { display: 'none' },
+            tabBarButton: () => null,
+            title: 'Đồng bộ lịch',
+          }}
+        />
+        <Tabs.Screen
+          name="ai-advisor"
+          options={{
+            tabBarItemStyle: { display: 'none' },
+            tabBarButton: () => null,
+            title: 'Cố vấn học vụ AI',
+          }}
+        />
       </Tabs>
     </StudentGuard>
   );

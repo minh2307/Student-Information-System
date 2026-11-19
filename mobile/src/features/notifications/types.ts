@@ -26,13 +26,38 @@ export interface AnnouncementDto {
 export type NotificationFilter = 'ALL' | 'UNREAD';
 
 export type PushTokenStatus =
+  | 'REGISTERED'
+  | 'REVOKED'
   | 'GRANTED_LOCAL_ONLY'
   | 'BLOCKED_BY_BACKEND'
   | 'PERMISSION_DENIED'
-  | 'DEVICE_NOT_SUPPORTED';
+  | 'DEVICE_NOT_SUPPORTED'
+  | 'ERROR';
 
 export interface PushRegistrationResult {
   status: PushTokenStatus;
   token: string | null;
   message: string;
+}
+
+export interface DeviceTokenRegisterRequest {
+  token: string;
+  platform?: string;
+  deviceId?: string;
+}
+
+export interface DeviceTokenRevokeRequest {
+  token: string;
+}
+
+export interface DeviceTokenResponse {
+  id: number;
+  userId: number;
+  token: string;
+  platform: string;
+  deviceId: string | null;
+  isActive: boolean;
+  lastSeenAt: string;
+  createdAt: string;
+  updatedAt: string;
 }

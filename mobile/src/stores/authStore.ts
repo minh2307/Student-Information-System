@@ -32,10 +32,12 @@ import {
 import { authApi } from '@/features/auth/services/authApi';
 import { clearQueryCache } from '@/providers/queryClient';
 import { isTokenExpired } from '@/utils/jwt';
+import { notificationApi } from '@/features/notifications/services/notificationApi';
 
 const USER_STORAGE_KEY = 'rikkei_eduportal_user_profile';
 const PROFILE_STORAGE_KEY = 'rikkei_eduportal_student_profile';
 const LECTURER_PROFILE_STORAGE_KEY = 'rikkei_eduportal_lecturer_profile';
+const PUSH_TOKEN_STORAGE_KEY = 'rikkei_eduportal_push_token';
 
 const removeMultiple = async (keys: string[]): Promise<void> => {
   if (typeof AsyncStorage.multiRemove === 'function') {
@@ -296,6 +298,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             USER_STORAGE_KEY,
             PROFILE_STORAGE_KEY,
             LECTURER_PROFILE_STORAGE_KEY,
+            PUSH_TOKEN_STORAGE_KEY,
           ]);
           await clearQueryCache();
         } catch {}
@@ -348,12 +351,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
 
+      // Step 5b: FCM Push Token Revocation (best-effort non-blocking)
+      try {
+        const savedPushToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
+        if (savedPushToken) {
+          await notificationApi.revokePushTokenWithBackend(savedPushToken);
+        }
+      } catch {
+        // Ignore errors on push token revocation during logout
+      }
+
       // Step 6: Offline Cache Purge
       try {
         await removeMultiple([
           USER_STORAGE_KEY,
           PROFILE_STORAGE_KEY,
           LECTURER_PROFILE_STORAGE_KEY,
+          PUSH_TOKEN_STORAGE_KEY,
         ]);
         await clearQueryCache();
       } catch {}

@@ -16,13 +16,20 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, radius, typography, shadows } from '@/theme';
-import { useStudentTuition } from '@/features/student';
+import { useStudentTuition, usePayOSPayment, useSemesters } from '@/features/student/hooks';
+import { PayOSCheckoutModal } from '@/features/student/components/PayOSCheckoutModal';
 import { ErrorView } from '@/components/common/ErrorView';
 import { EmptyState } from '@/components/common/EmptyState';
 import { formatCurrencyVND, formatDate } from '@/utils/formatters';
 
 export default function TuitionScreen() {
+  const [selectedSemester, setSelectedSemester] = useState<string>('2024-25_SEM2');
   const [selectedBankBin, setSelectedBankBin] = useState<string | undefined>(undefined);
+  const [isPayOSModalVisible, setIsPayOSModalVisible] = useState(false);
+  const payos = usePayOSPayment();
+
+  const { data: semestersList } = useSemesters();
+
   const {
     data: tuition,
     isLoading,
@@ -30,7 +37,16 @@ export default function TuitionScreen() {
     error,
     refetch,
     isRefetching,
-  } = useStudentTuition(undefined, selectedBankBin);
+  } = useStudentTuition(selectedSemester, selectedBankBin);
+
+  const handlePayOSCheckout = async () => {
+    setIsPayOSModalVisible(true);
+    try {
+      await payos.initiateCheckout(tuition?.semesterName);
+    } catch {
+      // error is captured in payos.state
+    }
+  };
 
   const getStatusBadge = (status?: string) => {
     switch (status) {
@@ -81,6 +97,49 @@ export default function TuitionScreen() {
         />
       }
     >
+      {/* Semester Selector Bar */}
+      <View style={styles.semesterBarContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.semesterBarContent}
+        >
+          {(semestersList && semestersList.length > 0
+            ? semestersList
+            : [
+                { id: 2, semesterCode: '2024-25_SEM2', semesterName: 'Học kỳ 2 (2024-2025)', isActive: true },
+                { id: 1, semesterCode: '2024-25_SEM1', semesterName: 'Học kỳ 1 (2024-2025)', isActive: false },
+                { id: 6, semesterCode: '2023-24_SEM2', semesterName: 'Học kỳ 2 (2023-2024)', isActive: false },
+                { id: 5, semesterCode: '2023-24_SEM1', semesterName: 'Học kỳ 1 (2023-2024)', isActive: false },
+              ]
+          ).map((sem) => {
+            const isSelected = selectedSemester === sem.semesterCode;
+            return (
+              <Pressable
+                key={sem.semesterCode}
+                onPress={() => setSelectedSemester(sem.semesterCode)}
+                style={[styles.semesterChip, isSelected && styles.semesterChipActive]}
+                accessibilityRole="button"
+                accessibilityLabel={`Chọn học kỳ ${sem.semesterName}`}
+                testID={`tuition-semester-chip-${sem.semesterCode}`}
+              >
+                <Text
+                  style={[
+                    styles.semesterChipText,
+                    isSelected && styles.semesterChipTextActive,
+                  ]}
+                >
+                  {sem.semesterCode}
+                </Text>
+                {sem.isActive ? (
+                  <View style={[styles.activeDot, isSelected && styles.activeDotSelected]} />
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       {/* Loading & Error States */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -149,6 +208,20 @@ export default function TuitionScreen() {
                   Hạn nộp học phí: {formatDate(tuition.dueDate)}
                 </Text>
               </View>
+            ) : null}
+
+            {tuition.status !== 'PAID' && tuition.remainingAmount > 0 ? (
+              <Pressable
+                style={styles.payosButton}
+                onPress={handlePayOSCheckout}
+                accessibilityRole="button"
+                accessibilityLabel="Thanh toán trực tuyến PayOS"
+                testID="payos-checkout-button"
+              >
+                <Ionicons name="card-outline" size={18} color={colors.neutral[0]} />
+                <Text style={styles.payosButtonText}>Thanh toán trực tuyến PayOS</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.neutral[0]} />
+              </Pressable>
             ) : null}
           </View>
 
@@ -272,6 +345,28 @@ export default function TuitionScreen() {
               </Text>
             </View>
           ) : null}
+
+          {/* PayOS Online Payment Modal */}
+          <PayOSCheckoutModal
+            visible={isPayOSModalVisible}
+            onClose={() => {
+              setIsPayOSModalVisible(false);
+              payos.reset();
+            }}
+            paymentData={payos.paymentData}
+            isVerifying={payos.isVerifying}
+            isSuccess={payos.isSuccess}
+            verifiedTuition={payos.verifiedTuition}
+            errorMessage={payos.errorMessage}
+            onVerify={async () => {
+              try {
+                await payos.verifyPaymentStatus();
+                refetch();
+              } catch {
+                // error captured in state
+              }
+            }}
+          />
         </>
       )}
     </ScrollView>
@@ -279,6 +374,23 @@ export default function TuitionScreen() {
 }
 
 const styles = StyleSheet.create({
+  payosButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary[800],
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    marginTop: spacing.md,
+    gap: spacing.xs,
+    ...shadows.sm,
+  },
+  payosButtonText: {
+    color: colors.neutral[0],
+    fontSize: typography.sizes.sm,
+    fontWeight: typography.weights.bold,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.neutral[50],
@@ -547,5 +659,46 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
     fontWeight: typography.weights.bold,
     color: colors.neutral[800],
+  },
+  semesterBarContainer: {
+    marginBottom: spacing.md,
+  },
+  semesterBarContent: {
+    gap: spacing.xs,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+  },
+  semesterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+    backgroundColor: colors.neutral[100],
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    gap: 4,
+  },
+  semesterChipActive: {
+    backgroundColor: colors.primary[800],
+    borderColor: colors.primary[800],
+  },
+  semesterChipText: {
+    fontSize: typography.sizes.xs,
+    fontWeight: typography.weights.medium,
+    color: colors.neutral[700],
+  },
+  semesterChipTextActive: {
+    color: colors.neutral[0],
+    fontWeight: typography.weights.bold,
+  },
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.success.main,
+  },
+  activeDotSelected: {
+    backgroundColor: '#34D399',
   },
 });

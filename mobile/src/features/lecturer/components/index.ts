@@ -5,3 +5,6 @@ export * from './LecturerQuickActions';
 export * from './AttendanceQrBox';
 export * from './AttendanceStatsCard';
 export * from './AttendeeRosterCard';
+export * from './ScheduleDaySelector';
+export * from './LecturerScheduleCard';
+export * from './ScheduleDetailModal';

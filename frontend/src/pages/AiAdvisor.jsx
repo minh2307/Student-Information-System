@@ -145,7 +145,42 @@ export const AiAdvisor = () => {
               }`}
             >
               {m.role === 'assistant' ? (
-                <MarkdownRenderer content={m.content} />
+                <>
+                  <MarkdownRenderer content={m.content} />
+                  {m.fallbackUsed !== undefined && (
+                    <div className="mt-2.5 pt-2 border-t border-stone-100 flex items-center justify-between gap-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium border ${
+                        m.fallbackUsed
+                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      }`}>
+                        {m.fallbackUsed ? '📋 Quy chế học vụ dự phòng' : '✨ Trực tuyến: ' + (m.model || 'AI Model')}
+                      </span>
+                      {m.provider && (
+                        <span className="text-[10px] font-mono text-stone-600">
+                          Nguồn: {m.provider}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {m.recommendations && m.recommendations.length > 0 && (
+                    <div className="mt-3 space-y-1.5 border-t border-stone-100 pt-2.5">
+                      <p className="text-[11px] font-bold text-stone-700 flex items-center gap-1">
+                        <Sparkles size={12} className="text-amber-500" />
+                        Gợi ý môn học phù hợp ({m.recommendations.length} môn):
+                      </p>
+                      {m.recommendations.map((rec, rIdx) => (
+                        <div key={rIdx} className="p-2 bg-stone-50 rounded-lg border border-stone-200 text-[11px]">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-red-800 font-mono">{rec.courseCode} ({rec.credits} TC)</span>
+                            <span className="text-stone-700 font-medium">{rec.courseName}</span>
+                          </div>
+                          <p className="text-stone-600 mt-1 text-[10px]">{rec.reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               ) : (
                 <p className="whitespace-pre-wrap">{m.content}</p>
               )}

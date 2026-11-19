@@ -6,7 +6,12 @@
 import { apiClient, extractData } from '@/api/client';
 import { ENDPOINTS } from '@/api/endpoints';
 import { ApiResponse } from '@/types';
-import { AnnouncementDto, NotificationDto, PushRegistrationResult } from '../types';
+import {
+  AnnouncementDto,
+  NotificationDto,
+  PushRegistrationResult,
+  DeviceTokenResponse,
+} from '../types';
 
 export const notificationApi = {
   /**
@@ -54,19 +59,73 @@ export const notificationApi = {
   },
 
   /**
-   * Push Token Registration (Graceful Degradation / Backend Contract Boundary)
-   *
-   * As audited in phase-5-notification-api-contract.md:
-   * The backend does NOT currently have a device token registration endpoint or push notification delivery mechanism.
-   * This method captures the token, records the blocked status transparently,
-   * and never simulates or claims successful remote backend registration.
+   * POST /api/v1/notifications/tokens
+   * Register or refresh FCM device token with backend.
    */
-  async registerPushTokenWithBackend(deviceToken: string): Promise<PushRegistrationResult> {
-    // Explicitly document non-implementation by backend without fabricating success
-    return {
-      status: 'BLOCKED_BY_BACKEND',
-      token: deviceToken,
-      message: 'Backend chưa hỗ trợ API lưu Device Token (/api/v1/notifications/tokens). Thông báo đẩy từ xa bị giới hạn.',
-    };
+  async registerPushTokenWithBackend(
+    deviceToken: string,
+    platform: string = 'ANDROID',
+    deviceId?: string
+  ): Promise<PushRegistrationResult> {
+    try {
+      const response = await apiClient.post<ApiResponse<DeviceTokenResponse>>(
+        ENDPOINTS.NOTIFICATIONS.REGISTER_TOKEN,
+        {
+          token: deviceToken,
+          platform,
+          deviceId,
+        }
+      );
+      if (response.data && response.data.success) {
+        return {
+          status: 'REGISTERED',
+          token: deviceToken,
+          message: response.data.message || 'Đăng ký device token thành công',
+        };
+      }
+      return {
+        status: 'ERROR',
+        token: deviceToken,
+        message: response.data?.message || 'Không thể đăng ký device token',
+      };
+    } catch (error: any) {
+      return {
+        status: 'ERROR',
+        token: deviceToken,
+        message:
+          error?.response?.data?.message ||
+          error?.message ||
+          'Lỗi kết nối khi đăng ký device token',
+      };
+    }
+  },
+
+  /**
+   * DELETE /api/v1/notifications/tokens
+   * Revoke FCM device token on logout.
+   */
+  async revokePushTokenWithBackend(deviceToken: string): Promise<PushRegistrationResult> {
+    try {
+      const response = await apiClient.delete<ApiResponse<void>>(
+        ENDPOINTS.NOTIFICATIONS.REVOKE_TOKEN,
+        {
+          data: { token: deviceToken },
+        }
+      );
+      return {
+        status: 'REVOKED',
+        token: null,
+        message: response.data?.message || 'Thu hồi device token thành công',
+      };
+    } catch (error: any) {
+      return {
+        status: 'ERROR',
+        token: deviceToken,
+        message:
+          error?.response?.data?.message ||
+          error?.message ||
+          'Lỗi khi thu hồi device token',
+      };
+    }
   },
 };

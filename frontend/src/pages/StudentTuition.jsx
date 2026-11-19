@@ -61,7 +61,10 @@ export const StudentTuition = () => {
   const studentName = user?.fullName || 'Nguyễn Văn C'
 
   const handleSemesterChange = (newSem) => {
+    if (!newSem || newSem === selectedSemester) return
     setSelectedSemester(newSem)
+    setTuition(null) // Xóa dữ liệu kỳ cũ ngay lập tức, ngăn ngừa stale data giữa các kỳ
+    setPayOsData(null)
     setSearchParams((prev) => {
       const nextParams = new URLSearchParams(prev)
       nextParams.set('semester', newSem)
@@ -78,12 +81,15 @@ export const StudentTuition = () => {
       if (!sem) return
       setLoading(true)
       try {
-        const res = await api.get(`/student/tuition?semester=${sem}`)
+        const res = await api.get(`/student/tuition?semester=${encodeURIComponent(sem)}`)
         if (res.data?.data) {
           setTuition(res.data.data)
+        } else {
+          setTuition(null)
         }
       } catch (err) {
         console.error('Lỗi tải học phí:', err)
+        setTuition(null)
       } finally {
         setLoading(false)
       }
@@ -91,12 +97,14 @@ export const StudentTuition = () => {
     [selectedSemester]
   )
 
+  // Nạp danh sách học kỳ 1 lần khi mount
   useEffect(() => {
+    let isMounted = true
     const loadSemesters = async () => {
       const semParam = searchParams.get('semester')
       try {
         const res = await api.get('/semesters')
-        if (res.data?.data && res.data.data.length > 0) {
+        if (isMounted && res.data?.data && res.data.data.length > 0) {
           setSemesters(res.data.data)
           const matched = semParam && res.data.data.find((s) => s.semesterCode === semParam)
           if (matched) {
@@ -110,11 +118,23 @@ export const StudentTuition = () => {
         }
       } catch (err) {
         console.error('Lỗi tải danh sách học kỳ:', err)
-        setSelectedSemester(semParam || '2024-25_SEM2')
+        if (isMounted) {
+          setSelectedSemester(semParam || '2024-25_SEM2')
+        }
       }
     }
     loadSemesters()
-  }, [searchParams])
+    return () => { isMounted = false }
+  }, [])
+
+  // Đồng bộ khi người dùng bấm Back/Forward trên trình duyệt
+  useEffect(() => {
+    const semParam = searchParams.get('semester')
+    if (semParam && semParam !== selectedSemester) {
+      setSelectedSemester(semParam)
+      setTuition(null)
+    }
+  }, [searchParams, selectedSemester])
 
   useEffect(() => {
     if (selectedSemester) {

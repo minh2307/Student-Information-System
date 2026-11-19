@@ -260,4 +260,91 @@ class TuitionServiceTest {
 
         assertTrue(ex.getMessage().contains("tối thiểu 12 tín chỉ"));
     }
+
+    @Test
+    @DisplayName("TASK A: Chọn học kỳ theo ID số (vd '1') tự động phân giải thành semesterCode canonical")
+    void testSelectSemester_ByNumericId_ResolvesCanonicalCode() {
+        when(dashboardService.resolveStudent("sv2024001")).thenReturn(sampleStudent);
+
+        Semester sem1 = new Semester();
+        sem1.setId(1L);
+        sem1.setSemesterCode("2024-25_SEM1");
+        sem1.setSemesterName("Học kỳ 1 (2024-2025)");
+
+        when(semesterRepository.findById(1L)).thenReturn(Optional.of(sem1));
+        when(semesterRepository.findFirstBySemesterCodeOrSemesterName("2024-25_SEM1", "2024-25_SEM1"))
+                .thenReturn(Optional.of(sem1));
+
+        Course course = new Course();
+        course.setId(101L);
+        course.setCourseCode("CS101");
+        course.setName("Nhập môn Lập trình");
+        course.setCredits(3);
+
+        ClassSection cs = new ClassSection();
+        cs.setId(501L);
+        cs.setSemesterName("2024-25_SEM1");
+        cs.setCourse(course);
+
+        Enrollment enr = new Enrollment();
+        enr.setId(901L);
+        enr.setStudent(sampleStudent);
+        enr.setClassSection(cs);
+        enr.setStatus("COMPLETED");
+
+        when(enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(1L, "2024-25_SEM1"))
+                .thenReturn(List.of(enr));
+        when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2024-25_SEM1"))
+                .thenReturn(Optional.empty());
+        when(tuitionFeeRepository.save(any(TuitionFee.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TuitionDto result = tuitionService.getStudentTuition("sv2024001", "1");
+
+        assertNotNull(result);
+        assertEquals("2024-25_SEM1", result.getSemesterName());
+        assertEquals(3, result.getTotalCredits());
+        assertEquals(1, result.getCourses().size());
+        assertEquals("CS101", result.getCourses().get(0).getCourseCode());
+    }
+
+    @Test
+    @DisplayName("TASK A: Chọn học kỳ A và học kỳ B trả về đúng hóa đơn độc lập, không lẫn lộn dữ liệu")
+    void testSelectSemester_SwitchingDoesNotLeakData() {
+        when(dashboardService.resolveStudent("sv2024001")).thenReturn(sampleStudent);
+
+        // Kỳ A: 2024-25_SEM1 có 1 môn 3 TC
+        Course cA = new Course();
+        cA.setId(101L);
+        cA.setCourseCode("CS101");
+        cA.setName("Nhập môn Lập trình");
+        cA.setCredits(3);
+        ClassSection csA = new ClassSection();
+        csA.setCourse(cA);
+        Enrollment enrA = new Enrollment();
+        enrA.setClassSection(csA);
+
+        when(enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(1L, "2024-25_SEM1"))
+                .thenReturn(List.of(enrA));
+        when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2024-25_SEM1"))
+                .thenReturn(Optional.empty());
+        when(tuitionFeeRepository.save(any(TuitionFee.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Kỳ B: 2025-26_SEM1 chưa đăng ký môn (0 TC)
+        when(enrollmentRepository.findActiveEnrollmentsByStudentAndSemester(1L, "2025-26_SEM1"))
+                .thenReturn(Collections.emptyList());
+        when(tuitionFeeRepository.findByStudentIdAndSemesterName(1L, "2025-26_SEM1"))
+                .thenReturn(Optional.empty());
+
+        TuitionDto resA = tuitionService.getStudentTuition("sv2024001", "2024-25_SEM1");
+        TuitionDto resB = tuitionService.getStudentTuition("sv2024001", "2025-26_SEM1");
+
+        assertEquals(3, resA.getTotalCredits());
+        assertEquals("2024-25_SEM1", resA.getSemesterName());
+        assertEquals(1, resA.getCourses().size());
+
+        assertEquals(0, resB.getTotalCredits());
+        assertEquals("2025-26_SEM1", resB.getSemesterName());
+        assertEquals("NOT_ENROLLED", resB.getStatus());
+        assertEquals(0, resB.getCourses().size());
+    }
 }

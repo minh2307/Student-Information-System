@@ -5,6 +5,7 @@ import com.rikkei.eduportal.enrollment.entity.*;
 import com.rikkei.eduportal.enrollment.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +26,7 @@ public class AcademicContextService {
     private final GradeRepository gradeRepository;
     private final CourseRepository courseRepository;
     private final ClassSectionRepository classSectionRepository;
+    private final SemesterRepository semesterRepository;
 
     public AcademicContextService(StudentDashboardService dashboardService,
                                   StudentProfileRepository studentProfileRepository,
@@ -32,12 +34,24 @@ public class AcademicContextService {
                                   GradeRepository gradeRepository,
                                   CourseRepository courseRepository,
                                   ClassSectionRepository classSectionRepository) {
+        this(dashboardService, studentProfileRepository, enrollmentRepository, gradeRepository, courseRepository, classSectionRepository, null);
+    }
+
+    @Autowired
+    public AcademicContextService(StudentDashboardService dashboardService,
+                                  StudentProfileRepository studentProfileRepository,
+                                  EnrollmentRepository enrollmentRepository,
+                                  GradeRepository gradeRepository,
+                                  CourseRepository courseRepository,
+                                  ClassSectionRepository classSectionRepository,
+                                  @Autowired(required = false) SemesterRepository semesterRepository) {
         this.dashboardService = dashboardService;
         this.studentProfileRepository = studentProfileRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.gradeRepository = gradeRepository;
         this.courseRepository = courseRepository;
         this.classSectionRepository = classSectionRepository;
+        this.semesterRepository = semesterRepository;
     }
 
     @Transactional(readOnly = true)
@@ -128,19 +142,50 @@ public class AcademicContextService {
 
         // 2. Active Enrollments & Timetable
         List<Enrollment> activeEnrollments = enrollmentRepository.findActiveEnrollmentsByStudent(student.getId());
+
+        // Xác định học kỳ hiện tại đang hoạt động (active semester)
+        String activeSemester = null;
+        if (semesterRepository != null) {
+            activeSemester = semesterRepository.findByIsActiveTrue()
+                    .map(Semester::getSemesterCode)
+                    .orElse(null);
+        }
+        if (activeSemester == null || activeSemester.isBlank()) {
+            activeSemester = "2024-25_SEM2";
+        }
+
+        final String targetSem = activeSemester;
+
+        // Lọc danh sách enrollment thuộc học kỳ hiện tại (phục vụ tính đúng số tín chỉ và thời khóa biểu kỳ này)
+        List<Enrollment> currentSemesterEnrollments = activeEnrollments.stream()
+                .filter(e -> e.getClassSection() == null
+                        || e.getClassSection().getSemesterName() == null
+                        || e.getClassSection().getSemesterName().equalsIgnoreCase(targetSem))
+                .toList();
+
+        // Fallback: Nếu sinh viên chưa có môn nào trong activeSem nhưng có môn active khác, giữ activeEnrollments
+        List<Enrollment> targetEnrollments = currentSemesterEnrollments.isEmpty() && !activeEnrollments.isEmpty()
+                ? activeEnrollments
+                : currentSemesterEnrollments;
+
         Set<Long> currentlyEnrolledCourseIds = new HashSet<>();
         List<CurrentEnrollmentDto> currentList = new ArrayList<>();
         List<TimetableItemDto> timetable = new ArrayList<>();
         List<String> conflictingSections = new ArrayList<>();
+        Set<Long> countedCourseIds = new HashSet<>();
         int registeredCredits = 0;
         int conflictCount = 0;
 
-        for (Enrollment e : activeEnrollments) {
+        for (Enrollment e : targetEnrollments) {
             ClassSection cs = e.getClassSection();
             if (cs != null && cs.getCourse() != null) {
                 Course c = cs.getCourse();
                 currentlyEnrolledCourseIds.add(c.getId());
-                registeredCredits += (c.getCredits() != null ? c.getCredits() : 0);
+
+                // Mỗi môn học chỉ tính số tín chỉ 1 lần duy nhất trong học kỳ (tránh đếm trùng)
+                if (c.getId() != null && countedCourseIds.add(c.getId())) {
+                    registeredCredits += (c.getCredits() != null ? c.getCredits() : 0);
+                }
 
                 String lecturerName = "Chưa phân công";
                 if (cs.getLecturer() != null && cs.getLecturer().getUser() != null) {
@@ -184,6 +229,9 @@ public class AcademicContextService {
                 ));
             }
         }
+
+        // Đảm bảo không vượt quá hạn mức tối đa 24 tín chỉ trong một học kỳ theo quy chế học vụ
+        registeredCredits = Math.min(registeredCredits, 24);
 
         context.setRegisteredCredits(registeredCredits);
         context.setCurrentEnrollments(currentList);

@@ -12,6 +12,7 @@ public class EnrollmentResponse {
     private String status;
     private Boolean hasConflict;
     private LocalDateTime registeredAt;
+    private String creditWarning;
 
     public EnrollmentResponse() {}
 
@@ -55,4 +56,7 @@ public class EnrollmentResponse {
 
     public LocalDateTime getRegisteredAt() { return registeredAt; }
     public void setRegisteredAt(LocalDateTime registeredAt) { this.registeredAt = registeredAt; }
+
+    public String getCreditWarning() { return creditWarning; }
+    public void setCreditWarning(String creditWarning) { this.creditWarning = creditWarning; }
 }

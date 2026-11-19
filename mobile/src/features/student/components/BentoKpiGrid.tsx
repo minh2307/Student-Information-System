@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { tokens } from '@/theme';
 import { AppText } from '@/components/primitives/AppText';
 import { AppCard } from '@/components/primitives/AppCard';
@@ -16,9 +16,10 @@ import { DashboardStats, SemesterProgress } from '../types';
 export interface BentoKpiGridProps {
   stats?: DashboardStats;
   progress?: SemesterProgress;
+  onPressAttendance?: () => void;
 }
 
-export const BentoKpiGrid: React.FC<BentoKpiGridProps> = ({ stats, progress }) => {
+export const BentoKpiGrid: React.FC<BentoKpiGridProps> = ({ stats, progress, onPressAttendance }) => {
   const attendanceDisplay =
     progress?.attendanceRate != null ? `${progress.attendanceRate}%` : '--%';
   const conflicts = stats?.scheduleConflicts ?? 0;
@@ -58,14 +59,33 @@ export const BentoKpiGrid: React.FC<BentoKpiGridProps> = ({ stats, progress }) =
         </AppCard>
 
         {/* Metric 3: Attendance Rate */}
-        <AppCard variant="outlined" style={styles.metricCard}>
-          <AppText variant="h2" style={styles.metricNumber}>
-            {attendanceDisplay}
-          </AppText>
-          <AppText variant="caption" color="secondary" style={styles.metricLabel}>
-            Tỷ lệ chuyên cần
-          </AppText>
-        </AppCard>
+        {onPressAttendance ? (
+          <Pressable
+            onPress={onPressAttendance}
+            style={({ pressed }) => [styles.metricCardWrapper, pressed && styles.pressedMetric]}
+            accessibilityRole="button"
+            accessibilityLabel="Xem lịch sử điểm danh"
+            testID="bento-attendance-kpi-card"
+          >
+            <AppCard variant="outlined" style={styles.metricCardInner}>
+              <AppText variant="h2" style={styles.metricNumber}>
+                {attendanceDisplay}
+              </AppText>
+              <AppText variant="caption" color="secondary" style={styles.metricLabel}>
+                Tỷ lệ chuyên cần
+              </AppText>
+            </AppCard>
+          </Pressable>
+        ) : (
+          <AppCard variant="outlined" style={styles.metricCard} testID="bento-attendance-kpi-card">
+            <AppText variant="h2" style={styles.metricNumber}>
+              {attendanceDisplay}
+            </AppText>
+            <AppText variant="caption" color="secondary" style={styles.metricLabel}>
+              Tỷ lệ chuyên cần
+            </AppText>
+          </AppCard>
+        )}
 
         {/* Metric 4: Schedule Conflicts */}
         <AppCard variant="outlined" style={styles.metricCard}>
@@ -104,6 +124,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: tokens.radius.lg,
     backgroundColor: tokens.surface.card,
+  },
+  metricCardWrapper: {
+    width: '48%',
+  },
+  metricCardInner: {
+    width: '100%',
+    padding: tokens.spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: tokens.radius.lg,
+    backgroundColor: tokens.surface.card,
+  },
+  pressedMetric: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
   metricNumber: {
     fontSize: tokens.typography.sizes.h2,

@@ -23,6 +23,8 @@ export const queryKeys = {
     credential: (scope?: string) => ['student', scope ?? 'current', 'credential', 'transcript'] as const,
     tuition: (semester?: string, scope?: string) =>
       ['student', scope ?? 'current', 'tuition', semester ?? 'current'] as const,
+    attendanceHistory: (sectionId?: number, semesterName?: string, scope?: string) =>
+      ['student', scope ?? 'current', 'attendanceHistory', { sectionId: sectionId ?? null, semesterName: semesterName ?? null }] as const,
     calendarSyncInfo: (scope?: string) => ['student', scope ?? 'current', 'calendarSyncInfo'] as const,
     alerts: (scope?: string) => ['student', scope ?? 'current', 'earlyWarnings'] as const,
   },

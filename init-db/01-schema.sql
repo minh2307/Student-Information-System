@@ -182,6 +182,22 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 10.1 Table device_tokens (FCM Push Notification Device Tokens - Task B-02)
+CREATE TABLE IF NOT EXISTS device_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(512) NOT NULL UNIQUE,
+    platform VARCHAR(30) DEFAULT 'ANDROID',
+    device_id VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(user_id, is_active);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_device_tokens_token ON device_tokens(token);
+
 -- 11. Table exam_schedules (Lịch thi & Phòng thi)
 CREATE TABLE IF NOT EXISTS exam_schedules (
     id BIGSERIAL PRIMARY KEY,

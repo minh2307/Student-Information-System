@@ -6,6 +6,7 @@ import com.rikkei.eduportal.lecturer.dto.request.StartAttendanceSessionRequest;
 import com.rikkei.eduportal.lecturer.dto.response.AttendanceCheckInResponse;
 import com.rikkei.eduportal.lecturer.dto.response.AttendanceSessionResponse;
 import com.rikkei.eduportal.lecturer.dto.response.DynamicQrResponse;
+import com.rikkei.eduportal.lecturer.dto.response.StudentAttendanceHistoryResponse;
 import com.rikkei.eduportal.lecturer.service.QrAttendanceService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -149,5 +150,25 @@ public class QrAttendanceController {
                 "Cổng điểm danh QR Rikkei EduPortal đang hoạt động. Vui lòng sử dụng tính năng 'Điểm danh QR' bên trong ứng dụng sinh viên.",
                 null
         ));
+    }
+
+    /**
+     * Sinh viên xem lịch sử điểm danh của chính mình.
+     * GET /api/v1/student/attendance/history
+     * Hỗ trợ lọc theo lớp học phần, học kỳ và phân trang.
+     * Danh tính được lấy tuyệt đối từ Authentication (JWT principal) để ngăn chặn IDOR.
+     */
+    @GetMapping({"/api/v1/student/attendance/history", "/api/v1/attendance/history"})
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<ApiResponse<StudentAttendanceHistoryResponse>> getAttendanceHistory(
+            Authentication authentication,
+            @RequestParam(value = "sectionId", required = false) Long sectionId,
+            @RequestParam(value = "semesterName", required = false) String semesterName,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+
+        StudentAttendanceHistoryResponse response = qrAttendanceService.getStudentAttendanceHistory(
+                authentication.getName(), sectionId, semesterName, page, size);
+        return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử điểm danh thành công", response));
     }
 }
