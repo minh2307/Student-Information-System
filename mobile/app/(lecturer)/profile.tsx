@@ -15,6 +15,7 @@ import {
   Modal,
   ActivityIndicator,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -69,15 +70,25 @@ export default function LecturerProfileScreen() {
   };
 
   const handleLogout = () => {
+    const executeLogout = async () => {
+      await logout();
+      router.replace('/(auth)/login');
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Thầy/Cô có chắc chắn muốn đăng xuất khỏi ứng dụng?') : true;
+      if (confirmed) {
+        executeLogout();
+      }
+      return;
+    }
+
     Alert.alert('Đăng xuất', 'Thầy/Cô có chắc chắn muốn đăng xuất khỏi ứng dụng?', [
       { text: 'Hủy', style: 'cancel' },
       {
         text: 'Đăng xuất',
         style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/(auth)/login');
-        },
+        onPress: executeLogout,
       },
     ]);
   };

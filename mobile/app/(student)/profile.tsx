@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Pressable,
   Alert,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,20 +31,30 @@ export default function ProfileScreen() {
     : 'https://rikkeiportal.io.vn/profile';
 
   const handleLogout = () => {
+    const executeLogout = async () => {
+      setIsLoggingOut(true);
+      try {
+        await logout();
+        router.replace('/(auth)/login');
+      } finally {
+        setIsLoggingOut(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?') : true;
+      if (confirmed) {
+        executeLogout();
+      }
+      return;
+    }
+
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?', [
       { text: 'Hủy', style: 'cancel' },
       {
         text: 'Đăng xuất',
         style: 'destructive',
-        onPress: async () => {
-          setIsLoggingOut(true);
-          try {
-            await logout();
-            router.replace('/(auth)/login');
-          } finally {
-            setIsLoggingOut(false);
-          }
-        },
+        onPress: executeLogout,
       },
     ]);
   };
