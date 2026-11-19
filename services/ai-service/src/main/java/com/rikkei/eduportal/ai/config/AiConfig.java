@@ -78,6 +78,7 @@ public class AiConfig {
         return apiKey != null
                 && !apiKey.isBlank()
                 && !apiKey.equalsIgnoreCase("demo-key")
+                && !apiKey.equalsIgnoreCase("test-demo-key")
                 && !apiKey.equalsIgnoreCase("null")
                 && !apiKey.equalsIgnoreCase("none")
                 && !apiKey.startsWith("your_");

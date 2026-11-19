@@ -47,6 +47,13 @@ jest.mock('@/features/student/hooks', () => ({
     reset: jest.fn(),
   })),
   useStudentAttendanceHistory: jest.fn(() => ({ data: { records: [] }, isLoading: false, isError: false })),
+  useSemesters: jest.fn(() => ({
+    data: [
+      { id: 1, semesterCode: '2024.1', semesterName: 'Học kỳ 1 2024-2025', isActive: true },
+    ],
+    isLoading: false,
+    isError: false,
+  })),
   useStudentAcademicContext: jest.fn(() => ({
     data: {
       studentCode: 'SV2026001',

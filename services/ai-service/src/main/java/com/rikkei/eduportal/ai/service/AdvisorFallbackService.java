@@ -3,6 +3,7 @@ package com.rikkei.eduportal.ai.service;
 import com.rikkei.eduportal.ai.dto.*;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,8 +35,10 @@ public class AdvisorFallbackService {
         if (context != null) {
             response.setMode("FALLBACK");
             response.setAcademicSummary(context.toSummary());
-            List<CourseRecommendationDto> recommendations = buildRecommendations(context);
-            response.setRecommendations(recommendations);
+            if ("COURSE_RECOMMENDATION".equals(category) || "ROADMAP".equals(category)) {
+                List<CourseRecommendationDto> recommendations = buildRecommendations(context);
+                response.setRecommendations(recommendations);
+            }
         } else {
             response.setMode("LIMITED");
             response.setLimitations(List.of("Dịch vụ học vụ (Enrollment Service) tạm thời không khả dụng. Không thể truy xuất dữ liệu học tập cá nhân."));
@@ -194,7 +197,10 @@ public class AdvisorFallbackService {
                     reply.append("Theo hồ sơ học tập của bạn:\n");
                     if (context.getCompletedCourses() != null && !context.getCompletedCourses().isEmpty()) {
                         reply.append("- **Các môn bạn đã đạt điều kiện tiên quyết**: ");
-                        List<String> codes = context.getCompletedCourses().stream().map(CompletedCourseDto::getCourseCode).toList();
+                        List<String> codes = context.getCompletedCourses().stream()
+                                .map(CompletedCourseDto::getCourseCode)
+                                .distinct()
+                                .toList();
                         reply.append(String.join(", ", codes)).append(".\n");
                     }
                     reply.append("\n");
@@ -208,6 +214,33 @@ public class AdvisorFallbackService {
                         "Nếu mình bị trượt môn tiên quyết thì phải làm sao?",
                         "Gợi ý môn học kỳ này cho mình?",
                         "Một học kỳ mình được đăng ký tối đa bao nhiêu tín chỉ?"
+                ));
+            }
+
+            case "SCHOLARSHIP" -> {
+                reply.append("### 🏆 Quy chế Xét Học bổng Khuyến khích Học tập\n\n");
+                if (context != null) {
+                    reply.append("**Đối chiếu kết quả học tập của bạn:**\n");
+                    reply.append("- **Điểm C-GPA tích lũy**: **").append(context.getCurrentCgpa()).append(" / 10.0** (Xếp loại: **").append(context.getAcademicStanding()).append("**)\n");
+                    reply.append("- **Tỷ lệ chuyên cần**: **").append(context.getAttendanceRate()).append("%**\n");
+                    int regCredits = context.getRegisteredCredits() != null ? context.getRegisteredCredits() : 0;
+                    reply.append("- **Tín chỉ đăng ký kỳ này**: ").append(regCredits).append(" TC\n\n");
+                }
+                reply.append("**Tiêu chuẩn xét học bổng học kỳ:**\n");
+                reply.append("- **Học bổng Xuất sắc**: Điểm C-GPA từ **8.5 / 10.0** trở lên và điểm rèn luyện từ 90 điểm.\n");
+                reply.append("- **Học bổng Giỏi**: Điểm C-GPA từ **8.0 đến 8.4** và điểm rèn luyện từ 80 điểm.\n");
+                reply.append("- **Học bổng Khá**: Điểm C-GPA từ **7.0 đến 7.9** và điểm rèn luyện từ 70 điểm.\n\n");
+                reply.append("**Điều kiện bắt buộc:**\n");
+                reply.append("1. Đăng ký tối thiểu **14 tín chỉ** trong học kỳ chính.\n");
+                reply.append("2. Không có môn học nào bị điểm F (phải qua tất cả các môn ở lần thi đầu).\n");
+                reply.append("3. Không vi phạm quy chế thi và kỷ luật của Học viện.\n");
+                if (context != null && context.getCurrentCgpa() != null && context.getCurrentCgpa().doubleValue() >= 8.0) {
+                    reply.append("\n✨ **Đánh giá sơ bộ**: Với C-GPA **").append(context.getCurrentCgpa()).append("** và xếp loại **").append(context.getAcademicStanding()).append("**, bạn đang thuộc nhóm sinh viên có thành tích học tập xuất sắc và đủ điều kiện cạnh tranh học bổng kỳ này!\n");
+                }
+                response.setSuggestions(List.of(
+                        "Cách tính điểm C-GPA tích lũy như thế nào?",
+                        "Một kỳ mình được đăng ký tối đa bao nhiêu tín chỉ?",
+                        "Gợi ý môn học phù hợp cho kỳ tới?"
                 ));
             }
 
@@ -231,19 +264,34 @@ public class AdvisorFallbackService {
             }
 
             default -> {
-                reply.append("Chào bạn! Mình là **Trợ lý Cố vấn Học tập AI** của Rikkei EduPortal.\n\n");
-                if (context != null) {
-                    reply.append("Hệ thống đã nhận diện hồ sơ của bạn: Sinh viên **").append(context.getStudentCode()).append("** (Ngành ").append(context.getMajor())
-                            .append(", Kỳ ").append(context.getCurrentSemester()).append("). Bạn đã hoàn thành **")
-                            .append(context.getCompletedCredits()).append(" tín chỉ** với điểm C-GPA **").append(context.getCurrentCgpa()).append("**.\n\n");
+                String q = query != null ? query.toLowerCase().trim() : "";
+                if (q.contains("giúp gì") || q.contains("làm được gì") || q.contains("chức năng") || q.contains("là ai")) {
+                    reply.append("Mình là **Trợ lý Cố vấn Học tập AI** của Rikkei EduPortal. Mình có thể đồng hành và hỗ trợ bạn:\n\n");
+                    reply.append("1. **Tư vấn môn học & Lộ trình**: Gợi ý các môn mở trong kỳ phù hợp điều kiện tiên quyết và mục tiêu tốt nghiệp.\n");
+                    reply.append("2. **Xử lý trùng lịch học**: Hướng dẫn phát hiện và đổi Section khi bị xung đột thời khóa biểu.\n");
+                    reply.append("3. **Quy chế đào tạo tín chỉ**: Giới hạn đăng ký tín chỉ (tối đa 24 TC/kỳ), điều kiện tốt nghiệp (160 TC).\n");
+                    reply.append("4. **Học bổng & Khen thưởng**: Tiêu chuẩn xét học bổng khuyến khích học tập theo C-GPA và rèn luyện.\n\n");
+                    reply.append("Bạn hãy chọn gợi ý bên dưới hoặc đặt câu hỏi cụ thể cho mình nhé!");
+                } else {
+                    reply.append("Chào bạn! Mình là **Trợ lý Cố vấn Học tập AI** của Rikkei EduPortal.\n\n");
+                    if (context != null) {
+                        reply.append("Hệ thống đã nhận diện hồ sơ của bạn: Sinh viên **").append(context.getStudentCode()).append("** (Ngành ").append(context.getMajor())
+                                .append(", Kỳ ").append(context.getCurrentSemester()).append("). Bạn đã hoàn thành **")
+                                .append(context.getCompletedCredits()).append(" tín chỉ** với điểm C-GPA **").append(context.getCurrentCgpa()).append("**.\n\n");
+                    }
+                    reply.append("Mình có thể hỗ trợ bạn các vấn đề sau:\n\n");
+                    reply.append("1. **Tư vấn môn học**: Gợi ý môn nên đăng ký trong kỳ tới dựa trên môn tiên quyết đã hoàn thành.\n");
+                    reply.append("2. **Xử lý trùng lịch học**: Cách phát hiện và khắc phục xung đột thời khóa biểu.\n");
+                    reply.append("3. **Quy chế tín chỉ**: Giới hạn 12 - 24 tín chỉ/kỳ, điều kiện tốt nghiệp 160 tín chỉ.\n");
+                    reply.append("4. **Quy chế điểm số**: Điểm chuyên cần (tối thiểu 80%), thang điểm chữ A-B-C-D-F.\n\n");
+                    reply.append("Bạn hãy chọn gợi ý bên dưới hoặc đặt câu hỏi cụ thể nhé!");
                 }
-                reply.append("Mình có thể hỗ trợ bạn các vấn đề sau:\n\n");
-                reply.append("1. **Tư vấn môn học**: Gợi ý môn nên đăng ký trong kỳ tới dựa trên môn tiên quyết đã hoàn thành.\n");
-                reply.append("2. **Xử lý trùng lịch học**: Cách phát hiện và khắc phục xung đột thời khóa biểu.\n");
-                reply.append("3. **Quy chế tín chỉ**: Giới hạn 12 - 24 tín chỉ/kỳ, điều kiện tốt nghiệp 160 tín chỉ.\n");
-                reply.append("4. **Quy chế điểm số**: Điểm chuyên cần (tối thiểu 80%), thang điểm chữ A-B-C-D-F.\n\n");
-                reply.append("Bạn hãy chọn gợi ý bên dưới hoặc đặt câu hỏi cụ thể nhé!");
-                response.setSuggestions(knowledgeBase.getDefaultSuggestions());
+                response.setSuggestions(List.of(
+                        "Gợi ý môn học kỳ này cho mình?",
+                        "Điều kiện đạt học bổng học tập",
+                        "Một kỳ mình được đăng ký tối đa bao nhiêu tín chỉ?",
+                        "Bị trùng lịch học giữa 2 môn thì xử lý thế nào?"
+                ));
             }
         }
 
@@ -306,6 +354,9 @@ public class AdvisorFallbackService {
                 }
             }
         }
+        if (recommendations.size() > 4) {
+            return new ArrayList<>(recommendations.subList(0, 4));
+        }
         return recommendations;
     }
 
@@ -313,6 +364,9 @@ public class AdvisorFallbackService {
         if (query == null) return "GENERAL";
         String q = query.toLowerCase();
 
+        if (q.contains("học bổng") || q.contains("khen thưởng") || q.contains("scholarship")) {
+            return "SCHOLARSHIP";
+        }
         if (q.contains("trùng") || q.contains("xung đột") || q.contains("conflict")) {
             return "SCHEDULE_CONFLICT";
         }

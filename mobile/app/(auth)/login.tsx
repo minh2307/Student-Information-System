@@ -12,7 +12,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '@/theme';
@@ -22,13 +21,12 @@ import {
   AppTextInput,
   AppButton,
   AppCard,
-  AppText,
 } from '@/components/ui';
 
 export default function LoginScreen() {
   const { isLoading, errorMessage, clearError, handleSubmitLogin } = useLogin();
-  const [username, setUsername] = useState('sv2024001');
-  const [password, setPassword] = useState('123456');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleLoginPress = async () => {
@@ -48,13 +46,6 @@ export default function LoginScreen() {
       username: username.trim(),
       password,
     });
-  };
-
-  const handleFillDemo = (demoUser: string, demoPass: string = '123456') => {
-    setUsername(demoUser);
-    setPassword(demoPass);
-    clearError();
-    setValidationError(null);
   };
 
   const activeError = validationError || errorMessage;
@@ -100,7 +91,7 @@ export default function LoginScreen() {
           <AppTextInput
             label="Tên đăng nhập / Mã SV / Mã GV / Email"
             testID="username-input"
-            placeholder="VD: sv2024001 hoặc gv001"
+            placeholder="Nhập tên đăng nhập hoặc mã SV / GV"
             value={username}
             onChangeText={(text) => {
               setUsername(text);
@@ -144,56 +135,6 @@ export default function LoginScreen() {
               fullWidth={true}
               testID="login-button"
             />
-          </View>
-
-          {/* Fast Demo Account Selector Chips */}
-          <View style={styles.demoSection}>
-            <AppText variant="captionBold" color="secondary" style={styles.demoTitle}>
-              Tài khoản mẫu thử nghiệm:
-            </AppText>
-            <View style={styles.demoChipsRow}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.demoChip,
-                  pressed && styles.demoChipPressed,
-                ]}
-                onPress={() => handleFillDemo('sv2024001')}
-                disabled={isLoading}
-                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                accessibilityRole="button"
-                accessibilityLabel="Điền tài khoản mẫu Sinh viên"
-              >
-                <Text style={styles.demoChipText}>🎓 SV (sv2024001)</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.demoChip,
-                  pressed && styles.demoChipPressed,
-                ]}
-                onPress={() => handleFillDemo('gv001')}
-                disabled={isLoading}
-                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                accessibilityRole="button"
-                accessibilityLabel="Điền tài khoản mẫu Giảng viên"
-              >
-                <Text style={styles.demoChipText}>👨‍🏫 GV (gv001)</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.demoChip,
-                  pressed && styles.demoChipPressed,
-                ]}
-                onPress={() => handleFillDemo('admin')}
-                disabled={isLoading}
-                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                accessibilityRole="button"
-                accessibilityLabel="Điền tài khoản mẫu Quản trị viên"
-              >
-                <Text style={styles.demoChipText}>🛡️ Admin</Text>
-              </Pressable>
-            </View>
           </View>
         </AppCard>
       </ScrollView>
@@ -278,38 +219,5 @@ const styles = StyleSheet.create({
   },
   buttonWrapper: {
     marginTop: tokens.spacing.sm,
-  },
-  demoSection: {
-    marginTop: tokens.spacing.xl,
-    paddingTop: tokens.spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.default,
-  },
-  demoTitle: {
-    marginBottom: tokens.spacing.sm,
-  },
-  demoChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: tokens.spacing.xs,
-  },
-  demoChip: {
-    backgroundColor: tokens.surface.canvas,
-    paddingHorizontal: tokens.spacing.sm,
-    paddingVertical: 6,
-    borderRadius: tokens.radius.md,
-    borderWidth: 1,
-    borderColor: tokens.border.default,
-    minHeight: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  demoChipPressed: {
-    opacity: 0.7,
-  },
-  demoChipText: {
-    fontSize: tokens.typography.sizes.caption,
-    color: tokens.text.primary,
-    fontWeight: tokens.typography.weights.medium,
   },
 });

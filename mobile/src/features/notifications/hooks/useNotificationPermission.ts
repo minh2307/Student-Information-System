@@ -10,16 +10,18 @@ import * as Notifications from 'expo-notifications';
 import { notificationApi } from '../services/notificationApi';
 import { PushRegistrationResult } from '../types';
 
-// Configure foreground notification behavior: alert, sound, badge
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Configure foreground notification behavior: alert, sound, badge (native only)
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 /**
  * Synchronize a push token with backend and persist in AsyncStorage if registered.
@@ -41,7 +43,7 @@ export async function syncPushTokenWithBackend(
 export function setupPushTokenRotationListener(
   onTokenRotated?: (token: string, result: PushRegistrationResult) => void
 ): { remove: () => void } | null {
-  if (typeof Notifications.addPushTokenListener !== 'function') {
+  if (Platform.OS === 'web' || typeof Notifications.addPushTokenListener !== 'function') {
     return null;
   }
   return Notifications.addPushTokenListener(async (deviceToken) => {
@@ -92,6 +94,12 @@ export function useNotificationPermission() {
    * Check existing permission status on mount.
    */
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      setPermissionStatus('granted');
+      setIsGranted(true);
+      return;
+    }
+
     void setupAndroidChannel();
 
     Notifications.getPermissionsAsync()

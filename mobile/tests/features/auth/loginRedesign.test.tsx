@@ -47,12 +47,12 @@ describe('LoginScreen REDS v2.0 Redesign', () => {
     expect(html).toContain('testID="login-button"');
   });
 
-  it('renders fast demo account selection chips', () => {
+  it('does not render demo account chips and initializes with clean inputs', () => {
     const html = renderToStaticMarkup(<LoginScreen />);
-    expect(html).toContain('Tài khoản mẫu thử nghiệm:');
-    expect(html).toContain('SV (sv2024001)');
-    expect(html).toContain('GV (gv001)');
-    expect(html).toContain('Admin');
+    expect(html).not.toContain('Tài khoản mẫu thử nghiệm:');
+    expect(html).not.toContain('🎓 SV (sv2024001)');
+    expect(html).not.toContain('👨‍🏫 GV (gv001)');
+    expect(html).not.toContain('🛡️ Admin');
   });
 
   it('renders error alert banner when error message is returned from hook', () => {

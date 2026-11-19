@@ -125,6 +125,7 @@ export default function StudentLayout() {
           options={{
             tabBarItemStyle: { display: 'none' },
             tabBarButton: () => null,
+            headerShown: false,
             title: 'Cố vấn học vụ AI',
           }}
         />

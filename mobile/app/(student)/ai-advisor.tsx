@@ -1,7 +1,11 @@
 /**
  * AI Academic Advisor Native Screen (TASK ST-07)
- * Live chat interface integrating POST /api/v1/ai/academic-advisor,
- * suggested prompts, course recommendation cards, and fallback mode indication.
+ * Professional, clean chat interface integrating POST /api/v1/ai/academic-advisor.
+ * Features:
+ * - Rich formatted AI message parsing (Headings, Alert Callouts, Bold, Inline Code, Bullets)
+ * - Compact horizontal course recommendation carousel (no vertical card clutter)
+ * - Tidy suggestion chips with soft aesthetic tint
+ * - Clean header with back navigation and live status dot
  */
 
 import React, { useState, useRef } from 'react';
@@ -34,6 +38,13 @@ export default function AiAdvisorScreen() {
     resetChat,
   } = useAcademicAdvisor();
 
+  // Extract active suggestions from the latest AI message or default prompts (Web-Parity)
+  const latestAiMsg = [...messages].reverse().find((m) => m.role === 'assistant');
+  const activeSuggestions =
+    latestAiMsg?.suggestions && latestAiMsg.suggestions.length > 0
+      ? latestAiMsg.suggestions
+      : STARTER_PROMPTS;
+
   const handleSend = () => {
     const text = inputText.trim();
     if (!text || isThinking) return;
@@ -63,17 +74,19 @@ export default function AiAdvisorScreen() {
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
           <Pressable
-            onPress={() => router.canGoBack() ? router.back() : router.push('/(student)/dashboard')}
-            style={styles.backButton}
+            onPress={() => (router.canGoBack() ? router.back() : router.push('/(student)/dashboard'))}
+            style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
             accessibilityRole="button"
             accessibilityLabel="Quay lại Tổng quan"
             testID="ai-advisor-back-btn"
           >
-            <Ionicons name="chevron-back" size={22} color={colors.neutral[800]} />
+            <Ionicons name="chevron-back" size={20} color={colors.neutral[800]} />
           </Pressable>
+
           <View style={styles.aiAvatar}>
-            <Ionicons name="sparkles" size={18} color={colors.primary[800]} />
+            <Ionicons name="sparkles" size={17} color="#7C3AED" />
           </View>
+
           <View>
             <Text style={styles.topBarTitle}>Cố vấn Học vụ AI</Text>
             <View style={styles.statusRow}>
@@ -84,7 +97,7 @@ export default function AiAdvisorScreen() {
         </View>
 
         <Pressable
-          style={styles.resetButton}
+          style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
           onPress={resetChat}
           accessibilityRole="button"
           accessibilityLabel="Làm mới đoạn hội thoại"
@@ -100,44 +113,52 @@ export default function AiAdvisorScreen() {
         style={styles.messageList}
         contentContainerStyle={styles.messageContent}
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+        showsVerticalScrollIndicator={false}
       >
         {messages.map((msg) => (
           <MessageBubble
             key={msg.id}
             message={msg}
-            onSelectSuggestion={handleSelectSuggestion}
           />
         ))}
 
         {/* Thinking Indicator Bubble */}
         {isThinking ? (
           <View style={styles.thinkingBubble} testID="ai-thinking-indicator">
-            <ActivityIndicator size="small" color={colors.primary[800]} />
+            <ActivityIndicator size="small" color="#7C3AED" />
             <Text style={styles.thinkingText}>Cố vấn AI đang phân tích dữ liệu học vụ...</Text>
           </View>
         ) : null}
       </ScrollView>
 
-      {/* Quick Prompts Carousel (when idle) */}
-      {!isThinking && messages.length <= 2 ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.starterPromptsContainer}
-          style={styles.starterPromptsBar}
-        >
-          {STARTER_PROMPTS.map((prompt, idx) => (
-            <Pressable
-              key={idx}
-              style={styles.starterChip}
-              onPress={() => handleSelectSuggestion(prompt)}
-              accessibilityRole="button"
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={13} color={colors.primary[800]} />
-              <Text style={styles.starterChipText}>{prompt}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+      {/* Quick Suggestions Chips Bar (Web-Parity, pinned above input) */}
+      {!isThinking && activeSuggestions && activeSuggestions.length > 0 ? (
+        <View style={styles.webSuggestionsBar} testID="ai-suggestions-bar">
+          <View style={styles.webSuggestionsHeader}>
+            <Ionicons name="sparkles" size={13} color="#D97706" />
+            <Text style={styles.webSuggestionsLabel}>Gợi ý:</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.webSuggestionsScroll}
+          >
+            {activeSuggestions.slice(0, 4).map((suggestion, idx) => (
+              <Pressable
+                key={idx}
+                style={({ pressed }) => [
+                  styles.webSuggestionPill,
+                  pressed && styles.webSuggestionPillPressed,
+                ]}
+                onPress={() => handleSelectSuggestion(suggestion)}
+                accessibilityRole="button"
+                accessibilityLabel={`Gợi ý: ${suggestion}`}
+              >
+                <Text style={styles.webSuggestionText}>{suggestion}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
       ) : null}
 
       {/* Input Bar */}
@@ -166,7 +187,7 @@ export default function AiAdvisorScreen() {
         >
           <Ionicons
             name="send"
-            size={18}
+            size={16}
             color={!inputText.trim() || isThinking ? colors.neutral[400] : colors.neutral[0]}
           />
         </Pressable>
@@ -180,8 +201,7 @@ export default function AiAdvisorScreen() {
  */
 const MessageBubble: React.FC<{
   message: ChatMessage;
-  onSelectSuggestion: (s: string) => void;
-}> = ({ message, onSelectSuggestion }) => {
+}> = ({ message }) => {
   const isUser = message.role === 'user';
 
   return (
@@ -194,7 +214,7 @@ const MessageBubble: React.FC<{
     >
       {!isUser ? (
         <View style={styles.assistantAvatar}>
-          <Ionicons name="sparkles" size={14} color={colors.primary[800]} />
+          <Ionicons name="sparkles" size={13} color="#7C3AED" />
         </View>
       ) : null}
 
@@ -207,41 +227,17 @@ const MessageBubble: React.FC<{
         {/* Fallback Mode Indicator Badge */}
         {message.fallbackUsed ? (
           <View style={styles.fallbackBadge} testID="fallback-mode-badge">
-            <Ionicons name="shield-outline" size={12} color={colors.warning.dark} />
+            <Ionicons name="shield-checkmark-outline" size={11} color="#B45309" />
             <Text style={styles.fallbackBadgeText}>Quy chế dự phòng</Text>
           </View>
         ) : null}
 
-        {/* Message Text Content */}
-        <Text style={[styles.bubbleText, isUser ? styles.userText : styles.assistantText]}>
-          {message.content}
-        </Text>
+        {/* Message Content with Clean Rich Text Formatting */}
+        <FormattedAiMessage content={message.content} isUser={isUser} />
 
-        {/* Course Recommendations */}
+        {/* Course Recommendations Horizontal Carousel */}
         {message.recommendations && message.recommendations.length > 0 ? (
-          <View style={styles.recommendationsBox} testID="ai-course-recommendations">
-            <Text style={styles.recBoxTitle}>Môn học khuyến nghị:</Text>
-            {message.recommendations.map((rec, idx) => (
-              <RecommendationCard key={idx} recommendation={rec} />
-            ))}
-          </View>
-        ) : null}
-
-        {/* Suggested Follow-up Questions */}
-        {message.suggestions && message.suggestions.length > 0 ? (
-          <View style={styles.suggestionsContainer}>
-            {message.suggestions.map((s, idx) => (
-              <Pressable
-                key={idx}
-                style={styles.suggestionPill}
-                onPress={() => onSelectSuggestion(s)}
-                accessibilityRole="button"
-              >
-                <Ionicons name="arrow-forward" size={11} color={colors.primary[800]} />
-                <Text style={styles.suggestionPillText}>{s}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <CourseRecommendationsSection recommendations={message.recommendations} />
         ) : null}
       </View>
     </View>
@@ -249,37 +245,181 @@ const MessageBubble: React.FC<{
 };
 
 /**
- * Course Recommendation Sub-Card
+ * Rich Formatted AI Message Renderer
+ * Converts Markdown Headings (###), Alert Blocks (>), Bullet Lists (-),
+ * Numbered steps (1.), Bold (**), and Inline Code (`) into clean native styled elements.
  */
-const RecommendationCard: React.FC<{ recommendation: CourseRecommendationItem }> = ({
+const FormattedAiMessage: React.FC<{ content: string; isUser: boolean }> = ({ content, isUser }) => {
+  if (isUser) {
+    return <Text style={styles.userText}>{content}</Text>;
+  }
+
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+
+  let idx = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
+
+    if (!trimmed) {
+      continue;
+    }
+
+    // 1. Alert Blockquote (> ℹ️... or > ⚠️...)
+    if (trimmed.startsWith('>')) {
+      const cleanAlert = trimmed.replace(/^>\s*/, '').replace(/^[ℹ️⚠️💡]+\s*/, '');
+      elements.push(
+        <View key={`alert-${idx++}`} style={styles.alertCard}>
+          <Ionicons name="information-circle" size={16} color="#0284C7" style={{ marginTop: 1 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.alertText}>{renderInlineFormatted(cleanAlert)}</Text>
+          </View>
+        </View>
+      );
+      continue;
+    }
+
+    // 2. Headings (### or ## or #)
+    if (trimmed.startsWith('#')) {
+      const cleanHeading = trimmed.replace(/^#+\s*/, '');
+      elements.push(
+        <View key={`heading-${idx++}`} style={styles.headingWrapper}>
+          <Text style={styles.headingText}>{renderInlineFormatted(cleanHeading)}</Text>
+        </View>
+      );
+      continue;
+    }
+
+    // 3. Bullet points (- or * )
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      const cleanBullet = trimmed.substring(2);
+      elements.push(
+        <View key={`bullet-${idx++}`} style={styles.bulletRow}>
+          <View style={styles.bulletDot} />
+          <Text style={styles.bulletText}>{renderInlineFormatted(cleanBullet)}</Text>
+        </View>
+      );
+      continue;
+    }
+
+    // 4. Numbered list items (1. , 2. )
+    const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+    if (numMatch) {
+      elements.push(
+        <View key={`num-${idx++}`} style={styles.numberedRow}>
+          <View style={styles.numberBadge}>
+            <Text style={styles.numberBadgeText}>{numMatch[1]}</Text>
+          </View>
+          <Text style={styles.numberedText}>{renderInlineFormatted(numMatch[2])}</Text>
+        </View>
+      );
+      continue;
+    }
+
+    // 5. Normal text paragraph
+    elements.push(
+      <Text key={`p-${idx++}`} style={styles.paragraphText}>
+        {renderInlineFormatted(trimmed)}
+      </Text>
+    );
+  }
+
+  return <View style={styles.formattedContainer}>{elements}</View>;
+};
+
+/**
+ * Inline Tokenizer for **bold** and `code`
+ */
+function renderInlineFormatted(text: string): React.ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+
+  return parts.map((part, pIdx) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      return (
+        <Text key={pIdx} style={styles.boldText}>
+          {part.slice(2, -2)}
+        </Text>
+      );
+    }
+    if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+      return (
+        <Text key={pIdx} style={styles.inlineCode}>
+          {part.slice(1, -1)}
+        </Text>
+      );
+    }
+    return part;
+  });
+}
+
+/**
+ * Course Recommendations Horizontal Carousel
+ */
+const CourseRecommendationsSection: React.FC<{
+  recommendations: CourseRecommendationItem[];
+}> = ({ recommendations }) => {
+  return (
+    <View style={styles.recSection} testID="ai-course-recommendations">
+      <View style={styles.recHeaderRow}>
+        <Ionicons name="school" size={14} color="#7C3AED" />
+        <Text style={styles.recHeaderTitle}>Môn học khuyến nghị:</Text>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.recCarouselContainer}
+      >
+        {recommendations.map((rec, idx) => (
+          <RecommendationCompactCard key={idx} recommendation={rec} />
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
+
+/**
+ * Compact Recommendation Card
+ */
+const RecommendationCompactCard: React.FC<{ recommendation: CourseRecommendationItem }> = ({
   recommendation,
 }) => {
   const isHighPriority = recommendation.priority === 'HIGH';
 
   return (
-    <View style={styles.recCard}>
-      <View style={styles.recTopRow}>
-        <Text style={styles.recCode}>{recommendation.courseCode}</Text>
+    <View style={styles.compactRecCard}>
+      <View style={styles.compactRecTop}>
+        <Text style={styles.compactRecCode}>{recommendation.courseCode}</Text>
         <View
           style={[
-            styles.recPriorityBadge,
-            isHighPriority ? styles.priorityHigh : styles.priorityMedium,
+            styles.priorityBadge,
+            isHighPriority ? styles.priorityBadgeHigh : styles.priorityBadgeMedium,
           ]}
         >
           <Text
             style={[
-              styles.recPriorityText,
-              isHighPriority ? styles.priorityHighText : styles.priorityMediumText,
+              styles.priorityText,
+              isHighPriority ? styles.priorityTextHigh : styles.priorityTextMedium,
             ]}
           >
             {isHighPriority ? 'Ưu tiên cao' : 'Khuyến nghị'}
           </Text>
         </View>
       </View>
-      <Text style={styles.recName}>{recommendation.courseName}</Text>
-      <Text style={styles.recCredits}>{recommendation.credits} Tín chỉ</Text>
+
+      <Text style={styles.compactRecName} numberOfLines={2}>
+        {recommendation.courseName}
+      </Text>
+
+      <View style={styles.compactRecBottom}>
+        <Text style={styles.compactRecCredits}>{recommendation.credits} Tín chỉ</Text>
+      </View>
+
       {recommendation.reason ? (
-        <Text style={styles.recReason}>{recommendation.reason}</Text>
+        <Text style={styles.compactRecReason} numberOfLines={2}>
+          {recommendation.reason}
+        </Text>
       ) : null}
     </View>
   );
@@ -288,13 +428,13 @@ const RecommendationCard: React.FC<{ recommendation: CourseRecommendationItem }>
 const styles = StyleSheet.create({
   screenWrapper: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
+    backgroundColor: '#F8FAFC',
   },
   topBar: {
-    height: 60,
-    backgroundColor: colors.neutral[0],
+    height: 56,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    borderBottomColor: '#E2E8F0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -306,61 +446,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  backButton: {
-    marginRight: 6,
-    padding: 4,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiAvatar: {
+  iconBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  iconBtnPressed: {
+    backgroundColor: '#E2E8F0',
+  },
+  aiAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F3E8FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   topBarTitle: {
-    fontSize: typography.sizes.sm,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[900],
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     marginTop: 1,
   },
   onlineDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.success.dark,
+    backgroundColor: '#10B981',
   },
   statusText: {
     fontSize: 10,
-    color: colors.neutral[500],
-  },
-  resetButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.neutral[100],
+    color: '#64748B',
+    fontWeight: '500',
   },
   messageList: {
     flex: 1,
   },
   messageContent: {
     padding: spacing.md,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.lg,
   },
   bubbleRow: {
     flexDirection: 'row',
-    marginBottom: spacing.md,
-    gap: spacing.xs,
+    marginBottom: spacing.sm,
+    gap: 8,
   },
   userBubbleRow: {
     justifyContent: 'flex-end',
@@ -372,216 +509,335 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.primary[50],
+    backgroundColor: '#F3E8FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
   bubbleContainer: {
-    maxWidth: '85%',
-    borderRadius: radius.lg,
-    padding: spacing.md,
+    maxWidth: '86%',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   userBubble: {
-    backgroundColor: colors.primary[800],
+    backgroundColor: '#881337',
     borderBottomRightRadius: 4,
     ...shadows.sm,
   },
   assistantBubble: {
-    backgroundColor: colors.neutral[0],
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 4,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: '#E2E8F0',
     ...shadows.sm,
   },
-  bubbleText: {
-    fontSize: typography.sizes.xs,
-    lineHeight: 20,
-  },
   userText: {
-    color: colors.neutral[0],
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#FFFFFF',
+    fontWeight: '400',
   },
-  assistantText: {
-    color: colors.neutral[800],
+  formattedContainer: {
+    gap: 6,
+  },
+  paragraphText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#1E293B',
+  },
+  boldText: {
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  inlineCode: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 11,
+    color: '#7C3AED',
+    backgroundColor: '#F5F3FF',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  alertCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#F0F9FF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#0284C7',
+    padding: 8,
+    borderRadius: 6,
+    marginVertical: 4,
+  },
+  alertText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#0369A1',
+  },
+  headingWrapper: {
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  headingText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  bulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginVertical: 2,
+    paddingLeft: 4,
+  },
+  bulletDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#7C3AED',
+    marginTop: 7,
+  },
+  bulletText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#334155',
+  },
+  numberedRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginVertical: 2,
+  },
+  numberBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#F3E8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  numberBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  numberedText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#334155',
   },
   fallbackBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.warning.light,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderRadius: 4,
     alignSelf: 'flex-start',
-    marginBottom: spacing.xs,
+    marginBottom: 6,
   },
   fallbackBadgeText: {
     fontSize: 10,
-    fontWeight: typography.weights.bold,
-    color: colors.warning.dark,
+    fontWeight: '600',
+    color: '#92400E',
   },
-  recommendationsBox: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.xs,
+  recSection: {
+    marginTop: 10,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.neutral[100],
+    borderTopColor: '#F1F5F9',
   },
-  recBoxTitle: {
-    fontSize: 11,
-    fontWeight: typography.weights.bold,
-    color: colors.neutral[700],
-    marginBottom: 4,
+  recHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
   },
-  recCard: {
-    backgroundColor: colors.neutral[50],
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    marginBottom: spacing.xs,
+  recHeaderTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  recCarouselContainer: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  compactRecCard: {
+    width: 200,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: '#E2E8F0',
+    padding: 10,
   },
-  recTopRow: {
+  compactRecTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 4,
   },
-  recCode: {
-    fontSize: 11,
-    fontWeight: typography.weights.bold,
-    color: colors.primary[800],
+  compactRecCode: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#7C3AED',
   },
-  recPriorityBadge: {
-    paddingHorizontal: 4,
+  priorityBadge: {
+    paddingHorizontal: 5,
     paddingVertical: 1,
-    borderRadius: 3,
+    borderRadius: 4,
   },
-  priorityHigh: {
-    backgroundColor: colors.error.light,
+  priorityBadgeHigh: {
+    backgroundColor: '#FEE2E2',
   },
-  priorityMedium: {
-    backgroundColor: colors.primary[50],
+  priorityBadgeMedium: {
+    backgroundColor: '#E0E7FF',
   },
-  recPriorityText: {
+  priorityText: {
     fontSize: 9,
-    fontWeight: typography.weights.bold,
+    fontWeight: '700',
   },
-  priorityHighText: {
-    color: colors.error.dark,
+  priorityTextHigh: {
+    color: '#B91C1C',
   },
-  priorityMediumText: {
-    color: colors.primary[800],
+  priorityTextMedium: {
+    color: '#3730A3',
   },
-  recName: {
-    fontSize: typography.sizes.xs,
-    fontWeight: typography.weights.semiBold,
-    color: colors.neutral[900],
-    marginTop: 2,
+  compactRecName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginBottom: 4,
+    lineHeight: 15,
   },
-  recCredits: {
-    fontSize: 10,
-    color: colors.neutral[500],
-    marginTop: 1,
-  },
-  recReason: {
-    fontSize: 10,
-    color: colors.neutral[600],
-    marginTop: 2,
-    fontStyle: 'italic',
-  },
-  suggestionsContainer: {
-    marginTop: spacing.sm,
-    gap: 4,
-  },
-  suggestionPill: {
+  compactRecBottom: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primary[50],
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.full,
-    alignSelf: 'flex-start',
+    marginBottom: 4,
   },
-  suggestionPillText: {
+  compactRecCredits: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  compactRecReason: {
+    fontSize: 9,
+    color: '#64748B',
+    lineHeight: 13,
+  },
+  suggestionsContainer: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  suggestionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 6,
+  },
+  suggestionsLabel: {
     fontSize: 11,
-    color: colors.primary[800],
-    fontWeight: typography.weights.medium,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  webSuggestionsBar: {
+    backgroundColor: '#F8FAFC',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingVertical: 7,
+    paddingHorizontal: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  webSuggestionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingLeft: 4,
+  },
+  webSuggestionsLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  webSuggestionsScroll: {
+    gap: 6,
+    paddingRight: 10,
+    alignItems: 'center',
+  },
+  webSuggestionPill: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    ...shadows.sm,
+  },
+  webSuggestionPillPressed: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FECDD3',
+  },
+  webSuggestionText: {
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '500',
   },
   thinkingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: colors.neutral[0],
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
+    borderColor: '#E2E8F0',
     alignSelf: 'flex-start',
     marginLeft: 36,
+    ...shadows.sm,
   },
   thinkingText: {
-    fontSize: typography.sizes.xxs,
-    color: colors.neutral[500],
-  },
-  starterPromptsBar: {
-    maxHeight: 44,
-    borderTopWidth: 1,
-    borderTopColor: colors.neutral[200],
-    backgroundColor: colors.neutral[0],
-  },
-  starterPromptsContainer: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    gap: spacing.xs,
-    alignItems: 'center',
-  },
-  starterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.neutral[50],
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.full,
-  },
-  starterChipText: {
     fontSize: 11,
-    color: colors.neutral[700],
+    color: '#64748B',
   },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutral[0],
+    gap: 8,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.neutral[200],
-    gap: spacing.xs,
+    borderTopColor: '#E2E8F0',
   },
   textInput: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    fontSize: typography.sizes.xs,
-    color: colors.neutral[900],
-    maxHeight: 80,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#0F172A',
+    maxHeight: 90,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary[800],
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#881337',
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: colors.neutral[100],
+    backgroundColor: '#E2E8F0',
   },
 });
