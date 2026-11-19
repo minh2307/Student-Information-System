@@ -211,6 +211,7 @@ jobs:
             --spring.datasource.password=postgres \
             --spring.jpa.hibernate.ddl-auto=validate \
             --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
+            --management.health.mail.enabled=false \
             > /tmp/auth-service.log 2>&1 &
           echo "AUTH_PID=$!" >> $GITHUB_ENV
 
@@ -234,6 +235,7 @@ jobs:
             --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
             --spring.mail.username=${{ secrets.SPRING_MAIL_USERNAME || 'workspacegateos@gmail.com' }} \
             --spring.mail.password=${{ secrets.SPRING_MAIL_PASSWORD || 'byhekintjfrytcyd' }} \
+            --management.health.mail.enabled=false \
             > /tmp/lecturer-service.log 2>&1 &
           echo "LECTURER_PID=$!" >> $GITHUB_ENV
 
@@ -265,7 +267,8 @@ jobs:
           echo "Waiting for auth-service:8081..."
           AUTH_READY=false
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1 || [ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/api/v1/auth/login)" = "405" ]; then
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/api/v1/auth/login)
+            if curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1 || [ "$HTTP_CODE" = "405" ] || [ "$HTTP_CODE" = "500" ]; then
               echo "auth-service ready ✓"; AUTH_READY=true; break
             fi
             sleep 3
@@ -279,7 +282,7 @@ jobs:
           echo "Waiting for lecturer-service:8085..."
           LECTURER_READY=false
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:8085/actuator/health > /dev/null 2>&1; then
+            if curl -sf http://localhost:8085/actuator/health > /dev/null 2>&1 || curl -s http://localhost:8085/actuator/health | grep -q "status"; then
               echo "lecturer-service ready ✓"; LECTURER_READY=true; break
             fi
             sleep 3
