@@ -8,6 +8,7 @@ import com.rikkei.eduportal.lecturer.dto.response.StudentRiskDto;
 import com.rikkei.eduportal.lecturer.entity.*;
 import com.rikkei.eduportal.lecturer.exception.AccessDeniedException;
 import com.rikkei.eduportal.lecturer.repository.*;
+import com.rikkei.eduportal.lecturer.service.email.EmailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,9 @@ class EarlyWarningServiceTest {
 
     @Mock
     private NotificationRepository notificationRepo;
+
+    @Mock
+    private EmailService emailService;
 
     @InjectMocks
     private EarlyWarningService earlyWarningService;

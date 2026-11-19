@@ -37,6 +37,7 @@ public class EarlyWarningService {
     private final NotificationRepository notificationRepo;
     private final EmailService emailService;
 
+    @Autowired
     public EarlyWarningService(ClassSectionRepository classSectionRepo,
                                EnrollmentRepository enrollmentRepo,
                                AttendanceSessionRepository attendanceSessionRepo,
