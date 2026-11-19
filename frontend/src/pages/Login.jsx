@@ -270,12 +270,15 @@ export const Login = () => {
         </div>
       </header>
 
-      {/* 2. Main Body: Priority Login Form (Top on Mobile / Primary on Desktop) + Compact Announcements */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 flex flex-col justify-center">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* 2. Main Body: Left Announcements Board (Desktop) & Right Login Form (Desktop) / Top Login Form (Mobile) */}
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
           
-          {/* ── SECTION 1: MODAL ĐĂNG NHẬP HIỆN LÊN TRÊN (5 Cols trên Desktop, Ưu tiên số 1 trên Mobile) ── */}
-          <div className="order-1 lg:order-1 lg:col-span-5 w-full">
+          {/* ── SECTION 1: MODAL ĐĂNG NHẬP ──
+              - Trên Mobile: order-1 (Hiển thị ngay đầu màn hình điện thoại)
+              - Trên Desktop (lg:): order-2 (Cố định ở cột bên phải, sticky top-24 chuẩn desktop)
+          ── */}
+          <div className="order-1 lg:order-2 w-full lg:w-[380px] xl:w-[420px] shrink-0 lg:sticky lg:top-24">
             <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-stone-200/90 overflow-hidden transition-all duration-300">
               
               {/* Header của Khung Đăng Nhập */}
@@ -417,8 +420,11 @@ export const Login = () => {
             </div>
           </div>
 
-          {/* ── SECTION 2: BẢNG TIN THÔNG BÁO TINH GỌN (THÔNG BÁO NHỎ LẠI) - 7 Cols trên Desktop, Thứ 2 trên Mobile ── */}
-          <div className="order-2 lg:order-2 lg:col-span-7 w-full space-y-4">
+          {/* ── SECTION 2: BẢNG TIN THÔNG BÁO & CÔNG VĂN HỌC VIỆN ──
+              - Trên Mobile: order-2 (Nằm bên dưới khung đăng nhập, kích thước tinh gọn)
+              - Trên Desktop (lg:): order-1 (Nằm ở cột bên trái, rộng rãi 60-65% chuẩn như ban đầu)
+          ── */}
+          <div className="order-2 lg:order-1 flex-1 w-full space-y-4">
             
             {/* Thanh Tiêu Đề Bảng Tin Tinh Gọn & Tìm Kiếm */}
             <div className="bg-white/90 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-stone-200/90 shadow-2xs">
@@ -473,85 +479,90 @@ export const Login = () => {
               </div>
             </div>
 
-            {/* Danh sách thông báo dạng Compact Rows (Không chiếm nhiều diện tích) */}
-            <div className="bg-white/90 backdrop-blur-xs rounded-2xl border border-stone-200/90 shadow-2xs p-3 sm:p-4">
-              {loadingAnnouncements ? (
-                <div className="py-8 text-center">
-                  <div className="inline-block w-6 h-6 border-2 border-red-700 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="mt-2 text-xs text-stone-500">Đang cập nhật công văn...</p>
-                </div>
-              ) : filteredList.length === 0 ? (
-                <div className="py-6 text-center text-xs text-stone-500">
-                  Không tìm thấy thông báo nào trong danh mục này.
-                </div>
-              ) : (
-                <div className="max-h-[380px] overflow-y-auto pr-1 space-y-2.5">
-                  {filteredList.map((item) => {
-                    const itemDate = new Date(item.createdAt)
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => setSelectedArticle(item)}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer group flex items-start gap-3 hover:border-red-300 hover:bg-stone-50/70 ${
-                          item.isPinned ? 'border-red-200/90 bg-red-50/20' : 'border-stone-200/70 bg-white'
-                        }`}
-                      >
-                        {/* Mini Date Badge */}
-                        <div className="w-11 h-11 rounded-lg bg-stone-50 border border-stone-200 flex flex-col items-center justify-center shrink-0 group-hover:border-red-300 transition-colors">
-                          <span className="text-[9px] font-mono font-bold text-red-700 leading-none">
-                            T{itemDate.getMonth() + 1}
+            {/* Danh sách thông báo */}
+            {loadingAnnouncements ? (
+              <div className="bg-white rounded-2xl p-8 sm:p-12 border border-stone-200/90 text-center">
+                <div className="inline-block w-8 h-8 border-3 border-red-700 border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-3 text-xs text-stone-600">Đang cập nhật công văn từ máy chủ đào tạo...</p>
+              </div>
+            ) : filteredList.length === 0 ? (
+              <div className="bg-white rounded-2xl p-8 border border-dashed border-stone-300 text-center">
+                <p className="text-xs text-stone-600">Không tìm thấy thông báo nào trong danh mục này.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredList.map((item) => {
+                  const itemDate = new Date(item.createdAt)
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => setSelectedArticle(item)}
+                      className={`bg-white rounded-2xl p-4 sm:p-5 border shadow-2xs hover:border-red-300 transition-all cursor-pointer group ${
+                        item.isPinned ? 'border-stone-300 bg-stone-50/40' : 'border-stone-200/90'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3.5 sm:gap-4">
+                        {/* Date Block */}
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-stone-50 border border-stone-200 flex flex-col items-center justify-center shrink-0 group-hover:border-red-300 transition-colors">
+                          <span className="text-[9px] sm:text-[10px] font-mono font-bold text-red-700 uppercase">
+                            Tháng {itemDate.getMonth() + 1}
                           </span>
-                          <span className="text-sm font-mono font-bold text-stone-900 leading-tight">
+                          <span className="text-base sm:text-lg font-mono font-bold text-stone-900 leading-none">
                             {itemDate.getDate()}
+                          </span>
+                          <span className="text-[8px] sm:text-[9px] font-mono text-stone-500">
+                            {itemDate.getFullYear()}
                           </span>
                         </div>
 
-                        {/* Title & Metadata */}
+                        {/* Content */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase border ${getCategoryBadge(item.category)}`}>
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${getCategoryBadge(item.category)}`}>
                               {item.category}
                             </span>
                             {item.isPinned && (
-                              <span className="flex items-center gap-0.5 text-[9px] font-mono font-bold text-red-800 bg-red-100 px-1.5 py-0.2 rounded border border-red-200">
-                                <Pin size={8} className="fill-red-700" />
-                                KHẨN
+                              <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-stone-700 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
+                                <Pin size={10} className="fill-stone-600" />
+                                CÔNG VĂN KHẨN
                               </span>
                             )}
-                            <span className="text-[10px] font-mono text-stone-600 ml-auto hidden sm:inline">
-                              Số: {100 + Number(item.id)}/TB-ĐT
+                            <span className="text-[11px] font-mono text-stone-500 ml-auto hidden sm:inline">
+                              Số: {100 + Number(item.id)}/TB-ĐT • {item.author || 'Phòng Đào tạo'}
                             </span>
                           </div>
 
-                          <h4 className="text-xs sm:text-sm font-bold text-stone-900 group-hover:text-red-800 transition-colors line-clamp-1">
+                          <h3 className="text-sm sm:text-base font-bold text-stone-900 group-hover:text-red-800 transition-colors line-clamp-2">
                             {item.title}
-                          </h4>
+                          </h3>
 
-                          <p className="text-[11px] text-stone-600 mt-0.5 line-clamp-1 leading-normal">
+                          <p className="text-xs text-stone-600 mt-1 line-clamp-2 leading-relaxed">
                             {item.content}
                           </p>
 
-                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-stone-600">
-                            <span>{item.author || 'Phòng Đào tạo'}</span>
-                            <span className="text-red-700 group-hover:text-red-900 font-semibold flex items-center gap-0.5">
-                              Xem chi tiết <ChevronRight size={11} />
+                          <div className="mt-2.5 flex items-center justify-between text-xs">
+                            <span className="text-[10px] font-mono text-stone-500">
+                              Ban hành lúc {itemDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className="font-semibold text-red-700 group-hover:text-red-900 flex items-center gap-0.5 text-xs">
+                              Chi tiết công văn <ChevronRight size={13} />
                             </span>
                           </div>
                         </div>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Văn bản Quy định Nhanh dạng Chips Gọn Gàng */}
-            <div className="bg-white/80 p-3 sm:p-3.5 rounded-xl border border-stone-200/80">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800 mb-2 font-mono uppercase">
-                <BookOpen size={13} className="text-red-700" />
-                <span>Quy Chế Học Vụ & Khảo Thí</span>
+                    </div>
+                  )
+                })}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            )}
+
+            {/* Quick Regulations */}
+            <div className="bg-stone-50 rounded-2xl p-4 sm:p-5 border border-stone-200/90">
+              <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-stone-900 flex items-center gap-2 mb-3">
+                <BookOpen size={14} className="text-red-700" />
+                Văn Bản Quy Định Dành Cho Sinh Viên
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5 text-xs">
                 <button
                   type="button"
                   onClick={() => setSelectedArticle({
@@ -562,12 +573,11 @@ export const Login = () => {
                     createdAt: new Date().toISOString(),
                     content: `1. THỜI GIAN ĐĂNG KÝ:\nCổng tín chỉ mở theo từng đợt công bố của kỳ học. Sinh viên hoàn thành đăng ký và kiểm tra trước khi kết thúc đợt.\n\n2. HẠN MỨC TÍN CHỈ:\nTối thiểu 12 tín chỉ, tối đa 24 tín chỉ cho mỗi học kỳ chính (trừ học kỳ hè hoặc đồ án tốt nghiệp).\n\n3. HỌC PHẦN TIÊN QUYẾT:\nSinh viên phải tích lũy đạt điểm điều kiện các môn tiên quyết trước khi đăng ký học phần tiếp theo.\n\n4. HỦY / ĐỔI LỚP:\nTrong thời gian điều chỉnh, sinh viên có thể hủy hoặc chuyển đổi lớp nếu còn chỉ tiêu.`
                   })}
-                  className="p-2 rounded-lg bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 hover:text-red-800 font-medium text-[11px] transition flex items-center justify-between text-left cursor-pointer"
+                  className="bg-white p-3 rounded-xl border border-stone-200 hover:border-red-300 font-medium text-stone-800 hover:text-red-800 transition flex items-center justify-between shadow-2xs text-left cursor-pointer"
                 >
-                  <span className="truncate">1. Quy chế đăng ký môn</span>
-                  <ExternalLink size={11} className="shrink-0 text-stone-600 ml-1" />
+                  <span className="truncate">1. Quy chế đăng ký học phần</span>
+                  <ExternalLink size={12} className="text-stone-400 shrink-0 ml-1" />
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setSelectedArticle({
@@ -578,12 +588,11 @@ export const Login = () => {
                     createdAt: new Date().toISOString(),
                     content: `1. ĐỊNH MỨC HỌC PHÍ:\nĐơn giá chuẩn 450.000 VNĐ / 1 tín chỉ quy đổi cho các học phần đại trà.\n\n2. PHƯƠNG THỨC THANH TOÁN:\nSinh viên thanh toán trực tuyến qua mã QR VietQR động tích hợp trên cổng hoặc chuyển khoản đúng cú pháp qua tài khoản ngân hàng nhà trường.\n\n3. THỜI HẠN QUYẾT TOÁN:\nHạn chót đóng học phí là 30 ngày kể từ ngày chốt thời hạn đăng ký học phần.\n\n4. XỬ LÝ QUÁ HẠN:\nSinh viên chưa hoàn thành học phí đúng hạn sẽ bị tạm khóa kết quả thi và quyền đăng ký môn kỳ kế tiếp.`
                   })}
-                  className="p-2 rounded-lg bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 hover:text-red-800 font-medium text-[11px] transition flex items-center justify-between text-left cursor-pointer"
+                  className="bg-white p-3 rounded-xl border border-stone-200 hover:border-red-300 font-medium text-stone-800 hover:text-red-800 transition flex items-center justify-between shadow-2xs text-left cursor-pointer"
                 >
-                  <span className="truncate">2. Định mức học phí & QR</span>
-                  <ExternalLink size={11} className="shrink-0 text-stone-600 ml-1" />
+                  <span className="truncate">2. Định mức thu học phí</span>
+                  <ExternalLink size={12} className="text-stone-400 shrink-0 ml-1" />
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setSelectedArticle({
@@ -594,10 +603,10 @@ export const Login = () => {
                     createdAt: new Date().toISOString(),
                     content: `1. GIẤY TỜ BẮT BUỘC:\nXuất trình Thẻ sinh viên hoặc CCCD có gắn chip khi vào phòng thi.\n\n2. THỜI GIAN CÓ MẶT:\nCó mặt tại phòng thi trước giờ phát đề tối thiểu 15 phút. Sinh viên muộn quá 15 phút sau phát đề sẽ không được tham dự.\n\n3. THIẾT BỊ CẤM:\nNghiêm cấm mang điện thoại thông minh, đồng hồ thông minh, tài liệu vào phòng thi dưới mọi hình thức.\n\n4. KỶ LUẬT VI PHẠM:\nMọi hành vi gian lận sẽ bị lập biên bản, đình chỉ thi và nhận điểm F học phần.`
                   })}
-                  className="p-2 rounded-lg bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 hover:text-red-800 font-medium text-[11px] transition flex items-center justify-between text-left cursor-pointer"
+                  className="bg-white p-3 rounded-xl border border-stone-200 hover:border-red-300 font-medium text-stone-800 hover:text-red-800 transition flex items-center justify-between shadow-2xs text-left cursor-pointer"
                 >
-                  <span className="truncate">3. Kỷ luật & nội quy phòng thi</span>
-                  <ExternalLink size={11} className="shrink-0 text-stone-600 ml-1" />
+                  <span className="truncate">3. Nội quy phòng thi học kỳ</span>
+                  <ExternalLink size={12} className="text-stone-400 shrink-0 ml-1" />
                 </button>
               </div>
             </div>

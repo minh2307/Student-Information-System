@@ -243,7 +243,7 @@ export const StudentDashboard = () => {
             </div>
 
             {/* Card Body: Portrait, Info, Watermark */}
-            <div className="py-4 flex gap-4 items-center relative">
+            <div className="py-4 flex gap-3 sm:gap-4 items-center relative">
               {/* Subtle Guilloche / Watermark in Background */}
               <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none w-32 h-32">
                 <img src="/images/stamp-seal.svg" alt="Watermark" className="w-full h-full" />
@@ -251,7 +251,7 @@ export const StudentDashboard = () => {
 
               {/* Student Portrait Photo */}
               <div className="relative shrink-0">
-                <div className="w-24 h-32 rounded-lg border-2 border-stone-300 overflow-hidden shadow-2xs bg-stone-100 flex items-center justify-center">
+                <div className="w-20 h-28 sm:w-24 sm:h-32 rounded-lg border-2 border-stone-300 overflow-hidden shadow-2xs bg-stone-100 flex items-center justify-center">
                   <img
                     src={getRealAvatar(user)}
                     alt={studentFullName}

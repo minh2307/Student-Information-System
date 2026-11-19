@@ -308,12 +308,96 @@ export const StudentGrades = () => {
             </span>
           </div>
 
-          <div className="md:hidden px-4 py-1.5 bg-stone-100/60 border-b border-stone-200 text-[10px] text-stone-500 flex items-center justify-between font-mono">
-            <span>Vuốt ngang để xem đủ cột điểm</span>
-            <span>👉</span>
+          {/* Mobile Card List (< md) */}
+          <div className="md:hidden divide-y divide-stone-100 font-sans">
+            {filteredGrades.map((g, idx) => {
+              const hasTotal = g.totalScore != null
+              const isPassed = hasTotal && g.letterGrade !== 'F'
+              return (
+                <div key={idx} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        <span className="font-mono font-bold text-red-800 text-xs bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
+                          {g.courseCode}
+                        </span>
+                        <span className="text-[10px] font-mono text-stone-500">
+                          {g.semesterName || '2024-25_SEM2'}
+                        </span>
+                        <span className="text-[10px] font-mono font-bold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200">
+                          {g.credits} TC
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-stone-900 text-sm leading-snug">
+                        {g.courseName}
+                      </h4>
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      {g.letterGrade ? (
+                        <span className={`inline-block px-2.5 py-1 font-mono font-bold text-xs rounded-lg ${
+                          isPassed
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : 'bg-red-50 text-red-800 border border-red-200'
+                        }`}>
+                          {g.letterGrade}
+                        </span>
+                      ) : (
+                        <span className="text-stone-400 text-xs">-</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3 Component Scores Grid */}
+                  <div className="grid grid-cols-3 gap-2 py-2 px-2.5 bg-stone-50 rounded-xl border border-stone-200/70 text-center font-mono">
+                    <div>
+                      <span className="text-[9px] text-stone-500 uppercase block">Chuyên cần (10%)</span>
+                      <span className="text-xs font-bold text-stone-800 mt-0.5 block">
+                        {g.attendanceScore != null ? Number(g.attendanceScore).toFixed(1) : '-'}
+                      </span>
+                    </div>
+                    <div className="border-x border-stone-200/80">
+                      <span className="text-[9px] text-stone-500 uppercase block">Giữa kỳ (40%)</span>
+                      <span className="text-xs font-bold text-stone-800 mt-0.5 block">
+                        {g.midtermScore != null ? Number(g.midtermScore).toFixed(1) : '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-stone-500 uppercase block">Cuối kỳ (50%)</span>
+                      <span className="text-xs font-bold text-stone-800 mt-0.5 block">
+                        {g.finalScore != null ? Number(g.finalScore).toFixed(1) : '-'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Total & Lock Status */}
+                  <div className="flex items-center justify-between text-xs pt-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-stone-500 font-medium">Tổng kết:</span>
+                      <span className="font-mono font-bold text-sm text-red-800">
+                        {hasTotal ? Number(g.totalScore).toFixed(2) : '-'}
+                      </span>
+                      <span className="text-[10px] font-mono text-stone-400">/ 10</span>
+                    </div>
+                    <div>
+                      {g.isLocked ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-800 font-medium bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          <CheckCircle2 size={11} className="text-emerald-600" /> Đã chốt điểm
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                          <Clock size={11} /> Đang cập nhật
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
-          <div className="overflow-x-auto touch-scroll">
+          {/* Desktop Table (md+) */}
+          <div className="hidden md:block overflow-x-auto touch-scroll">
             <table className="w-full text-left text-xs min-w-[700px]">
               <thead className="bg-stone-100/70 text-stone-600 text-[10px] uppercase font-mono tracking-wider border-b border-stone-200">
                 <tr>

@@ -186,7 +186,7 @@ export const Header = ({ onToggleMobileMenu }) => {
 
           {/* Notifications Dropdown */}
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-stone-200/90 py-2.5 transition-all animate-in fade-in slide-in-from-top-2 duration-150 z-50">
+            <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm sm:w-96 bg-white rounded-2xl shadow-xl border border-stone-200/90 py-2.5 transition-all animate-in fade-in slide-in-from-top-2 duration-150 z-50">
               <div className="px-4 pb-2 border-b border-stone-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-xs text-stone-900 uppercase font-mono tracking-wider">
@@ -296,7 +296,7 @@ export const Header = ({ onToggleMobileMenu }) => {
 
           {/* Dropdown Menu */}
           {dropdownOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-stone-200/90 py-2.5 transition-all animate-in fade-in slide-in-from-top-2 duration-150 z-50">
+            <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-xs sm:w-64 bg-white rounded-2xl shadow-xl border border-stone-200/90 py-2.5 transition-all animate-in fade-in slide-in-from-top-2 duration-150 z-50">
               <div className="px-4 pb-3 border-b border-stone-100">
                 <div className="flex items-center gap-3">
                   <img
