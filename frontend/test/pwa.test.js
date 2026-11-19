@@ -157,6 +157,45 @@ describe('PWA & Service Worker Test Suite (EDUP-210)', () => {
       assert.strictEqual(isIosSafari(androidChrome), false, 'Must NOT treat Android Chrome as iOS Safari')
     })
 
+    test('Android detection must correctly identify Android devices while excluding iOS and desktop', () => {
+      function isAndroid(ua) {
+        return /android/.test(ua.toLowerCase())
+      }
+
+      const androidPixel =
+        'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+      const androidSamsung =
+        'Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/21.0 Chrome/110.0.5481.154 Mobile Safari/537.36'
+      const iPhoneSafari =
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+      const desktopWindows =
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+      assert.strictEqual(isAndroid(androidPixel), true, 'Must detect Pixel Android')
+      assert.strictEqual(isAndroid(androidSamsung), true, 'Must detect Samsung Android')
+      assert.strictEqual(isAndroid(iPhoneSafari), false, 'Must NOT treat iPhone as Android')
+      assert.strictEqual(isAndroid(desktopWindows), false, 'Must NOT treat Desktop Windows as Android')
+    })
+
+    test('PwaInstallPrompt.jsx must provide Android detection and direct APK download flow', () => {
+      const pwaPromptPath = path.join(frontendDir, 'src', 'components', 'PwaInstallPrompt.jsx')
+      const content = fs.readFileSync(pwaPromptPath, 'utf8')
+
+      assert.match(content, /detectAndroid/, 'Must implement detectAndroid')
+      assert.match(content, /isAndroidDevice/, 'Must maintain isAndroidDevice state')
+      assert.match(content, /showAndroidModal/, 'Must maintain showAndroidModal state')
+      assert.match(content, /RikkeiEduPortal\.apk/, 'Must configure RikkeiEduPortal.apk download')
+      assert.match(content, /Cài đặt EduPortal trên Android/, 'Must provide Android install banner text')
+      assert.match(content, /eduportal:open-install-prompt/, 'Must support eduportal:open-install-prompt custom event')
+    })
+
+    test('RikkeiEduPortal.apk binary file must exist in frontend public downloads directory', () => {
+      const apkPath = path.join(frontendDir, 'public', 'downloads', 'RikkeiEduPortal.apk')
+      assert.ok(fs.existsSync(apkPath), 'RikkeiEduPortal.apk must physically exist in frontend/public/downloads/')
+      const stat = fs.statSync(apkPath)
+      assert.ok(stat.size > 0, 'APK file must have non-zero size')
+    })
+
     test('Dismissal duration must be set to 3 days (259200000ms)', () => {
       const DISMISS_DURATION_MS = 3 * 24 * 60 * 60 * 1000
       assert.strictEqual(DISMISS_DURATION_MS, 259200000)

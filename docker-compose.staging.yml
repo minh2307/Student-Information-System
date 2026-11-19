@@ -49,6 +49,13 @@ services:
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
       TURNSTILE_SECRET: ${TURNSTILE_SECRET:-}
       TURNSTILE_HOSTNAMES: ${TURNSTILE_HOSTNAMES:-localhost,127.0.0.1}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp.gmail.com}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-workspacegateos@gmail.com}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_FROM: ${SPRING_MAIL_FROM:-Rikkei EduPortal <workspacegateos@gmail.com>}
+      SPRING_MAIL_ENABLED: ${SPRING_MAIL_ENABLED:-true}
+      PORTAL_URL: ${PORTAL_URL:-http://localhost:13000}
       SPRING_PROFILES_ACTIVE: staging
       JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
     depends_on:
@@ -200,6 +207,13 @@ services:
       PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-demo-checksum-key-32bytes-long!!}
       PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost:8080/student/tuition?status=PAID}
       PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost:8080/student/tuition?status=CANCELLED}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp.gmail.com}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-workspacegateos@gmail.com}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_FROM: ${SPRING_MAIL_FROM:-Rikkei EduPortal <workspacegateos@gmail.com>}
+      SPRING_MAIL_ENABLED: ${SPRING_MAIL_ENABLED:-true}
+      PORTAL_URL: ${PORTAL_URL:-http://localhost:13000}
       SPRING_PROFILES_ACTIVE: staging
       JAVA_OPTS: ${JAVA_OPTS:--Xmx80m -Xms32m -Xss256k -XX:MaxMetaspaceSize=65m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=20m}
     depends_on:

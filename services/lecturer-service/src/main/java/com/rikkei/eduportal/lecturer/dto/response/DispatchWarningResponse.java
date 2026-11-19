@@ -10,6 +10,8 @@ public class DispatchWarningResponse {
     private LocalDateTime dispatchedAt;
     private List<String> recipientNames = new ArrayList<>();
     private String message;
+    private int emailsDispatched = 0;
+    private String emailStatus = "NONE";
 
     public DispatchWarningResponse() {}
 
@@ -20,6 +22,17 @@ public class DispatchWarningResponse {
         this.dispatchedAt = dispatchedAt;
         this.recipientNames = recipientNames != null ? recipientNames : new ArrayList<>();
         this.message = message;
+    }
+
+    public DispatchWarningResponse(int sentCount, String status, LocalDateTime dispatchedAt,
+                                   List<String> recipientNames, String message, int emailsDispatched, String emailStatus) {
+        this.sentCount = sentCount;
+        this.status = status;
+        this.dispatchedAt = dispatchedAt;
+        this.recipientNames = recipientNames != null ? recipientNames : new ArrayList<>();
+        this.message = message;
+        this.emailsDispatched = emailsDispatched;
+        this.emailStatus = emailStatus;
     }
 
     public int getSentCount() { return sentCount; }
@@ -36,4 +49,10 @@ public class DispatchWarningResponse {
 
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
+
+    public int getEmailsDispatched() { return emailsDispatched; }
+    public void setEmailsDispatched(int emailsDispatched) { this.emailsDispatched = emailsDispatched; }
+
+    public String getEmailStatus() { return emailStatus; }
+    public void setEmailStatus(String emailStatus) { this.emailStatus = emailStatus; }
 }

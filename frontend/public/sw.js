@@ -265,7 +265,7 @@ self.addEventListener('fetch', (event) => {
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <title>EduPortal - Ngoại tuyến</title>
               <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #1e293b; padding: 20px; box-sizing: border-box; text-align: center; }
+                body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8fafc; color: #1e293b; padding: 20px; box-sizing: border-box; text-align: center; }
                 .card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px 24px; max-width: 400px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
                 .icon { width: 56px; height: 56px; background: #fee2e2; color: #dc2626; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 28px; }
                 h1 { font-size: 18px; margin: 0 0 8px; font-weight: 700; }

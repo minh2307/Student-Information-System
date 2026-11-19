@@ -288,4 +288,23 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 CREATE INDEX IF NOT EXISTS idx_refresh_token ON refresh_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_refresh_user_id ON refresh_tokens(user_id);
 
+-- 17. Table email_dispatch_logs (Nhật ký gửi thông báo qua Email - lecturer-service & notification)
+CREATE TABLE IF NOT EXISTS email_dispatch_logs (
+    id BIGSERIAL PRIMARY KEY,
+    recipient_email VARCHAR(150) NOT NULL,
+    recipient_name VARCHAR(100),
+    user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+    subject VARCHAR(255) NOT NULL,
+    type VARCHAR(50) DEFAULT 'GENERAL',
+    status VARCHAR(20) NOT NULL DEFAULT 'SENT',
+    error_message TEXT,
+    sent_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_dispatch_recipient ON email_dispatch_logs(recipient_email);
+CREATE INDEX IF NOT EXISTS idx_email_dispatch_user ON email_dispatch_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_dispatch_created ON email_dispatch_logs(created_at);
+
+
 

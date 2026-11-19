@@ -153,19 +153,12 @@ else
   RESOLVED_FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 fi
 
-echo "=== Tái khởi động containers Production (${COMPOSE_FILE})... ==="
-if ! docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans; then
-  echo "⚠️ Khởi động lần đầu gặp lỗi xung đột socket, dọn dẹp port và thử lại..."
-  if command -v fuser >/dev/null 2>&1; then
-    fuser -k "${RESOLVED_FRONTEND_PORT}/tcp" 2>/dev/null || true
-  fi
-  sleep 2
-  docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
-fi
+# -----------------------------------------------------------
+# 6. Khởi động PostgreSQL trước & Kiểm tra Schema
+# -----------------------------------------------------------
+echo "=== Khởi động cơ sở dữ liệu PostgreSQL (${COMPOSE_FILE})... ==="
+docker compose -f "${COMPOSE_FILE}" up -d postgres
 
-# -----------------------------------------------------------
-# 6. Chờ PostgreSQL sẵn sàng & Kiểm tra Schema
-# -----------------------------------------------------------
 echo "=== Chờ PostgreSQL sẵn sàng... ==="
 PG_READY=false
 for i in $(seq 1 30); do
@@ -189,12 +182,25 @@ docker compose -f "${COMPOSE_FILE}" exec -T postgres sh -c \
        && psql -U postgres -d academic_db -f /docker-entrypoint-initdb.d/02-seed-data.sql)" || true
 
 # -----------------------------------------------------------
+# 6.1 Khởi động toàn bộ microservices & frontend
+# -----------------------------------------------------------
+echo "=== Tái khởi động toàn bộ containers Production (${COMPOSE_FILE})... ==="
+if ! docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans; then
+  echo "⚠️ Khởi động lần đầu gặp lỗi xung đột socket, dọn dẹp port và thử lại..."
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k "${RESOLVED_FRONTEND_PORT}/tcp" 2>/dev/null || true
+  fi
+  sleep 2
+  docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
+fi
+
+# -----------------------------------------------------------
 # 7. Health Check toàn diện CẢ 5 MICROSERVICES VÀ FRONTEND
 # -----------------------------------------------------------
-echo "=== Đang thực hiện Health Check toàn diện (tối đa 300 giây)... ==="
+echo "=== Đang thực hiện Health Check toàn diện (tối đa 600 giây)... ==="
 SERVICES_READY=false
 
-for i in $(seq 1 100); do
+for i in $(seq 1 200); do
   ALL_OK=true
   FAILED_PORT=""
   FAILED_CODE=""
@@ -240,15 +246,15 @@ for i in $(seq 1 100); do
   fi
 
   if [ "$ALL_OK" = "true" ]; then
-    echo "✅ Tất cả 5 microservices backend và Frontend đã phản hồi HTTP 200 thành công (lần thử ${i}/100)!"
+    echo "✅ Tất cả 5 microservices backend và Frontend đã phản hồi HTTP 200 thành công (lần thử ${i}/200)!"
     SERVICES_READY=true
     break
   fi
 
   if [ -n "${FAILED_PORT}" ]; then
-    echo "Đang đợi microservices khởi động... (lần ${i}/100, Port ${FAILED_PORT}: ${FAILED_CODE}, FE: ${FE_CODE})"
+    echo "Đang đợi microservices khởi động... (lần ${i}/200, Port ${FAILED_PORT}: ${FAILED_CODE}, FE: ${FE_CODE})"
   else
-    echo "Đang đợi frontend khởi động... (lần ${i}/100, FE: ${FE_CODE})"
+    echo "Đang đợi frontend khởi động... (lần ${i}/200, FE: ${FE_CODE})"
   fi
   sleep 3
 done
@@ -261,7 +267,7 @@ docker compose -f "${COMPOSE_FILE}" ps
 # 8. Xử lý Thất bại & Cơ chế Rollback Ứng dụng An toàn
 # -----------------------------------------------------------
 if [ "$SERVICES_READY" != "true" ]; then
-  echo "❌ [DEPLOY THẤT BẠI] Microservices không vượt qua kiểm tra Health Check sau 300s!"
+  echo "❌ [DEPLOY THẤT BẠI] Microservices không vượt qua kiểm tra Health Check sau 600s!"
   echo "=== Logs chi tiết của stack ==="
   docker compose -f "${COMPOSE_FILE}" logs --tail 40
 

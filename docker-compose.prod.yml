@@ -20,7 +20,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 256M
     logging:
       driver: "json-file"
@@ -40,6 +39,13 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp.gmail.com}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-workspacegateos@gmail.com}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_FROM: ${SPRING_MAIL_FROM:-Rikkei EduPortal <workspacegateos@gmail.com>}
+      SPRING_MAIL_ENABLED: ${SPRING_MAIL_ENABLED:-true}
+      PORTAL_URL: ${PORTAL_URL:-http://localhost:3000}
       SPRING_PROFILES_ACTIVE: prod
       JAVA_OPTS: "-Xmx120m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
@@ -48,7 +54,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   course-service:
@@ -69,7 +74,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   enrollment-service:
@@ -96,7 +100,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   lecturer-service:
@@ -110,6 +113,13 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp.gmail.com}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-workspacegateos@gmail.com}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-byhekintjfrytcyd}
+      SPRING_MAIL_FROM: ${SPRING_MAIL_FROM:-Rikkei EduPortal <workspacegateos@gmail.com>}
+      SPRING_MAIL_ENABLED: ${SPRING_MAIL_ENABLED:-true}
+      PORTAL_URL: ${PORTAL_URL:-http://localhost:3000}
       SPRING_PROFILES_ACTIVE: prod
       JAVA_OPTS: "-Xmx120m -Xms40m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Djava.security.egd=file:/dev/./urandom"
     depends_on:
@@ -118,7 +128,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   ai-service:
@@ -141,7 +150,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   api-gateway:
@@ -168,7 +176,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.8'
           memory: 220M
 
   frontend:
@@ -187,7 +194,6 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
           memory: 64M
 
 volumes:

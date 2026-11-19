@@ -137,7 +137,7 @@ export const AnnouncementsPage = () => {
       {/* 1. Official Gazette Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-stone-200/90 shadow-2xs">
         <div>
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-red-700">
             Học Viện Công Nghệ Rikkei • Văn Phòng Quản Lý Đào Tạo
           </span>
           <h1 className="text-lg sm:text-xl font-bold text-stone-900 tracking-tight">
@@ -214,23 +214,23 @@ export const AnnouncementsPage = () => {
               <div>
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-1.5">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${getCategoryBadge(item.category)}`}>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${getCategoryBadge(item.category)}`}>
                       {item.category}
                     </span>
                     {item.isPinned && (
-                      <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
                         <Pin size={10} className="fill-stone-600" />
                         KHẨN
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] font-mono text-stone-500 flex items-center gap-1">
+                  <span className="text-[10px] text-stone-500 flex items-center gap-1">
                     <Calendar size={11} />
                     {new Date(item.createdAt).toLocaleDateString('vi-VN')}
                   </span>
                 </div>
 
-                <div className="text-[11px] font-mono text-stone-500 mb-1">
+                <div className="text-[11px] text-stone-500 mb-1">
                   Số: {100 + Number(item.id)}/TB-ĐT
                 </div>
 
@@ -278,11 +278,11 @@ export const AnnouncementsPage = () => {
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-xl border border-stone-200 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100">
               <div className="flex items-center gap-2">
-                <span className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-bold uppercase ${getCategoryBadge(selectedArticle.category)}`}>
+                <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase ${getCategoryBadge(selectedArticle.category)}`}>
                   {selectedArticle.category}
                 </span>
                 {selectedArticle.isPinned && (
-                  <span className="text-xs font-mono font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
+                  <span className="text-xs font-bold text-stone-800 bg-stone-100 px-2 py-0.5 rounded border border-stone-200">
                     Công văn khẩn
                   </span>
                 )}
@@ -296,14 +296,14 @@ export const AnnouncementsPage = () => {
             </div>
 
             <div className="overflow-y-auto mt-4 pr-1 space-y-4">
-              <div className="text-[11px] font-mono text-stone-500">
+              <div className="text-[11px] text-stone-500">
                 Số: {100 + Number(selectedArticle.id)}/TB-ĐT
               </div>
               <h2 className="text-lg font-bold text-stone-900 leading-snug">
                 {selectedArticle.title}
               </h2>
 
-              <div className="flex items-center gap-4 text-xs text-stone-500 border-b border-stone-100 pb-3 font-mono">
+              <div className="flex items-center gap-4 text-xs text-stone-500 border-b border-stone-100 pb-3">
                 <span>Ban hành: <strong className="text-stone-800">{selectedArticle.author || 'Phòng Đào tạo'}</strong></span>
                 <span>•</span>
                 <span>Ngày: <strong className="text-stone-800">{new Date(selectedArticle.createdAt).toLocaleString('vi-VN')}</strong></span>
@@ -331,7 +331,7 @@ export const AnnouncementsPage = () => {
         <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border border-stone-200">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-              <h3 className="text-sm font-bold text-stone-900 uppercase font-mono tracking-wider">
+              <h3 className="text-sm font-bold text-stone-900 uppercase tracking-wider">
                 Ban Hành Công Văn / Thông Báo Đào Tạo
               </h3>
               <button
@@ -344,7 +344,7 @@ export const AnnouncementsPage = () => {
 
             <form onSubmit={handleCreate} className="mt-4 space-y-4">
               <div>
-                <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">
+                <label className="block text-[11px] font-bold text-stone-700 mb-1 uppercase">
                   Tiêu đề công văn / Thông báo
                 </label>
                 <input
@@ -358,13 +358,13 @@ export const AnnouncementsPage = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">
+                  <label className="block text-[11px] font-bold text-stone-700 mb-1 uppercase">
                     Phân loại danh mục
                   </label>
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs font-mono focus:outline-none focus:border-red-700"
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none focus:border-red-700"
                   >
                     <option value="HỌC VỤ">HỌC VỤ</option>
                     <option value="LỊCH THI">LỊCH THI</option>
@@ -374,7 +374,7 @@ export const AnnouncementsPage = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">
+                  <label className="block text-[11px] font-bold text-stone-700 mb-1 uppercase">
                     Đơn vị ban hành
                   </label>
                   <input
@@ -387,7 +387,7 @@ export const AnnouncementsPage = () => {
               </div>
 
               <div>
-                <label className="block text-[11px] font-mono font-bold text-stone-700 mb-1 uppercase">
+                <label className="block text-[11px] font-bold text-stone-700 mb-1 uppercase">
                   Nội dung chi tiết công văn
                 </label>
                 <textarea

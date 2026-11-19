@@ -31,7 +31,7 @@ export const renderInline = (text) => {
         return (
           <code
             key={idx}
-            className="px-1.5 py-0.5 mx-0.5 bg-stone-100 text-red-700 font-mono text-[11px] rounded border border-stone-200 font-semibold"
+            className="px-1.5 py-0.5 mx-0.5 bg-stone-100 text-red-700 font-code text-[11px] rounded border border-stone-200 font-semibold"
           >
             {t.content}
           </code>
@@ -71,7 +71,7 @@ const renderTableCell = (cell) => {
     lower === 'giỏi'
   ) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
         {trimmed}
       </span>
     )
@@ -88,7 +88,7 @@ const renderTableCell = (cell) => {
     lower === 'fail'
   ) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 font-mono">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200">
         {trimmed}
       </span>
     )
@@ -102,7 +102,7 @@ const renderTableCell = (cell) => {
     lower === 'in progress'
   ) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 font-mono">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
         {trimmed}
       </span>
     )
@@ -111,7 +111,7 @@ const renderTableCell = (cell) => {
   // Pending / Waived badges
   if (lower === 'miễn học' || lower === 'chờ duyệt' || lower === 'chưa học') {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-300 font-mono">
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-stone-100 text-stone-600 border border-stone-300">
         {trimmed}
       </span>
     )
@@ -142,7 +142,7 @@ export const MarkdownRenderer = ({ content, className = '' }) => {
                 className="w-full my-2.5 overflow-x-auto rounded-xl border border-stone-200/90 shadow-2xs bg-white"
               >
                 <table className="w-full text-xs text-left border-collapse">
-                  <thead className="bg-stone-100/80 border-b border-stone-200 text-stone-700 font-semibold font-mono text-[11px] uppercase tracking-wider">
+                  <thead className="bg-stone-100/80 border-b border-stone-200 text-stone-700 font-semibold text-[11px] uppercase tracking-wider">
                     <tr>
                       {headers.map((h, hIdx) => (
                         <th
@@ -228,7 +228,7 @@ export const MarkdownRenderer = ({ content, className = '' }) => {
           case 'ordered-list':
             return (
               <div key={idx} className="flex items-start gap-2 my-0.5 pl-1">
-                <span className="text-red-700 font-semibold font-mono text-[11px] shrink-0 mt-0.5 leading-none">
+                <span className="text-red-700 font-semibold text-[11px] shrink-0 mt-0.5 leading-none">
                   {block.num}.
                 </span>
                 <div className="flex-1 text-stone-700 leading-relaxed">
@@ -241,7 +241,7 @@ export const MarkdownRenderer = ({ content, className = '' }) => {
             return (
               <pre
                 key={idx}
-                className="my-2 p-3 bg-stone-900 text-stone-100 rounded-xl text-xs font-mono overflow-x-auto border border-stone-800"
+                className="my-2 p-3 bg-stone-900 text-stone-100 rounded-xl text-xs font-code overflow-x-auto border border-stone-800"
               >
                 <code>{block.content}</code>
               </pre>

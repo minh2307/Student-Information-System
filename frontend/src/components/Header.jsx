@@ -146,7 +146,7 @@ export const Header = ({ onToggleMobileMenu }) => {
           <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
           <span className="capitalize">{currentDateStr}</span>
           <span className="text-stone-300">|</span>
-          <span className="font-mono text-stone-700 font-semibold bg-stone-100 px-2 py-0.5 rounded border border-stone-200/80">
+          <span className="text-stone-700 font-semibold bg-stone-100 px-2 py-0.5 rounded border border-stone-200/80">
             Học kỳ II (2024-2025)
           </span>
         </div>
@@ -178,7 +178,7 @@ export const Header = ({ onToggleMobileMenu }) => {
           >
             <Bell size={18} />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-700 text-white text-[10px] font-mono font-bold rounded-full flex items-center justify-center shadow-xs">
+              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-700 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -189,11 +189,11 @@ export const Header = ({ onToggleMobileMenu }) => {
             <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-xl border border-stone-200/90 py-2.5 transition-all animate-in fade-in slide-in-from-top-2 duration-150 z-50">
               <div className="px-4 pb-2 border-b border-stone-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-xs text-stone-900 uppercase font-mono tracking-wider">
+                  <span className="font-semibold text-xs text-stone-900 uppercase tracking-wider">
                     Thông báo học vụ
                   </span>
                   {unreadCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-red-100 text-red-800">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800">
                       {unreadCount} mới
                     </span>
                   )}
@@ -238,7 +238,7 @@ export const Header = ({ onToggleMobileMenu }) => {
                         <p className="text-stone-600 mt-1 line-clamp-2 leading-relaxed text-[11px]">
                           {n.message}
                         </p>
-                        <p className="text-[10px] font-mono text-stone-600 mt-1.5">
+                        <p className="text-[10px] text-stone-500 mt-1.5">
                           {new Date(n.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} • {new Date(n.createdAt).toLocaleDateString('vi-VN')}
                         </p>
                       </div>
@@ -282,7 +282,7 @@ export const Header = ({ onToggleMobileMenu }) => {
               <span className="text-xs font-bold text-stone-800 leading-none">
                 {user?.fullName || user?.username || 'Người dùng'}
               </span>
-              <span className="text-[10px] font-mono text-stone-600">
+              <span className="text-[10px] text-stone-500 font-medium">
                 {user?.username || 'user'}
               </span>
             </div>
@@ -319,8 +319,8 @@ export const Header = ({ onToggleMobileMenu }) => {
                 </div>
 
                 <div className="mt-3 bg-stone-50 rounded-lg p-2 flex items-center justify-between text-xs border border-stone-200/80">
-                  <span className="text-stone-500 font-mono text-[11px]">Mã định danh:</span>
-                  <span className="font-bold text-stone-900 font-mono">
+                  <span className="text-stone-500 text-[11px]">Mã định danh:</span>
+                  <span className="font-bold text-stone-900">
                     {user?.username || 'sv2024001'}
                   </span>
                 </div>

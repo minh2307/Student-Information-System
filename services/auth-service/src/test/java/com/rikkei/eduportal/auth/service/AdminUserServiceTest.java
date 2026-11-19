@@ -45,6 +45,9 @@ class AdminUserServiceTest {
     @Mock
     private AuditLogService auditLogService;
 
+    @Mock
+    private EmailService emailService;
+
     @InjectMocks
     private AdminUserService adminUserService;
 
@@ -88,6 +91,13 @@ class AdminUserServiceTest {
 
         assertNotNull(response);
         verify(studentProfileRepository, times(1)).save(any(StudentProfile.class));
+        verify(emailService, times(1)).sendWelcomeEmail(
+                eq("student3@rikkei.edu.vn"),
+                eq("Nguyen Van E"),
+                eq("sv2024003"),
+                eq("123456"),
+                eq(Role.STUDENT)
+        );
     }
 
     @Test

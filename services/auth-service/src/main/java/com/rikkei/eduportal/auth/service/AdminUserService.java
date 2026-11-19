@@ -31,6 +31,7 @@ public class AdminUserService {
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
     private final RefreshTokenService refreshTokenService;
+    private final EmailService emailService;
 
     @Autowired
     public AdminUserService(UserRepository userRepository,
@@ -38,13 +39,24 @@ public class AdminUserService {
                             LecturerProfileRepository lecturerProfileRepository,
                             PasswordEncoder passwordEncoder,
                             AuditLogService auditLogService,
-                            RefreshTokenService refreshTokenService) {
+                            RefreshTokenService refreshTokenService,
+                            @Autowired(required = false) EmailService emailService) {
         this.userRepository = userRepository;
         this.studentProfileRepository = studentProfileRepository;
         this.lecturerProfileRepository = lecturerProfileRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditLogService = auditLogService;
         this.refreshTokenService = refreshTokenService;
+        this.emailService = emailService;
+    }
+
+    public AdminUserService(UserRepository userRepository,
+                            StudentProfileRepository studentProfileRepository,
+                            LecturerProfileRepository lecturerProfileRepository,
+                            PasswordEncoder passwordEncoder,
+                            AuditLogService auditLogService,
+                            RefreshTokenService refreshTokenService) {
+        this(userRepository, studentProfileRepository, lecturerProfileRepository, passwordEncoder, auditLogService, refreshTokenService, null);
     }
 
     public AdminUserService(UserRepository userRepository,
@@ -52,7 +64,7 @@ public class AdminUserService {
                             LecturerProfileRepository lecturerProfileRepository,
                             PasswordEncoder passwordEncoder,
                             AuditLogService auditLogService) {
-        this(userRepository, studentProfileRepository, lecturerProfileRepository, passwordEncoder, auditLogService, null);
+        this(userRepository, studentProfileRepository, lecturerProfileRepository, passwordEncoder, auditLogService, null, null);
     }
 
     private String getCurrentActor() {
@@ -137,6 +149,20 @@ public class AdminUserService {
                 "username=" + savedUser.getUsername() + ", email=" + savedUser.getEmail() + ", role=" + savedUser.getRole(),
                 null
         );
+
+        if (emailService != null) {
+            try {
+                emailService.sendWelcomeEmail(
+                        savedUser.getEmail(),
+                        savedUser.getFullName(),
+                        savedUser.getUsername(),
+                        request.getPassword(),
+                        savedUser.getRole()
+                );
+            } catch (Exception ex) {
+                // Email gửi bất đồng bộ hoặc gặp lỗi không làm gián đoạn transaction tạo user
+            }
+        }
 
         return buildProfileResponse(savedUser);
     }
@@ -303,6 +329,14 @@ public class AdminUserService {
                     "***",
                     null
             );
+
+            if (emailService != null) {
+                try {
+                    emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), request.getPassword());
+                } catch (Exception ex) {
+                    // Tránh lỗi email làm gián đoạn transaction
+                }
+            }
         } else {
             auditLogService.recordLog(
                     "USER_UPDATED",

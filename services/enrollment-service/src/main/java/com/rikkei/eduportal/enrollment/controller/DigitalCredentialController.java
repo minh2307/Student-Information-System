@@ -39,8 +39,35 @@ public class DigitalCredentialController {
         String studentIdentifier = extractStudentIdentifier(request);
         log.info("Generating digital transcript credential for student: {}", studentIdentifier);
 
-        DigitalCredentialDto credential = credentialService.generateTranscriptCredential(studentIdentifier);
+        String customBaseUrl = resolveBaseUrl(request);
+        DigitalCredentialDto credential = credentialService.generateTranscriptCredential(studentIdentifier, customBaseUrl);
         return ResponseEntity.ok(ApiResponse.success("Sinh bảng điểm số xác thực thành công", credential));
+    }
+
+    private String resolveBaseUrl(HttpServletRequest request) {
+        if (request == null) return null;
+        String origin = request.getHeader("Origin");
+        if (origin != null && !origin.isBlank() && !origin.contains("localhost")) {
+            return origin.trim();
+        }
+        String referer = request.getHeader("Referer");
+        if (referer != null && !referer.isBlank() && !referer.contains("localhost")) {
+            try {
+                java.net.URI uri = java.net.URI.create(referer.trim());
+                return uri.getScheme() + "://" + uri.getAuthority();
+            } catch (Exception ignored) {}
+        }
+        String forwardedHost = request.getHeader("X-Forwarded-Host");
+        String forwardedProto = request.getHeader("X-Forwarded-Proto");
+        if (forwardedHost != null && !forwardedHost.isBlank()) {
+            String proto = (forwardedProto != null && !forwardedProto.isBlank()) ? forwardedProto : "http";
+            return proto + "://" + forwardedHost.split(",")[0].trim();
+        }
+        String host = request.getHeader("Host");
+        if (host != null && !host.isBlank() && !host.startsWith("localhost")) {
+            return request.getScheme() + "://" + host;
+        }
+        return null;
     }
 
     /**

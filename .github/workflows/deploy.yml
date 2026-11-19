@@ -227,6 +227,8 @@ jobs:
             --spring.datasource.password=postgres \
             --spring.jpa.hibernate.ddl-auto=validate \
             --jwt.secret=${{ secrets.JWT_SECRET || '404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970' }} \
+            --spring.mail.username=${{ secrets.SPRING_MAIL_USERNAME || 'workspacegateos@gmail.com' }} \
+            --spring.mail.password=${{ secrets.SPRING_MAIL_PASSWORD || 'byhekintjfrytcyd' }} \
             > /tmp/lecturer-service.log 2>&1 &
           echo "LECTURER_PID=$!" >> $GITHUB_ENV
 
@@ -555,8 +557,12 @@ jobs:
           PAYOS_CLIENT_ID: ${{ secrets.PAYOS_CLIENT_ID || '57fb1006-9ba1-472c-ba21-8536efcda5aa' }}
           PAYOS_API_KEY: ${{ secrets.PAYOS_API_KEY || '22f2d865-a236-4f93-9f66-e845a1dae134' }}
           PAYOS_CHECKSUM_KEY: ${{ secrets.PAYOS_CHECKSUM_KEY || '2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a' }}
+          SPRING_MAIL_PASSWORD: ${{ secrets.SPRING_MAIL_PASSWORD }}
+          SPRING_MAIL_USERNAME: ${{ vars.SPRING_MAIL_USERNAME || 'workspacegateos@gmail.com' }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
+          SPRING_MAIL_USERNAME: ${{ secrets.SPRING_MAIL_USERNAME || 'workspacegateos@gmail.com' }}
+          SPRING_MAIL_PASSWORD: ${{ secrets.SPRING_MAIL_PASSWORD }}
           SKIP_BACKUP: ${{ vars.SKIP_BACKUP || 'false' }}
         run: |
           if [ ! -s ~/.ssh/deploy_key ]; then
@@ -584,8 +590,16 @@ jobs:
           PAYOS_CLIENT_ID=${PAYOS_CLIENT_ID}
           PAYOS_API_KEY=${PAYOS_API_KEY}
           PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY}
+          SPRING_MAIL_HOST=smtp.gmail.com
+          SPRING_MAIL_PORT=587
+          SPRING_MAIL_USERNAME=${SPRING_MAIL_USERNAME}
+          SPRING_MAIL_PASSWORD=${SPRING_MAIL_PASSWORD}
+          SPRING_MAIL_FROM=Rikkei EduPortal <${SPRING_MAIL_USERNAME}>
+          SPRING_MAIL_ENABLED=true
           GHCR_TOKEN=${GHCR_TOKEN}
           GHCR_USER=${GHCR_USER}
+          SPRING_MAIL_USERNAME=${SPRING_MAIL_USERNAME}
+          SPRING_MAIL_PASSWORD=${SPRING_MAIL_PASSWORD}
           SKIP_BACKUP=${SKIP_BACKUP}
           EOF
           chmod 600 /tmp/.env.incoming
