@@ -558,11 +558,9 @@ jobs:
           PAYOS_API_KEY: ${{ secrets.PAYOS_API_KEY || '22f2d865-a236-4f93-9f66-e845a1dae134' }}
           PAYOS_CHECKSUM_KEY: ${{ secrets.PAYOS_CHECKSUM_KEY || '2fcea1152bb41c61979f7011cc5a0e3b72758cc9d14909772595a5268dc9075a' }}
           SPRING_MAIL_PASSWORD: ${{ secrets.SPRING_MAIL_PASSWORD }}
-          SPRING_MAIL_USERNAME: ${{ vars.SPRING_MAIL_USERNAME || 'workspacegateos@gmail.com' }}
+          SPRING_MAIL_USERNAME: ${{ secrets.SPRING_MAIL_USERNAME || vars.SPRING_MAIL_USERNAME || 'workspacegateos@gmail.com' }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
-          SPRING_MAIL_USERNAME: ${{ secrets.SPRING_MAIL_USERNAME || 'workspacegateos@gmail.com' }}
-          SPRING_MAIL_PASSWORD: ${{ secrets.SPRING_MAIL_PASSWORD }}
           SKIP_BACKUP: ${{ vars.SKIP_BACKUP || 'false' }}
         run: |
           if [ ! -s ~/.ssh/deploy_key ]; then
@@ -598,8 +596,6 @@ jobs:
           SPRING_MAIL_ENABLED=true
           GHCR_TOKEN=${GHCR_TOKEN}
           GHCR_USER=${GHCR_USER}
-          SPRING_MAIL_USERNAME=${SPRING_MAIL_USERNAME}
-          SPRING_MAIL_PASSWORD=${SPRING_MAIL_PASSWORD}
           SKIP_BACKUP=${SKIP_BACKUP}
           EOF
           chmod 600 /tmp/.env.incoming
