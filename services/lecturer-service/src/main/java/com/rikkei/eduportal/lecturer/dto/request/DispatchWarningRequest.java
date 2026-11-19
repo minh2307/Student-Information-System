@@ -7,6 +7,8 @@ public class DispatchWarningRequest {
     private Long sectionId;
     private List<Long> studentIds = new ArrayList<>();
     private String customMessage;
+    private Boolean sendEmail = true;
+    private String testRecipientEmail;
 
     public DispatchWarningRequest() {}
 
@@ -18,4 +20,10 @@ public class DispatchWarningRequest {
 
     public String getCustomMessage() { return customMessage; }
     public void setCustomMessage(String customMessage) { this.customMessage = customMessage; }
+
+    public Boolean getSendEmail() { return sendEmail; }
+    public void setSendEmail(Boolean sendEmail) { this.sendEmail = sendEmail; }
+
+    public String getTestRecipientEmail() { return testRecipientEmail; }
+    public void setTestRecipientEmail(String testRecipientEmail) { this.testRecipientEmail = testRecipientEmail; }
 }

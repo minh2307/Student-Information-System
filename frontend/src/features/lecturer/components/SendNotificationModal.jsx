@@ -9,7 +9,8 @@ import {
   Users,
   User,
   Loader2,
-  Sparkles
+  Sparkles,
+  Mail
 } from 'lucide-react'
 import api from '../../../services/api'
 
@@ -36,6 +37,8 @@ export function SendNotificationModal({
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [notifType, setNotifType] = useState('LECTURER_MESSAGE') // 'LECTURER_MESSAGE' | 'EARLY_WARNING' | 'ANNOUNCEMENT'
+  const [sendEmail, setSendEmail] = useState(true)
+  const [testRecipientEmail, setTestRecipientEmail] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [successResult, setSuccessResult] = useState(null)
@@ -45,6 +48,8 @@ export function SendNotificationModal({
     if (open) {
       setError(null)
       setSuccessResult(null)
+      setSendEmail(true)
+      setTestRecipientEmail('')
       if (initialStudent) {
         setRecipientMode('SINGLE')
         setSelectedStudentCode(initialStudent.studentCode || '')
@@ -95,6 +100,8 @@ export function SendNotificationModal({
         title: title.trim(),
         message: message.trim(),
         type: notifType,
+        sendEmail: sendEmail,
+        testRecipientEmail: testRecipientEmail.trim() || undefined,
       }
 
       if (recipientMode === 'SINGLE') {
@@ -162,6 +169,12 @@ export function SendNotificationModal({
                 <p className="text-xs text-emerald-700 mt-0.5">
                   Đã chuyển phát thông báo tới {successResult.sentCount} sinh viên. Sinh viên sẽ nhận được thông báo ngay tại Cổng thông tin đào tạo (chuông thông báo & dashboard).
                 </p>
+                {successResult.emailsDispatched > 0 && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 text-xs font-semibold">
+                    <Mail size={13} className="text-emerald-700" />
+                    Đồng thời đã phát hành {successResult.emailsDispatched} email thông báo thành công qua Gmail SMTP!
+                  </div>
+                )}
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={onClose}
@@ -350,6 +363,47 @@ export function SendNotificationModal({
                   onChange={(e) => setMessage(e.target.value)}
                   className="w-full text-xs font-normal border border-slate-300 rounded-lg p-3 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors resize-none leading-relaxed"
                 />
+              </div>
+
+              {/* Cấu hình gửi kèm Email */}
+              <div className="bg-indigo-50/70 border border-indigo-200/80 rounded-xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-bold text-indigo-950 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={sendEmail}
+                      onChange={(e) => setSendEmail(e.target.checked)}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                    />
+                    <Mail size={15} className="text-indigo-600" />
+                    Đồng thời gửi Email thông báo tới sinh viên
+                  </label>
+                  <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100/90 px-2 py-0.5 rounded-full border border-indigo-200">
+                    Gmail SMTP
+                  </span>
+                </div>
+
+                {sendEmail && (
+                  <div className="pt-2 border-t border-indigo-100/80 space-y-1.5 text-xs animate-in fade-in">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500">
+                      <span>Chuyển tiếp kiểm thử (nếu muốn test trực tiếp trên 1 email):</span>
+                      <button
+                        type="button"
+                        onClick={() => setTestRecipientEmail('workspacegateos@gmail.com')}
+                        className="text-indigo-600 hover:text-indigo-800 font-semibold hover:underline"
+                      >
+                        workspacegateos@gmail.com
+                      </button>
+                    </div>
+                    <input
+                      type="email"
+                      placeholder="Để trống để gửi trực tiếp tới email sinh viên trong hệ thống"
+                      value={testRecipientEmail}
+                      onChange={(e) => setTestRecipientEmail(e.target.value)}
+                      className="w-full text-xs font-medium border border-indigo-200 rounded-lg p-2 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Preview Box */}

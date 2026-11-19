@@ -271,7 +271,7 @@ export function EarlyWarningModal({ open, onClose, sectionId, sectionCode, cours
     setConfirmOpen(false)
 
     const isSingle = confirmTarget !== null
-    const payload  = { sectionId }
+    const payload  = { sectionId, sendEmail: true }
     if (isSingle) payload.studentIds = [confirmTarget.studentId]
 
     if (isSingle) {

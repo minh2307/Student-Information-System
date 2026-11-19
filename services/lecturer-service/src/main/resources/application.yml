@@ -18,6 +18,29 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         default_batch_fetch_size: 20
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:workspacegateos@gmail.com}
+    password: ${SPRING_MAIL_PASSWORD:byhekintjfrytcyd}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+app:
+  mail:
+    enabled: ${APP_MAIL_ENABLED:true}
+    from-name: "EduPortal - Cổng Thông Tin Đào Tạo"
+    from-email: ${SPRING_MAIL_USERNAME:workspacegateos@gmail.com}
+    portal-base-url: ${APP_PORTAL_BASE_URL:http://localhost:5173}
+    test-override-email: ${APP_MAIL_TEST_OVERRIDE_EMAIL:}
 
 management:
   endpoints:

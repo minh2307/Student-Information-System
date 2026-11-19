@@ -10,6 +10,8 @@ public class SendLecturerNotificationRequest {
     private String title;
     private String message;
     private String type; // LECTURER_MESSAGE, EARLY_WARNING, ANNOUNCEMENT
+    private Boolean sendEmail = true;
+    private String testRecipientEmail;
 
     public SendLecturerNotificationRequest() {}
 
@@ -41,4 +43,10 @@ public class SendLecturerNotificationRequest {
 
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
+
+    public Boolean getSendEmail() { return sendEmail; }
+    public void setSendEmail(Boolean sendEmail) { this.sendEmail = sendEmail; }
+
+    public String getTestRecipientEmail() { return testRecipientEmail; }
+    public void setTestRecipientEmail(String testRecipientEmail) { this.testRecipientEmail = testRecipientEmail; }
 }
